@@ -1,13 +1,19 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-import { getSupabasePublicConfig } from "./config";
+import { tryGetSupabasePublicConfig } from "./config";
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({
     request,
   });
-  const { publicKey, url } = getSupabasePublicConfig();
+  const config = tryGetSupabasePublicConfig({ includeServerFallback: true });
+
+  if (!config) {
+    return response;
+  }
+
+  const { publicKey, url } = config;
 
   const supabase = createServerClient(url, publicKey, {
     cookies: {

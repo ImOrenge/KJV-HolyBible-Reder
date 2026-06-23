@@ -5,7 +5,7 @@ import { getSupabasePublicConfig } from "./config";
 
 export async function createClient() {
   const cookieStore = await cookies();
-  const { publicKey, url } = getSupabasePublicConfig();
+  const { publicKey, url } = getSupabasePublicConfig({ includeServerFallback: true });
 
   return createServerClient(url, publicKey, {
     cookies: {

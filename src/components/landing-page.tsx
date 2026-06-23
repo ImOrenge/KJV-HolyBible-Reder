@@ -14,7 +14,7 @@ type LandingPageProps = {
   isAuthenticated: boolean;
 };
 
-const proofChips = ["마지막 위치 기억", "통독 흐름 확인", "구절 하이라이트", "인용 구절 보관", "TTS 듣기"];
+const proofChips = ["마지막 위치 기억", "통독률 확인", "구절 하이라이트", "인용 보관", "말씀 듣기"];
 
 const previewVerses: ReaderPreviewVerse[] = [
   {
@@ -43,57 +43,57 @@ const previewTools: ReaderPreviewTool[] = [
 
 const benefitCards = [
   {
-    body: "마지막으로 읽던 권, 장, 절을 기억해 다음 방문에서 바로 이어갑니다.",
+    body: "마지막으로 읽던 권, 장, 절을 기억해 다음 방문에서 바로 시작합니다.",
     icon: BookOpen,
     label: "이어 읽기",
-    title: "다시 시작할 곳을 찾느라 멈추지 않습니다.",
+    title: "마지막으로 읽은 장에서 바로 시작합니다.",
   },
   {
-    body: "전체, 구약/신약, 권별 진행을 숫자와 화면 흐름으로 확인합니다.",
+    body: "전체, 구약/신약, 권별 진행을 숫자와 화면에서 확인합니다.",
     icon: BarChart3,
     label: "통독률",
-    title: "통독이 감이 아니라 기록으로 보입니다.",
+    title: "통독률을 숫자로 확인합니다.",
   },
   {
-    body: "중요한 구절을 색상과 메모로 표시해 다시 볼 수 있게 남깁니다.",
+    body: "중요한 구절을 색상과 메모로 표시해 다시 볼 수 있게 정리합니다.",
     icon: Highlighter,
     label: "하이라이트",
-    title: "지나가면 잊히는 구절을 붙잡아 둡니다.",
+    title: "중요한 구절은 표시와 메모로 남깁니다.",
   },
   {
     body: "설교, 묵상, 글쓰기, SNS에 자주 쓰는 구절을 읽는 자리에서 보관합니다.",
     icon: Bookmark,
     label: "인용 보관함",
-    title: "다시 쓸 구절을 따로 찾지 않아도 됩니다.",
+    title: "다시 인용할 말씀을 따로 모아둡니다.",
   },
   {
     body: "현재 장이나 선택 구절을 브라우저 음성으로 들을 수 있습니다.",
     icon: Headphones,
-    label: "TTS",
-    title: "읽기 어려운 시간에도 흐름을 이어갑니다.",
+    label: "말씀 듣기",
+    title: "읽기 어려운 순간에는 듣기로 따라갑니다.",
   },
 ];
 
 const workflowSteps = [
   {
     label: "01",
-    text: "홈에서 마지막 위치와 통독 흐름을 확인하고 바로 읽기 시작합니다.",
-    title: "오늘 읽을 자리로 돌아가기",
+    text: "홈에서 마지막 위치와 통독률을 확인하고 바로 읽기 시작합니다.",
+    title: "마지막 위치에서 시작",
   },
   {
     label: "02",
     text: "구절을 선택해 강조, 메모, 인용 보관을 같은 화면에서 처리합니다.",
-    title: "읽다가 붙잡은 구절 남기기",
+    title: "구절 표시와 메모",
   },
   {
     label: "03",
-    text: "현재 장 또는 선택 구절을 TTS로 들으며 읽은 내용을 복습합니다.",
-    title: "다시 들으며 흐름 확인하기",
+    text: "현재 장 또는 선택 구절을 브라우저 음성으로 들으며 내용을 복습합니다.",
+    title: "선택한 말씀 듣기",
   },
   {
     label: "04",
-    text: "저장된 위치와 기록을 기준으로 다음 방문에서 같은 흐름을 이어갑니다.",
-    title: "다음 공부로 이어가기",
+    text: "저장된 위치와 기록을 기준으로 다음 방문에서 같은 장을 다시 엽니다.",
+    title: "기록에서 다시 열기",
   },
 ];
 
@@ -221,9 +221,9 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
             <strong>리더노트</strong>
           </Link>
           <div className="landing-nav-links">
-            <a href="#why">문제</a>
+            <a href="#why">왜 필요한가</a>
             <a href="#preview">앱 화면</a>
-            <a href="#flow">공부 흐름</a>
+            <a href="#flow">사용 흐름</a>
           </div>
           <Link className="landing-nav-cta" href={primary.href}>
             {primary.label}
@@ -234,14 +234,10 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
           <div className="landing-hero-content landing-reveal" data-reveal style={revealDelay("80ms")}>
             <p className="eyebrow">KJV 성경 통독과 구절 기록</p>
             <h1 id="landing-title">KJV 리더노트</h1>
-            <p className="landing-hero-punch">
-              읽던 자리로 돌아오고,
-              <br />
-              붙잡은 구절은 남겨두세요.
-            </p>
+            <p className="landing-hero-punch">읽던 자리와 마음에 남은 구절을 한 리더노트에.</p>
             <p className="landing-hero-copy">
-              매일의 성경 통독, 강조한 구절, 다시 꺼내 쓸 인용 구절을 하나의 개인 공부 흐름으로 이어주는
-              KJV 성경 리더입니다.
+              KJV 성경 통독, 하이라이트, 메모, 인용 보관을 한 화면의 공부 기록으로 이어주는 개인 성경
+              리더입니다.
             </p>
             <LandingActions isAuthenticated={isAuthenticated} />
             <ul className="landing-proof-list" aria-label="핵심 기능">
@@ -259,12 +255,12 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
 
       <section className="landing-problem-band landing-reveal" data-reveal id="why" aria-labelledby="landing-problem-title">
         <div>
-          <p className="eyebrow">문제</p>
-          <h2 id="landing-problem-title">성경을 읽다 보면 기록은 금방 흩어집니다.</h2>
+          <p className="eyebrow">왜 필요한가</p>
+          <h2 id="landing-problem-title">읽은 위치와 다시 보고 싶은 말씀은 따로 두면 금방 잊힙니다.</h2>
         </div>
         <p>
-          어디까지 읽었는지, 어떤 구절을 붙잡았는지, 다시 쓰려던 말씀이 어디 있었는지. KJV 리더노트는
-          이 흐름을 한곳에 남깁니다.
+          어디까지 읽었는지, 어떤 구절을 표시했는지, 다시 인용하려던 말씀이 어디 있었는지. KJV
+          리더노트는 읽기와 기록을 같은 자리에서 정리합니다.
         </p>
       </section>
 
@@ -275,11 +271,11 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
         aria-labelledby="landing-preview-title"
       >
         <div className="landing-section-copy">
-          <p className="eyebrow">실제 앱 UI</p>
-          <h2 id="landing-preview-title">홈에서 읽기로, 읽기에서 인용 보관으로 이어집니다.</h2>
+          <p className="eyebrow">앱 화면</p>
+          <h2 id="landing-preview-title">홈에서 바로 읽고, 읽는 자리에서 바로 보관합니다.</h2>
           <p>
-            홈에서는 오늘 다시 시작할 자리가 보이고, 리더에서는 읽는 중 바로 표시하고 저장할 수 있습니다.
-            나중에 필요한 구절은 인용 보관함에서 다시 꺼냅니다.
+            마지막 위치는 홈에서 확인하고, 리더에서는 구절을 표시하거나 메모합니다. 다시 쓸 말씀은 인용
+            보관함에서 바로 꺼냅니다.
           </p>
         </div>
         <LandingAppFlowPreview />
@@ -287,8 +283,8 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
 
       <section className="landing-section landing-reveal" data-reveal aria-labelledby="landing-benefits-title">
         <div className="landing-section-copy landing-section-copy-wide">
-          <p className="eyebrow">핵심 이점</p>
-          <h2 id="landing-benefits-title">성경 공부의 흐름을 끊지 않도록 필요한 기능만 한곳에 모았습니다.</h2>
+          <p className="eyebrow">읽기와 기록</p>
+          <h2 id="landing-benefits-title">매일 읽고, 표시하고, 다시 찾는 일에 집중했습니다.</h2>
         </div>
         <div className="landing-benefit-grid">
           {benefitCards.map(({ body, icon: Icon, label, title }, index) => (
@@ -316,11 +312,10 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
         aria-labelledby="landing-flow-title"
       >
         <div className="landing-section-copy">
-          <p className="eyebrow">공부 흐름</p>
-          <h2 id="landing-flow-title">오늘의 읽기가 다음 공부로 이어집니다.</h2>
+          <p className="eyebrow">사용 흐름</p>
+          <h2 id="landing-flow-title">오늘의 읽기가 내일의 기록이 됩니다.</h2>
           <p>
-            오늘 읽을 자리로 돌아가고, 읽다가 붙잡은 구절을 남기고, 필요할 때 다시 듣고, 다음 방문에서
-            같은 흐름을 이어갑니다.
+            마지막 위치에서 시작하고, 읽는 중 표시한 말씀을 보관하고, 필요할 때 다시 듣거나 인용합니다.
           </p>
         </div>
         <div className="landing-flow-list">
@@ -338,31 +333,14 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
 
       <section className="landing-final-cta landing-reveal" data-reveal aria-labelledby="landing-final-title">
         <p className="eyebrow">시작하기</p>
-        <h2 id="landing-final-title">오늘 읽은 말씀이 흩어지지 않게.</h2>
-        <p>읽던 자리와 붙잡은 구절을 내 리더노트에 남기고, 다음 공부를 같은 자리에서 이어가세요.</p>
+        <h2 id="landing-final-title">오늘 마음에 남은 말씀을 다음 공부까지 가져가세요.</h2>
+        <p>읽던 위치, 표시한 구절, 다시 쓸 인용을 내 리더노트에 정리하고 바로 이어 읽으세요.</p>
         <LandingActions isAuthenticated={isAuthenticated} />
+        <p className="landing-trust-note">
+          KJV 본문은 CrossWire KJV 모듈 기반으로 제공하며, 지역별 배포 및 인용 권리는 출시 범위에 맞춰
+          확인합니다.
+        </p>
       </section>
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `
-(() => {
-  const elements = Array.from(document.querySelectorAll("[data-reveal]"));
-  if (!elements.length) return;
-  const reveal = () => {
-    const triggerY = window.innerHeight * 0.92;
-    elements.forEach((element) => {
-      if (element.classList.contains("is-visible")) return;
-      if (element.getBoundingClientRect().top <= triggerY) {
-        element.classList.add("is-visible");
-      }
-    });
-  };
-  reveal();
-  window.addEventListener("scroll", reveal, { passive: true });
-})();
-          `,
-        }}
-      />
     </main>
   );
 }

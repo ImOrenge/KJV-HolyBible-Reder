@@ -1676,8 +1676,6 @@ kbd {
 
 .landing-problem-band p,
 .landing-section-copy p,
-.landing-account-copy p,
-.landing-account-note,
 .landing-final-cta p {
   color: var(--muted);
   font-size: 1.02rem;
@@ -2524,6 +2522,13 @@ kbd {
   max-width: 640px;
 }
 
+.landing-final-cta .landing-trust-note {
+  color: color-mix(in srgb, var(--surface) 58%, transparent);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  max-width: 560px;
+}
+
 .landing-final-cta .secondary-button {
   background: transparent;
   border-color: color-mix(in srgb, var(--surface) 36%, transparent);
@@ -2593,7 +2598,7 @@ kbd {
 
 @media (max-width: 560px) {
   .landing-hero {
-    padding: 14px 14px 30px;
+    padding: 14px 14px 18px;
   }
 
   .landing-brand span {
@@ -2606,7 +2611,7 @@ kbd {
   }
 
   .landing-hero-content {
-    gap: 13px;
+    gap: 10px;
   }
 
   .landing-hero-content h1 {
@@ -2619,7 +2624,7 @@ kbd {
 
   .landing-hero-copy {
     font-size: 0.95rem;
-    line-height: 1.58;
+    line-height: 1.5;
   }
 
   .landing-actions {
@@ -2657,6 +2662,10 @@ kbd {
     display: none;
   }
 
+  .landing-frame-continue {
+    display: none;
+  }
+
   .landing-frame-continue h2,
   .landing-product-home .continue-reading-panel h2 {
     font-size: 1.22rem;
@@ -2672,6 +2681,10 @@ kbd {
   }
 
   .landing-frame-reader .reader-preview-list article:nth-child(1) {
+    display: none;
+  }
+
+  .landing-frame-reader .reader-preview-list .verse-row:not(.selected) {
     display: none;
   }
 
