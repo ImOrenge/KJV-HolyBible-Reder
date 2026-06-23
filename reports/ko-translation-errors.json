@@ -1,0 +1,221 @@
+{
+  "errors": [],
+  "result": {
+    "samples": [
+      {
+        "status": "approved",
+        "textKo": "태초에 하나님께서 하늘과 땅을 창조하셨느니라.",
+        "isPublic": true,
+        "verseKey": "GEN.1.1"
+      },
+      {
+        "status": "approved",
+        "textKo": "땅은 형체가 없고 비었으며, 어둠이 깊음의 표면 위에 있고, 하나님의 영께서 물들의 표면 위에 움직이셨느니라.",
+        "isPublic": true,
+        "verseKey": "GEN.1.2"
+      },
+      {
+        "status": "approved",
+        "textKo": "하나님께서 이르시되, 빛이 있으라 하시니, 빛이 있었느니라.",
+        "isPublic": true,
+        "verseKey": "GEN.1.3"
+      },
+      {
+        "status": "approved",
+        "textKo": "하나님께서 그 빛을 보시니 좋았더라; 하나님께서 그 빛을 어둠에서 나누셨느니라.",
+        "isPublic": true,
+        "verseKey": "GEN.1.4"
+      },
+      {
+        "status": "approved",
+        "textKo": "하나님께서 빛을 낮이라 부르시고 어둠을 밤이라 부르셨느니라. 저녁과 아침이 되니 첫째 날이니라.",
+        "isPublic": true,
+        "verseKey": "GEN.1.5"
+      }
+    ],
+    "fileRows": 1150,
+    "generatedAt": "2026-06-22T02:15:23.246349+00:00",
+    "orphanKoRows": 0,
+    "statusCounts": {
+      "approved": 31,
+      "ai_translated": 1119
+    },
+    "termWarnings": [
+      {
+        "ko_term": "빛",
+        "kjv_term": "light",
+        "verse_key": "GEN.1.16"
+      },
+      {
+        "ko_term": "퍼져 나가",
+        "kjv_term": "spread abroad",
+        "verse_key": "GEN.10.18"
+      },
+      {
+        "ko_term": "열둘",
+        "kjv_term": "twelve",
+        "verse_key": "GEN.14.4"
+      },
+      {
+        "ko_term": "참으로",
+        "kjv_term": "of a surety",
+        "verse_key": "GEN.15.13"
+      },
+      {
+        "ko_term": "몸종",
+        "kjv_term": "an handmaid",
+        "verse_key": "GEN.16.1"
+      },
+      {
+        "ko_term": "육 년",
+        "kjv_term": "six years",
+        "verse_key": "GEN.16.16"
+      },
+      {
+        "ko_term": "할례받지 아니한 자",
+        "kjv_term": "uncircumcised",
+        "verse_key": "GEN.17.14"
+      },
+      {
+        "ko_term": "열둘",
+        "kjv_term": "twelve",
+        "verse_key": "GEN.17.20"
+      },
+      {
+        "ko_term": "체류하는 땅",
+        "kjv_term": "wherein thou art a stranger",
+        "verse_key": "GEN.17.8"
+      },
+      {
+        "ko_term": "행해져서는 아니",
+        "kjv_term": "ought not to be done",
+        "verse_key": "GEN.20.9"
+      },
+      {
+        "ko_term": "나를 보내",
+        "kjv_term": "send me away",
+        "verse_key": "GEN.24.54"
+      },
+      {
+        "ko_term": "며칠처럼",
+        "kjv_term": "few days",
+        "verse_key": "GEN.24.55"
+      },
+      {
+        "ko_term": "하달",
+        "kjv_term": "Hadar",
+        "verse_key": "GEN.25.15"
+      },
+      {
+        "ko_term": "열둘",
+        "kjv_term": "twelve",
+        "verse_key": "GEN.25.16"
+      },
+      {
+        "ko_term": "그가 죽었느니라",
+        "kjv_term": "he died",
+        "verse_key": "GEN.25.18"
+      },
+      {
+        "ko_term": "멸시",
+        "kjv_term": "despised",
+        "verse_key": "GEN.25.34"
+      },
+      {
+        "ko_term": "땅",
+        "kjv_term": "earth",
+        "verse_key": "GEN.26.15"
+      },
+      {
+        "ko_term": "머물",
+        "kjv_term": "sojourn",
+        "verse_key": "GEN.26.3"
+      },
+      {
+        "ko_term": "며칠처럼",
+        "kjv_term": "few days",
+        "verse_key": "GEN.27.44"
+      },
+      {
+        "ko_term": "그 땅의 딸들",
+        "kjv_term": "daughters of the land",
+        "verse_key": "GEN.27.46"
+      },
+      {
+        "ko_term": "네 아버지 아브라함의 하나님",
+        "kjv_term": "God of Abraham thy father",
+        "verse_key": "GEN.28.13"
+      },
+      {
+        "ko_term": "그곳 사람들",
+        "kjv_term": "men of the place",
+        "verse_key": "GEN.29.22"
+      },
+      {
+        "ko_term": "레아가 임신",
+        "kjv_term": "Leah conceived",
+        "verse_key": "GEN.30.19"
+      },
+      {
+        "ko_term": "여종",
+        "kjv_term": "handmaid",
+        "verse_key": "GEN.30.4"
+      },
+      {
+        "ko_term": "내 누이",
+        "kjv_term": "my sister",
+        "verse_key": "GEN.30.8"
+      },
+      {
+        "ko_term": "낳기를 그쳤",
+        "kjv_term": "left bearing",
+        "verse_key": "GEN.30.9"
+      },
+      {
+        "ko_term": "기둥으로 세우",
+        "kjv_term": "set it up for a pillar",
+        "verse_key": "GEN.31.45"
+      },
+      {
+        "ko_term": "우리 둘 사이를 판단",
+        "kjv_term": "judge betwixt us",
+        "verse_key": "GEN.31.53"
+      },
+      {
+        "ko_term": "시간이 지나",
+        "kjv_term": "process of time",
+        "verse_key": "GEN.4.3"
+      },
+      {
+        "ko_term": "매우 분노",
+        "kjv_term": "very wroth",
+        "verse_key": "GEN.4.5"
+      },
+      {
+        "ko_term": "열둘",
+        "kjv_term": "twelve",
+        "verse_key": "GEN.5.8"
+      },
+      {
+        "ko_term": "저녁에",
+        "kjv_term": "in the evening",
+        "verse_key": "GEN.8.11"
+      },
+      {
+        "ko_term": "십분의 일",
+        "kjv_term": "tenth",
+        "verse_key": "GEN.8.5"
+      }
+    ],
+    "dbRowsInScope": 1150,
+    "emptyTextRows": 0,
+    "translationName": "KJV Korean Study Translation",
+    "expectedKeyCount": 1150,
+    "termWarningCount": 33,
+    "invalidStatusRows": 0,
+    "approvedPrivateRows": 0,
+    "missingExpectedRows": [],
+    "publicNonApprovedRows": 0,
+    "totalRowsForTranslation": 1150
+  }
+}

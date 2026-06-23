@@ -1,0 +1,38 @@
+{
+  "name": "kjv-reader-note",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "db:import-kjv": "node scripts/import-kjv.mjs",
+    "db:validate-kjv": "node scripts/validate-kjv.mjs",
+    "db:import-ko": "node scripts/import-ko-translation.mjs",
+    "db:validate-ko": "node scripts/validate-ko-translation.mjs"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.12.0",
+    "@supabase/supabase-js": "^2.108.2",
+    "lucide-react": "latest",
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "overrides": {
+    "postcss": "^8.5.10"
+  },
+  "devDependencies": {
+    "@tailwindcss/oxide-win32-x64-msvc": "^4.3.1",
+    "@tailwindcss/postcss": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "eslint": "latest",
+    "eslint-config-next": "latest",
+    "lightningcss-win32-x64-msvc": "^1.32.0",
+    "tailwindcss": "latest",
+    "typescript": "latest"
+  }
+}
