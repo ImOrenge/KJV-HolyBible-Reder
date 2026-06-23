@@ -24,14 +24,12 @@
     "postcss": "^8.5.10"
   },
   "devDependencies": {
-    "@tailwindcss/oxide-win32-x64-msvc": "^4.3.1",
     "@tailwindcss/postcss": "latest",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "eslint": "latest",
     "eslint-config-next": "latest",
-    "lightningcss-win32-x64-msvc": "^1.32.0",
     "tailwindcss": "latest",
     "typescript": "latest"
   }
