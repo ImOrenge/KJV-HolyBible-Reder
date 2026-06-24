@@ -2,7 +2,7 @@ import { APP_SLUG } from "@/lib/brand";
 
 const currentStoragePrefix = `${APP_SLUG}:v0:user-data`;
 const legacyStoragePrefix = "kjv-educator:v0:user-data";
-const demoUserId = "demo-user";
+const localOnlyUserIds = ["guest-reader", "demo-user"];
 const importFlagPrefix = `${APP_SLUG}:v0:demo-data-imported`;
 
 function getStoredUserData(userId: string) {
@@ -26,11 +26,22 @@ export function hasDemoUserData() {
     return false;
   }
 
-  return Boolean(getStoredUserData(demoUserId));
+  return localOnlyUserIds.some((userId) => Boolean(getStoredUserData(userId)));
+}
+
+function getLocalOnlyUserData() {
+  for (const userId of localOnlyUserIds) {
+    const data = getStoredUserData(userId);
+    if (data) {
+      return data;
+    }
+  }
+
+  return null;
 }
 
 export function shouldOfferDemoDataImport(userId: string) {
-  if (typeof window === "undefined" || userId === demoUserId) {
+  if (typeof window === "undefined" || localOnlyUserIds.includes(userId)) {
     return false;
   }
 
@@ -38,11 +49,11 @@ export function shouldOfferDemoDataImport(userId: string) {
 }
 
 export function importDemoUserData(userId: string) {
-  if (typeof window === "undefined" || userId === demoUserId) {
+  if (typeof window === "undefined" || localOnlyUserIds.includes(userId)) {
     return false;
   }
 
-  const demoData = getStoredUserData(demoUserId);
+  const demoData = getLocalOnlyUserData();
   if (!demoData) {
     return false;
   }

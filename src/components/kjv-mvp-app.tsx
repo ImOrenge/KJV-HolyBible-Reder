@@ -8,11 +8,13 @@ import {
   CheckCircle2,
   Command,
   Copy,
+  Flag,
   Home,
   Highlighter,
   Keyboard,
   Layers,
   ListChecks,
+  LogIn,
   LogOut,
   Moon,
   Pause,
@@ -54,6 +56,7 @@ import {
   importDemoUserData,
   shouldOfferDemoDataImport,
 } from "@/lib/auth/local-user-data-migration";
+import { TranslationFeedbackForm } from "@/components/feedback/translation-feedback-form";
 import { createClient as createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { ContinueReadingPanel, ProgressMetricPanel } from "@/components/app-preview-panels";
 import {
@@ -339,6 +342,8 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
   const [highlightBookFilter, setHighlightBookFilter] = useState("all");
   const [noteTarget, setNoteTarget] = useState<NoteTarget | null>(null);
   const [noteDraft, setNoteDraft] = useState("");
+  const [feedbackTargetVerse, setFeedbackTargetVerse] = useState<Verse | null>(null);
+  const [feedbackSelectedText, setFeedbackSelectedText] = useState("");
   const [isShortcutHelpOpen, setIsShortcutHelpOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [commandQuery, setCommandQuery] = useState("");
@@ -371,6 +376,7 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
   const pendingVerseFetchesRef = useRef(new Set<string>());
 
   const currentBook = getBook(currentBookId) ?? books[0];
+  const isAuthenticated = user.isAuthenticated;
   const resolveVerseById = useCallback(
     (verseId: string | null) => {
       if (!verseId) {
@@ -648,7 +654,7 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
         ? devChapter
         : loaded.progress?.chapter ?? 1;
     setUserData(loaded);
-    setShowDemoImportPrompt(shouldOfferDemoDataImport(user.id));
+    setShowDemoImportPrompt(user.isAuthenticated && shouldOfferDemoDataImport(user.id));
     if (devView && viewKeys.has(devView)) {
       setActiveView(devView);
     }
@@ -679,7 +685,7 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
       setTargetVerseNumber(loaded.progress.verse);
     }
     setMounted(true);
-  }, [user.id]);
+  }, [user.id, user.isAuthenticated]);
 
   useEffect(() => {
     let cancelled = false;
@@ -964,6 +970,11 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
 
   async function logout() {
     stopSpeech();
+    if (!user.isAuthenticated) {
+      router.push("/auth/login?next=/app");
+      return;
+    }
+
     const supabase = createBrowserSupabaseClient();
     await supabase.auth.signOut();
     router.replace("/auth/login");
@@ -1293,6 +1304,28 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
     const existing = findNoteForTarget(target);
     setNoteTarget(target);
     setNoteDraft(existing?.note ?? "");
+  }
+
+  function getSelectedTextSnippet() {
+    if (typeof window === "undefined") {
+      return "";
+    }
+
+    return window.getSelection()?.toString().replace(/\s+/g, " ").trim().slice(0, 240) ?? "";
+  }
+
+  function openFeedbackModal() {
+    if (!selectedVerse) {
+      return;
+    }
+
+    if (!user.isAuthenticated) {
+      setCopyStatus("번역 의견은 로그인 후 보낼 수 있습니다.");
+      return;
+    }
+
+    setFeedbackTargetVerse(selectedVerse);
+    setFeedbackSelectedText(getSelectedTextSnippet());
   }
 
   function saveStudyNote() {
@@ -1903,6 +1936,7 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
 
   const selectedHighlight = selectedVerse ? highlightsByVerse.get(selectedVerse.id) : null;
   const selectedFavorite = selectedVerse ? favoritesByVerse.get(selectedVerse.id) : null;
+  const shouldShowTtsOverlay = ttsPlaybackState === "playing" || ttsPlaybackState === "paused";
   const pendingDeleteFavoriteList = pendingDeleteFavoriteListId
     ? userData.favoriteLists.find((list) => list.id === pendingDeleteFavoriteListId) ?? null
     : null;
@@ -2016,7 +2050,7 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
   }
 
   return (
-    <div className={`app-root theme-${userData.settings.theme}`}>
+    <div className={`app-root theme-${userData.settings.theme}${shouldShowTtsOverlay ? " tts-overlay-open" : ""}`}>
       <header className="app-header">
         <div>
           <div className="eyebrow">CrossWire KJV 기반</div>
@@ -2030,10 +2064,17 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
           <button className="icon-button" type="button" onClick={() => setIsShortcutHelpOpen(true)} aria-label="단축키">
             <Keyboard size={16} />
           </button>
-          <button className="icon-text-button" type="button" onClick={logout}>
-            <LogOut size={16} />
-            로그아웃
-          </button>
+          {isAuthenticated ? (
+            <button className="icon-text-button" type="button" onClick={logout}>
+              <LogOut size={16} />
+              로그아웃
+            </button>
+          ) : (
+            <button className="icon-text-button" type="button" onClick={logout}>
+              <LogIn size={16} />
+              로그인
+            </button>
+          )}
         </div>
       </header>
 
@@ -2477,6 +2518,22 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
                       aria-label="구절 노트"
                     >
                       <StickyNote size={16} />
+                    </button>
+                    <button
+                      className="icon-button"
+                      disabled={!selectedVerse.textKo}
+                      type="button"
+                      onClick={openFeedbackModal}
+                      aria-label="번역 의견"
+                      title={
+                        !selectedVerse.textKo
+                          ? "승인된 한국어 번역이 없습니다."
+                          : isAuthenticated
+                            ? "번역 의견"
+                            : "로그인 후 번역 의견을 보낼 수 있습니다."
+                      }
+                    >
+                      <Flag size={16} />
                     </button>
                   </div>
                   <textarea
@@ -3035,6 +3092,20 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
         </div>
       ) : null}
 
+      {isAuthenticated && feedbackTargetVerse ? (
+        <TranslationFeedbackForm
+          language={readingLanguage}
+          onClose={() => setFeedbackTargetVerse(null)}
+          onSubmitted={() => {
+            setCopyStatus("번역 의견 접수 완료");
+            setFeedbackTargetVerse(null);
+          }}
+          reference={formatReference(feedbackTargetVerse)}
+          selectedText={feedbackSelectedText}
+          verse={feedbackTargetVerse}
+        />
+      ) : null}
+
       {isShortcutHelpOpen ? (
         <div className="modal-backdrop" role="presentation">
           <section aria-modal="true" className="confirm-modal" role="dialog" aria-labelledby="shortcut-title">
@@ -3123,36 +3194,38 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
         </div>
       ) : null}
 
-      <footer className="player-bar">
-        <div>
-          <strong>TTS · {ttsPlaybackState}</strong>
-          <span>{ttsQueueLabel} · {ttsStatus}</span>
-        </div>
-        <div className="tts-controls">
-          <button className="icon-button" type="button" onClick={() => moveSpeech(-1)} aria-label="이전 구절">
-            <SkipBack size={16} />
-          </button>
-          <button
-            className="icon-button"
-            type="button"
-            onClick={() => (selectedVerses.length ? playSelectedVerseQueue() : playSpeechQueue(selectedVerse ? [selectedVerse] : chapterVerses, 0, selectedVerse ? "선택 구절" : "현재 장"))}
-            aria-label="재생"
-          >
-            <Play size={16} />
-          </button>
-          <button className="icon-button" type="button" onClick={isPaused ? resumeSpeech : pauseSpeech} aria-label="일시정지 또는 재개">
-            <Pause size={16} />
-          </button>
-          <button className="icon-button" type="button" onClick={stopSpeech} aria-label="정지">
-            <Square size={16} />
-          </button>
-          <button className="icon-button" type="button" onClick={() => moveSpeech(1)} aria-label="다음 구절">
-            <SkipForward size={16} />
-          </button>
-        </div>
-        {copyStatus ? <span className="copy-status">{copyStatus}</span> : null}
-        {isSpeaking ? <span className="live-dot">재생</span> : null}
-      </footer>
+      {shouldShowTtsOverlay ? (
+        <footer className="player-bar">
+          <div>
+            <strong>TTS · {ttsPlaybackState}</strong>
+            <span>{ttsQueueLabel} · {ttsStatus}</span>
+          </div>
+          <div className="tts-controls">
+            <button className="icon-button" type="button" onClick={() => moveSpeech(-1)} aria-label="이전 구절">
+              <SkipBack size={16} />
+            </button>
+            <button
+              className="icon-button"
+              type="button"
+              onClick={() => (selectedVerses.length ? playSelectedVerseQueue() : playSpeechQueue(selectedVerse ? [selectedVerse] : chapterVerses, 0, selectedVerse ? "선택 구절" : "현재 장"))}
+              aria-label="재생"
+            >
+              <Play size={16} />
+            </button>
+            <button className="icon-button" type="button" onClick={isPaused ? resumeSpeech : pauseSpeech} aria-label="일시정지 또는 재개">
+              <Pause size={16} />
+            </button>
+            <button className="icon-button" type="button" onClick={stopSpeech} aria-label="정지">
+              <Square size={16} />
+            </button>
+            <button className="icon-button" type="button" onClick={() => moveSpeech(1)} aria-label="다음 구절">
+              <SkipForward size={16} />
+            </button>
+          </div>
+          {copyStatus ? <span className="copy-status">{copyStatus}</span> : null}
+          {isSpeaking ? <span className="live-dot">재생</span> : null}
+        </footer>
+      ) : null}
     </div>
   );
 }

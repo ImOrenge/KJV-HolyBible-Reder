@@ -23,6 +23,7 @@
 - [supabase-email-auth-architecture.md](./supabase-email-auth-architecture.md): mock auth를 Supabase 이메일 로그인으로 전환하기 위한 구현 아키텍처.
 - [user-data-security-management-policy.md](./user-data-security-management-policy.md): Supabase Auth/RLS 전환을 위한 유저 데이터 보안관리 정책.
 - [translation-feedback-admin-rbac-architecture.md](./translation-feedback-admin-rbac-architecture.md): 번역 피드백 폼, 어드민 리뷰 큐, RBAC 권한 체계 구현 아키텍처.
+- [word-annotation-interpretation-guide-architecture.md](./word-annotation-interpretation-guide-architecture.md): 성경 단어 주석, 문맥 해석, 리더 내 해석 가이드 레이어 구현 아키텍처.
 
 ## 전체 구현 원칙
 

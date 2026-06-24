@@ -4,6 +4,14 @@ export type AppUser = {
   displayName: string;
   email: string;
   id: string;
+  isAuthenticated: boolean;
+};
+
+export const guestAppUser: AppUser = {
+  displayName: "비로그인 리더",
+  email: "",
+  id: "guest-reader",
+  isAuthenticated: false,
 };
 
 export function toAppUser(user: User): AppUser {
@@ -19,5 +27,6 @@ export function toAppUser(user: User): AppUser {
     displayName: nameFromMetadata || email || "Reader",
     email,
     id: user.id,
+    isAuthenticated: true,
   };
 }

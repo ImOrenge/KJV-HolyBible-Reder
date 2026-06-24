@@ -683,6 +683,21 @@ needs_check는 어느 단계에서든 재검토 상태로 사용
 - [ ] feedback/review/index를 추가한다.
 - [ ] 관리자 role seed 또는 수동 bootstrap 절차를 문서화한다.
 
+관리자 role bootstrap 절차:
+
+1. Supabase Dashboard Auth 사용자 목록에서 최초 운영자의 `auth.users.id`를 확인한다.
+2. Supabase SQL Editor 또는 service-role만 접근 가능한 배포 작업에서 아래 SQL을 1회 실행한다.
+
+```sql
+insert into app_private.user_roles (user_id, role)
+values ('<auth.users.id>'::uuid, 'admin')
+on conflict (user_id, role) do update
+  set assigned_at = now(),
+      expires_at = null;
+```
+
+3. 이후 역할 부여/회수는 `/admin/users/roles`에서 처리한다. 이 화면은 `public.set_user_app_role()` RPC를 통해 `app_private.user_roles`와 `admin_role_events`를 함께 갱신한다.
+
 수용 기준:
 
 - [ ] 일반 사용자는 본인 feedback만 select할 수 있다.

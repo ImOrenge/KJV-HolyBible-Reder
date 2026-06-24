@@ -103,8 +103,8 @@ function revealDelay(delay: string): CSSProperties {
 
 function getPrimaryAction(isAuthenticated: boolean) {
   return {
-    href: isAuthenticated ? "/app" : "/auth/login?next=/app",
-    label: isAuthenticated ? "내 리더노트 열기" : "내 리더노트 시작하기",
+    href: "/app",
+    label: isAuthenticated ? "내 리더노트 열기" : "로그인 없이 읽기",
   };
 }
 
@@ -237,7 +237,7 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
             <p className="landing-hero-punch">읽던 자리와 마음에 남은 구절을 한 리더노트에.</p>
             <p className="landing-hero-copy">
               KJV 성경 통독, 하이라이트, 메모, 인용 보관을 한 화면의 공부 기록으로 이어주는 개인 성경
-              리더입니다.
+              리더입니다. 성경 읽기는 로그인 없이 시작하고, 계정은 기록을 이어갈 때 사용합니다.
             </p>
             <LandingActions isAuthenticated={isAuthenticated} />
             <ul className="landing-proof-list" aria-label="핵심 기능">
@@ -336,11 +336,23 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
         <h2 id="landing-final-title">오늘 마음에 남은 말씀을 다음 공부까지 가져가세요.</h2>
         <p>읽던 위치, 표시한 구절, 다시 쓸 인용을 내 리더노트에 정리하고 바로 이어 읽으세요.</p>
         <LandingActions isAuthenticated={isAuthenticated} />
-        <p className="landing-trust-note">
-          KJV 본문은 CrossWire KJV 모듈 기반으로 제공하며, 지역별 배포 및 인용 권리는 출시 범위에 맞춰
-          확인합니다.
-        </p>
       </section>
+      <footer className="landing-footer" aria-label="성경 본문 출처 및 라이선스">
+        <div className="landing-footer-inner">
+          <p>
+            성경 본문 출처: CrossWire Bible Society{" "}
+            <a href="https://crosswire.org/sword/modules/ModInfo.jsp?modName=KJV" target="_blank" rel="noreferrer">
+              KJV SWORD module 3.1
+            </a>
+            . Distribution License:{" "}
+            <a href="https://www.crosswire.org/sword/about/license.jsp" target="_blank" rel="noreferrer">
+              GPL
+            </a>
+            .
+          </p>
+          <p>KJV 본문 권리와 지역별 배포 조건은 공개 출시 범위에 맞춰 재검토합니다.</p>
+        </div>
+      </footer>
     </main>
   );
 }
