@@ -232,12 +232,12 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
 
         <div className="landing-hero-grid">
           <div className="landing-hero-content landing-reveal" data-reveal style={revealDelay("80ms")}>
-            <p className="eyebrow">KJV 성경 통독과 구절 기록</p>
-            <h1 id="landing-title">KJV 리더노트</h1>
-            <p className="landing-hero-punch">읽던 자리와 마음에 남은 구절을 한 리더노트에.</p>
+            <p className="eyebrow">KJV 성경앱 · 통독 기록 · 구절 보관</p>
+            <h1 id="landing-title">KJV 성경을 읽고 기록하는 성경앱</h1>
+            <p className="landing-hero-punch">KJV 리더노트에서 읽던 자리와 마음에 남은 구절을 이어가세요.</p>
             <p className="landing-hero-copy">
-              KJV 성경 통독, 하이라이트, 메모, 인용 보관을 한 화면의 공부 기록으로 이어주는 개인 성경
-              리더입니다. 성경 읽기는 로그인 없이 시작하고, 계정은 기록을 이어갈 때 사용합니다.
+              KJV 리더노트는 KJV 성경 읽기, 통독 기록, 하이라이트, 메모, 인용 보관을 한 화면으로 이어주는
+              개인 성경앱입니다. 성경 읽기는 로그인 없이 시작하고, 계정은 기록을 이어갈 때 사용합니다.
             </p>
             <LandingActions isAuthenticated={isAuthenticated} />
             <ul className="landing-proof-list" aria-label="핵심 기능">

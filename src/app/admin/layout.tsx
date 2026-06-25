@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
@@ -8,6 +9,14 @@ import { createClient } from "@/lib/supabase/server";
 function hasRole(roles: AppRole[], role: AppRole) {
   return roles.includes(role);
 }
+
+export const metadata: Metadata = {
+  title: "관리자",
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default async function AdminLayout({
   children,
