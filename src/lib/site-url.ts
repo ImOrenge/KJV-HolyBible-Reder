@@ -1,4 +1,4 @@
-const DEFAULT_SITE_URL = "http://localhost:3000";
+const DEFAULT_SITE_URL = "https://kjvreadernote.app";
 
 function normalizeSiteUrl(value: string | undefined) {
   if (!value) {
