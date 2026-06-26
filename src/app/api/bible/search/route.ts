@@ -37,11 +37,11 @@ export async function GET(request: Request) {
     const koRows = verseKeyFilter
       ? await supabaseRestGet<BibleVerseKoRow[]>(
           [
-            "bible_verses_ko?select=verse_key,text_ko,translation_name,translation_status,is_public",
+            "bible_verses_ko?select=verse_key,text_ko,translation_name,translation_status,is_public,updated_at",
             `verse_key=in.(${verseKeyFilter})`,
-            "translation_name=eq.KJV%20Korean%20Study%20Translation",
             "translation_status=eq.approved",
             "is_public=eq.true",
+            "order=updated_at.desc",
           ].join("&"),
         )
       : [];

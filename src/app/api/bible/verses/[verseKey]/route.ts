@@ -26,19 +26,19 @@ export async function GET(_request: Request, context: RouteContext) {
       return NextResponse.json({ error: "Bible verse not found." }, { status: 404 });
     }
 
-    const [koRow] = await supabaseRestGet<BibleVerseKoRow[]>(
+    const koRows = await supabaseRestGet<BibleVerseKoRow[]>(
       [
-        "bible_verses_ko?select=verse_key,text_ko,translation_name,translation_status,is_public",
+        "bible_verses_ko?select=verse_key,text_ko,translation_name,translation_status,is_public,updated_at",
         `verse_key=eq.${encodeFilterValue(verseKey)}`,
-        "translation_name=eq.KJV%20Korean%20Study%20Translation",
         "translation_status=eq.approved",
         "is_public=eq.true",
-        "limit=1",
+        "order=updated_at.desc",
+        "limit=10",
       ].join("&"),
     );
 
     const response: BibleVerseResponse = {
-      verse: mergeApprovedKoRows([mapVerseRow(row)], koRow ? [koRow] : [])[0],
+      verse: mergeApprovedKoRows([mapVerseRow(row)], koRows)[0],
       source: {
         name: row.source_name,
         module: row.source_module,

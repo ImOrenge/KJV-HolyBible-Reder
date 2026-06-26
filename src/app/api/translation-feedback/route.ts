@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { isConfiguredPublicKoTranslation } from "@/lib/public-ko-translation";
 import { createClient } from "@/lib/supabase/server";
 import { parseFeedbackSubmissionPayload } from "@/lib/translation-feedback/feedback-validation";
 import type { PublicFeedbackSummary, TranslationFeedbackRow } from "@/lib/translation-feedback/feedback-types";
@@ -17,10 +18,12 @@ type BibleVerseEnFeedbackRow = {
 
 type BibleVerseKoFeedbackRow = {
   id: string;
+  verse_key: string;
   text_ko: string;
   translation_name: string;
   translation_status: string;
   is_public: boolean;
+  updated_at: string;
 };
 
 function toPublicFeedbackSummary(row: TranslationFeedbackRow): PublicFeedbackSummary {
@@ -34,6 +37,10 @@ function toPublicFeedbackSummary(row: TranslationFeedbackRow): PublicFeedbackSum
     verseKey: row.verse_key,
     createdAt: row.created_at,
   };
+}
+
+function selectVisibleKoVerse(rows: BibleVerseKoFeedbackRow[]) {
+  return rows.find((row) => isConfiguredPublicKoTranslation(row.translation_name)) ?? rows[0] ?? null;
 }
 
 export async function POST(request: Request) {
@@ -82,18 +89,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "구절을 찾을 수 없습니다." }, { status: 404 });
   }
 
-  const { data: koVerse, error: koError } = await supabase
+  const { data: koVerses, error: koError } = await supabase
     .from("bible_verses_ko")
-    .select("id,text_ko,translation_name,translation_status,is_public")
+    .select("id,verse_key,text_ko,translation_name,translation_status,is_public,updated_at")
     .eq("verse_key", verseKey)
-    .eq("translation_name", "KJV Korean Study Translation")
     .eq("translation_status", "approved")
     .eq("is_public", true)
-    .maybeSingle<BibleVerseKoFeedbackRow>();
+    .order("updated_at", { ascending: false })
+    .limit(10)
+    .returns<BibleVerseKoFeedbackRow[]>();
 
   if (koError) {
     return NextResponse.json({ error: koError.message }, { status: 500 });
   }
+
+  const koVerse = selectVisibleKoVerse(koVerses ?? []);
 
   if (!koVerse) {
     return NextResponse.json({ error: "승인된 한국어 번역이 있는 구절만 의견을 보낼 수 있습니다." }, { status: 400 });

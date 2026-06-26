@@ -1,4 +1,5 @@
 import type { Book, Testament, Verse } from "./types";
+import { getConfiguredPublicKoTranslationName } from "./public-ko-translation";
 
 export type BibleBookRow = {
   book_order: number;
@@ -26,6 +27,7 @@ export type BibleVerseKoRow = {
   translation_name: string;
   translation_status: string;
   is_public: boolean;
+  updated_at?: string | null;
 };
 
 export function mapTestament(testament: "OT" | "NT"): Testament {
@@ -62,7 +64,20 @@ export function mapVerseRow(row: BibleVerseEnRow): Verse {
 }
 
 export function mergeApprovedKoRows(verses: Verse[], koRows: BibleVerseKoRow[]): Verse[] {
-  const koByVerseKey = new Map(koRows.map((row) => [row.verse_key, row]));
+  const configuredTranslationName = getConfiguredPublicKoTranslationName();
+  const koByVerseKey = new Map<string, BibleVerseKoRow>();
+
+  for (const row of koRows) {
+    const current = koByVerseKey.get(row.verse_key);
+    if (
+      !current ||
+      (configuredTranslationName &&
+        current.translation_name !== configuredTranslationName &&
+        row.translation_name === configuredTranslationName)
+    ) {
+      koByVerseKey.set(row.verse_key, row);
+    }
+  }
 
   return verses.map((verse) => {
     const ko = koByVerseKey.get(verse.id);

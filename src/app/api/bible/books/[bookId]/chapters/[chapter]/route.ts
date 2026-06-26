@@ -48,13 +48,12 @@ export async function GET(_request: Request, context: RouteContext) {
 
     const koRows = await supabaseRestGet<BibleVerseKoRow[]>(
       [
-        "bible_verses_ko?select=verse_key,text_ko,translation_name,translation_status,is_public",
-        `app_book_id=eq.${encodedBookId}`,
+        "bible_verses_ko?select=verse_key,text_ko,translation_name,translation_status,is_public,updated_at",
+        `book_order=eq.${book.book_order}`,
         `chapter=eq.${chapter}`,
-        "translation_name=eq.KJV%20Korean%20Study%20Translation",
         "translation_status=eq.approved",
         "is_public=eq.true",
-        "order=verse.asc",
+        "order=verse.asc,updated_at.desc",
       ].join("&"),
     );
 
