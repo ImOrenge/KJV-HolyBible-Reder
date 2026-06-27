@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   BarChart3,
@@ -6,6 +6,7 @@ import {
   BookOpen,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
   Command,
   Copy,
   Flag,
@@ -32,7 +33,7 @@ import {
   Volume2,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   cacheVerseList,
@@ -217,7 +218,7 @@ function getVerseDisplayText(verse: Verse, language: TranslationLanguage) {
 
 function getVerseDisplaySource(verse: Verse, language: TranslationLanguage) {
   if (language === "ko") {
-    return verse.textKo ? (verse.translationName ?? "KJV Korean Study Translation") : "한국어 본문 없음";
+    return verse.textKo ? (verse.translationName ?? "KJV Reader Note") : "한국어 본문 없음";
   }
 
   return verse.sourceModuleVersion ? `${verse.translation} ${verse.sourceModuleVersion}` : verse.translation;
@@ -335,6 +336,7 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
   const [newFavoriteListName, setNewFavoriteListName] = useState("");
   const [isFavoriteModalOpen, setIsFavoriteModalOpen] = useState(false);
   const [selectedFavoriteListId, setSelectedFavoriteListId] = useState(defaultFavoriteListId);
+  const [isFavoriteListDropdownOpen, setIsFavoriteListDropdownOpen] = useState(false);
   const [pendingDeleteFavoriteListId, setPendingDeleteFavoriteListId] = useState<string | null>(null);
   const [favoriteSearchQuery, setFavoriteSearchQuery] = useState("");
   const [favoriteSortKey, setFavoriteSortKey] = useState<FavoriteSortKey>("recent");
@@ -346,6 +348,8 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
   const [feedbackSelectedText, setFeedbackSelectedText] = useState("");
   const [isShortcutHelpOpen, setIsShortcutHelpOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isChapterPickerOpen, setIsChapterPickerOpen] = useState(false);
+  const [chapterPickerBookId, setChapterPickerBookId] = useState("gen");
   const [commandQuery, setCommandQuery] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
   const [showDemoImportPrompt, setShowDemoImportPrompt] = useState(false);
@@ -370,12 +374,15 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
   const speechIndexRef = useRef(0);
   const speechCancelRef = useRef(false);
   const verseElementsRef = useRef(new Map<string, HTMLButtonElement>());
+  const chapterSwipeStartRef = useRef<{ x: number; y: number; pointerId: number } | null>(null);
+  const suppressVerseClickRef = useRef(false);
   const progressSaveTimerRef = useRef<number | null>(null);
   const favoriteListSelectionRef = useRef<string[]>([defaultFavoriteListId]);
   const favoriteListsRef = useRef(userData.favoriteLists);
   const pendingVerseFetchesRef = useRef(new Set<string>());
 
   const currentBook = getBook(currentBookId) ?? books[0];
+  const chapterPickerBook = getBook(chapterPickerBookId) ?? currentBook;
   const isAuthenticated = user.isAuthenticated;
   const resolveVerseById = useCallback(
     (verseId: string | null) => {
@@ -996,9 +1003,30 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
     setCurrentChapter(nextChapter);
     setSelectedVerseId(null);
     setCurrentReadingVerseId(null);
+    setSelectedVerseIds([]);
+    setSelectionAnchorVerseId(null);
+    setChapterVerses([]);
+    setChapterSource(null);
+    setChapterStatus("loading");
+    setChapterError("");
     setTargetVerseNumber(verse);
     setActiveView(view);
+    verseElementsRef.current.clear();
+    if (progressSaveTimerRef.current) {
+      window.clearTimeout(progressSaveTimerRef.current);
+      progressSaveTimerRef.current = null;
+    }
     updateProgress(bookId, nextChapter, verse);
+  }
+
+  function openChapterPicker() {
+    setChapterPickerBookId(currentBookId);
+    setIsChapterPickerOpen(true);
+  }
+
+  function selectChapterFromPicker(chapter: number) {
+    openChapter(chapterPickerBook.id, chapter);
+    setIsChapterPickerOpen(false);
   }
 
   function selectVerse(verse: Verse) {
@@ -1045,12 +1073,69 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
   }
 
   function handleVerseClick(verse: Verse) {
+    if (suppressVerseClickRef.current) {
+      suppressVerseClickRef.current = false;
+      return;
+    }
+
     if (isSelectionMode) {
       selectVerseForBatch(verse);
       return;
     }
 
     selectVerse(verse);
+  }
+
+  function isMobileSwipeEnabled() {
+    return typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches;
+  }
+
+  function handleVerseListPointerDown(event: PointerEvent<HTMLElement>) {
+    if (!isMobileSwipeEnabled() || (event.pointerType === "mouse" && event.button !== 0)) {
+      return;
+    }
+
+    chapterSwipeStartRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+      pointerId: event.pointerId,
+    };
+  }
+
+  function handleVerseListPointerUp(event: PointerEvent<HTMLElement>) {
+    const start = chapterSwipeStartRef.current;
+    chapterSwipeStartRef.current = null;
+
+    if (!start || start.pointerId !== event.pointerId || !isMobileSwipeEnabled()) {
+      return;
+    }
+
+    const deltaX = event.clientX - start.x;
+    const deltaY = event.clientY - start.y;
+    const isHorizontalSwipe = Math.abs(deltaX) >= 72 && Math.abs(deltaX) > Math.abs(deltaY) * 1.35;
+    if (!isHorizontalSwipe) {
+      return;
+    }
+
+    const direction = deltaX < 0 ? 1 : -1;
+    if (!getAdjacentChapter(currentBookId, currentChapter, direction)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    window.getSelection()?.removeAllRanges();
+    suppressVerseClickRef.current = true;
+    window.setTimeout(() => {
+      suppressVerseClickRef.current = false;
+    }, 250);
+    moveChapter(direction);
+  }
+
+  function handleVerseListPointerCancel(event: PointerEvent<HTMLElement>) {
+    if (chapterSwipeStartRef.current?.pointerId === event.pointerId) {
+      chapterSwipeStartRef.current = null;
+    }
   }
 
   function copySelectedVerses() {
@@ -1969,6 +2054,7 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
     { label: "홈 · 활동", description: "최근 읽기와 작업", action: () => openMobileHomeTab("activity") },
     { label: "홈 · 공부", description: "노트, 태그, 인용 요약", action: () => openMobileHomeTab("study") },
     { label: "성경 리더", description: "본문 읽기", action: () => setActiveView("reader") },
+    { label: "장 선택", description: getChapterLabel(currentBookId, currentChapter), action: openChapterPicker },
     { label: "통독 진척도", description: "권별 진행률", action: () => setActiveView("progress") },
     { label: "강조 구절", description: "색상별 표시", action: () => setActiveView("highlights") },
     { label: "인용 보관함", description: "목록과 복사", action: () => setActiveView("favorites") },
@@ -2058,10 +2144,10 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
         </div>
         <div className="header-actions">
           <span className="mock-user">{user.displayName}</span>
-          <button className="icon-button" type="button" onClick={openCommandPalette} aria-label="명령 팔레트">
+          <button className="icon-button header-utility-action" type="button" onClick={openCommandPalette} aria-label="명령 팔레트">
             <Command size={16} />
           </button>
-          <button className="icon-button" type="button" onClick={() => setIsShortcutHelpOpen(true)} aria-label="단축키">
+          <button className="icon-button header-utility-action" type="button" onClick={() => setIsShortcutHelpOpen(true)} aria-label="단축키">
             <Keyboard size={16} />
           </button>
           {isAuthenticated ? (
@@ -2391,7 +2477,7 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
                 <button className="icon-button" type="button" onClick={() => moveChapter(-1)} aria-label="이전 장">
                   <SkipBack size={18} />
                 </button>
-                <div>
+                <button className="chapter-title-button" type="button" onClick={openChapterPicker} aria-label="장 선택 열기">
                   <h2>
                     {currentBook.nameKo} {currentChapter}장
                   </h2>
@@ -2408,7 +2494,7 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
                     {currentReadingVerse ? `현재 위치 ${formatReference(currentReadingVerse)}` : "현재 위치 자동 추적 대기"}
                     {isCurrentPlanChapter ? " · 오늘 분량" : ""}
                   </p>
-                </div>
+                </button>
                 <button className="icon-button" type="button" onClick={() => moveChapter(1)} aria-label="다음 장">
                   <SkipForward size={18} />
                 </button>
@@ -2417,7 +2503,11 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
               {renderReaderActions("top")}
 
               <article
-                className={`verse-list mode-${userData.settings.readingMode}`}
+                aria-label="성경 본문"
+                className={`verse-list reader-swipe-zone mode-${userData.settings.readingMode}`}
+                onPointerCancel={handleVerseListPointerCancel}
+                onPointerDown={handleVerseListPointerDown}
+                onPointerUp={handleVerseListPointerUp}
                 style={{
                   fontSize: `${userData.settings.fontSize}px`,
                   lineHeight: userData.settings.lineHeight,
@@ -2483,20 +2573,22 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
                     <span>{getVerseDisplaySource(selectedVerse, readingLanguage)}</span>
                   </div>
                   <div className="quick-actions">
-                    {highlightOptions.map((option) => (
-                      <button
-                        className={`swatch-button swatch-${option.color}`}
-                        key={option.color}
-                        type="button"
-                        onClick={() => applyHighlight(option.color)}
-                        aria-label={`${option.label} 강조`}
-                      >
-                        {selectedHighlight?.color === option.color ? <CheckCircle2 size={14} /> : null}
+                    <div className="highlight-action-group" aria-label="강조 선택">
+                      {highlightOptions.map((option) => (
+                        <button
+                          className={`swatch-button swatch-${option.color}`}
+                          key={option.color}
+                          type="button"
+                          onClick={() => applyHighlight(option.color)}
+                          aria-label={`${option.label} 강조`}
+                        >
+                          {selectedHighlight?.color === option.color ? <CheckCircle2 size={14} /> : null}
+                        </button>
+                      ))}
+                      <button className="icon-button" type="button" onClick={() => removeHighlight(selectedVerse.id)} aria-label="강조 해제">
+                        <RotateCcw size={16} />
                       </button>
-                    ))}
-                    <button className="icon-button" type="button" onClick={() => removeHighlight(selectedVerse.id)} aria-label="강조 해제">
-                      <RotateCcw size={16} />
-                    </button>
+                    </div>
                     <button className="icon-button" type="button" onClick={() => copyVerse(selectedVerse)} aria-label="구절 복사">
                       <Copy size={16} />
                     </button>
@@ -2537,6 +2629,7 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
                     </button>
                   </div>
                   <textarea
+                    className="highlight-note-input"
                     value={highlightNote}
                     onChange={(event) => setHighlightNote(event.target.value)}
                     placeholder="강조 메모"
@@ -2550,39 +2643,50 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
               ) : null}
 
               {isSelectionMode ? (
-                <section className="selection-action-sheet" aria-label="선택 구절 작업">
+                <section
+                  className={`selection-action-sheet ${selectedVerses.length ? "has-selection" : "is-empty"}`}
+                  aria-label="선택 구절 작업"
+                >
                   <div>
                     <strong>{selectedVerses.length}개 선택</strong>
                     <span>{selectionAnchorVerseId ? "다음 절을 누르면 범위가 선택됩니다." : "첫 절을 선택하세요."}</span>
                   </div>
-                  <div className="selection-actions">
-                    <button className="secondary-button" type="button" onClick={copySelectedVerses}>
-                      <Copy size={16} />
-                      복사
+                  {selectedVerses.length ? (
+                    <>
+                      <div className="selection-actions">
+                        <button className="secondary-button" type="button" onClick={copySelectedVerses}>
+                          <Copy size={16} />
+                          복사
+                        </button>
+                        <button className="secondary-button" type="button" onClick={openSelectedFavoriteModal}>
+                          <Bookmark size={16} />
+                          인용 저장
+                        </button>
+                        <button className="secondary-button" type="button" onClick={playSelectedVerseQueue}>
+                          <Volume2 size={16} />
+                          읽기
+                        </button>
+                        <button className="small-button" type="button" onClick={clearVerseSelection}>
+                          선택 해제
+                        </button>
+                      </div>
+                      <div className="quick-actions selection-highlight-actions">
+                        {highlightOptions.map((option) => (
+                          <button
+                            className={`swatch-button swatch-${option.color}`}
+                            key={option.color}
+                            type="button"
+                            onClick={() => applyHighlightToSelected(option.color)}
+                            aria-label={`선택 구절 ${option.label} 강조`}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <button className="secondary-button" type="button" onClick={clearVerseSelection}>
+                      선택 모드 종료
                     </button>
-                    <button className="secondary-button" type="button" onClick={openSelectedFavoriteModal}>
-                      <Bookmark size={16} />
-                      인용 저장
-                    </button>
-                    <button className="secondary-button" type="button" onClick={playSelectedVerseQueue}>
-                      <Volume2 size={16} />
-                      읽기
-                    </button>
-                    <button className="small-button" type="button" onClick={clearVerseSelection}>
-                      선택 해제
-                    </button>
-                  </div>
-                  <div className="quick-actions">
-                    {highlightOptions.map((option) => (
-                      <button
-                        className={`swatch-button swatch-${option.color}`}
-                        key={option.color}
-                        type="button"
-                        onClick={() => applyHighlightToSelected(option.color)}
-                        aria-label={`선택 구절 ${option.label} 강조`}
-                      />
-                    ))}
-                  </div>
+                  )}
                 </section>
               ) : null}
             </section>
@@ -2681,6 +2785,41 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
               <Bookmark size={18} />
             </div>
             <div className="favorite-list-layout">
+              <div className="favorite-list-dropdown-table" aria-label="인용 목록 선택">
+                <button
+                  aria-expanded={isFavoriteListDropdownOpen}
+                  className="favorite-list-dropdown-trigger"
+                  type="button"
+                  onClick={() => setIsFavoriteListDropdownOpen((current) => !current)}
+                >
+                  <span>목록</span>
+                  <strong>{selectedFavoriteList?.name ?? "기본 목록"}</strong>
+                  <em>{selectedListFavorites.length}</em>
+                  <ChevronDown size={16} />
+                </button>
+                {isFavoriteListDropdownOpen ? (
+                  <div className="favorite-list-dropdown-menu">
+                    <div className="favorite-list-dropdown-head" aria-hidden="true">
+                      <span>목록</span>
+                      <span>구절</span>
+                    </div>
+                    {userData.favoriteLists.map((list) => (
+                      <button
+                        className={selectedFavoriteList?.id === list.id ? "favorite-list-dropdown-row active" : "favorite-list-dropdown-row"}
+                        key={list.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedFavoriteListId(list.id);
+                          setIsFavoriteListDropdownOpen(false);
+                        }}
+                      >
+                        <span>{list.name}</span>
+                        <strong>{favoriteListCounts.get(list.id) ?? 0}</strong>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
               <aside className="favorite-list-sidebar" aria-label="인용 목록">
                 <div className="sidebar-heading">목록</div>
                 {userData.favoriteLists.map((list) => (
@@ -2957,6 +3096,56 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
           <span>빠른이동</span>
         </button>
       </nav>
+
+      {isChapterPickerOpen ? (
+        <div className="modal-backdrop chapter-picker-backdrop" role="presentation">
+          <section aria-modal="true" className="chapter-picker-sheet" role="dialog" aria-labelledby="chapter-picker-title">
+            <div className="modal-heading">
+              <div>
+                <div className="eyebrow">성경 이동</div>
+                <h2 id="chapter-picker-title">{chapterPickerBook.nameKo}</h2>
+              </div>
+              <button className="icon-button" type="button" onClick={() => setIsChapterPickerOpen(false)} aria-label="닫기">
+                <X size={18} />
+              </button>
+            </div>
+
+            <label className="chapter-picker-book-field">
+              성경 권
+              <select value={chapterPickerBook.id} onChange={(event) => setChapterPickerBookId(event.target.value)}>
+                <optgroup label="구약">
+                  {oldBooks.map((book) => (
+                    <option key={book.id} value={book.id}>{book.nameKo}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="신약">
+                  {newBooks.map((book) => (
+                    <option key={book.id} value={book.id}>{book.nameKo}</option>
+                  ))}
+                </optgroup>
+              </select>
+            </label>
+
+            <div className="chapter-picker-grid" aria-label={`${chapterPickerBook.nameKo} 장 선택`}>
+              {getChapters(chapterPickerBook.id).map((chapter) => {
+                const isActiveChapter = chapterPickerBook.id === currentBookId && chapter === currentChapter;
+                const isCompletedChapter = completedKeys.has(chapterKey(chapterPickerBook.id, chapter));
+                return (
+                  <button
+                    className={isActiveChapter ? "chapter-picker-button active" : "chapter-picker-button"}
+                    key={chapter}
+                    type="button"
+                    onClick={() => selectChapterFromPicker(chapter)}
+                  >
+                    <span>{chapter}</span>
+                    {isCompletedChapter ? <CheckCircle2 size={13} /> : null}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       {isFavoriteModalOpen && favoriteTargetVerses.length ? (
         <div className="modal-backdrop" role="presentation">
