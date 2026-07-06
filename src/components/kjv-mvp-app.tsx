@@ -2306,6 +2306,37 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
     );
   }
 
+  function renderChapterPagination() {
+    return (
+      <nav className="reader-toolbar reader-toolbar-bottom" aria-label="하단 장 넘기기">
+        <button className="icon-button" type="button" onClick={() => moveChapter(-1)} aria-label="이전 장">
+          <SkipBack size={18} />
+        </button>
+        <button className="chapter-title-button" type="button" onClick={openChapterPicker} aria-label="장 선택 열기">
+          <h2>
+            {currentBook.nameKo} {currentChapter}장
+          </h2>
+          <p>
+            {currentBook.nameEn} ·{" "}
+            {chapterStatus === "loading"
+              ? "본문 불러오는 중"
+              : chapterStatus === "error"
+                ? "본문 오류"
+                : `${chapterVerses.length} ${readingLanguage === "ko" ? "KR" : "EN"} 구절 · ${formatSource(chapterSource)}`}
+            {readingLanguage === "ko" && !currentChapterHasKorean ? " · 한국어 본문 없음" : ""}
+          </p>
+          <p className="current-verse-line">
+            {currentReadingVerse ? `현재 위치 ${formatReference(currentReadingVerse)}` : "현재 위치 자동 추적 대기"}
+            {isCurrentPlanChapter ? " · 오늘 분량" : ""}
+          </p>
+        </button>
+        <button className="icon-button" type="button" onClick={() => moveChapter(1)} aria-label="다음 장">
+          <SkipForward size={18} />
+        </button>
+      </nav>
+    );
+  }
+
   return (
     <div className={`app-root theme-${userData.settings.theme}${shouldShowTtsOverlay ? " tts-overlay-open" : ""}`}>
       <header className="app-header">
@@ -2860,6 +2891,8 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
                   )}
                 </section>
               ) : null}
+
+              {renderChapterPagination()}
             </section>
           </section>
         ) : null}
