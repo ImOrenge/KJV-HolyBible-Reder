@@ -1332,11 +1332,120 @@ kbd {
   background: #e6d7ff;
 }
 
-.progress-summary,
-.settings-grid {
+.progress-summary {
   display: grid;
   gap: 14px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.settings-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.settings-shell {
+  display: grid;
+  gap: 16px;
+}
+
+.settings-menu {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.settings-menu-button {
+  align-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  display: flex;
+  font-weight: 800;
+  gap: 8px;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 12px;
+}
+
+.settings-menu-button.active {
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.settings-section {
+  display: grid;
+  gap: 14px;
+  max-width: 720px;
+}
+
+.settings-section-heading {
+  margin-top: 2px;
+}
+
+.settings-account-summary {
+  align-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 14px;
+}
+
+.settings-account-summary div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.settings-account-summary strong {
+  font-size: 1.15rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-account-summary small {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.settings-status {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.settings-status.active {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.settings-action-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.settings-value-row {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.settings-value-row strong {
+  color: var(--accent);
 }
 
 .progress-summary div {
@@ -1377,6 +1486,37 @@ kbd {
 
 .search-row {
   margin-bottom: 14px;
+}
+
+.search-panel-controls {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.search-field {
+  min-width: 0;
+}
+
+.search-filter-row {
+  margin: 0;
+}
+
+.search-summary {
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.search-hit-highlight {
+  background: color-mix(in srgb, var(--accent-3) 24%, transparent);
+  border-radius: 3px;
+  box-decoration-break: clone;
+  color: inherit;
+  font-weight: 800;
+  padding: 0 2px;
+  -webkit-box-decoration-break: clone;
 }
 
 .empty-chapter {
@@ -1643,8 +1783,7 @@ kbd {
 }
 
 @media (max-width: 1100px) {
-  .dashboard-grid,
-  .settings-grid {
+  .dashboard-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1777,8 +1916,19 @@ kbd {
   }
 
   .dashboard-grid,
-  .settings-grid,
   .progress-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-menu {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .settings-section {
+    max-width: none;
+  }
+
+  .settings-action-grid {
     grid-template-columns: 1fr;
   }
 
@@ -2027,7 +2177,7 @@ kbd {
     box-shadow: var(--shadow);
     display: grid;
     gap: 4px;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     left: 0;
     padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
     position: fixed;
@@ -2040,6 +2190,18 @@ kbd {
     gap: 2px;
     justify-items: center;
     min-height: 48px;
+    min-width: 0;
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+
+  .mobile-nav-item span {
+    font-size: 0.68rem;
+    line-height: 1.1;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .player-bar {

@@ -9,7 +9,7 @@ PASS
 ## 범위
 
 - 범위: Genesis 10장 `GEN.10.1` - `GEN.10.32`
-- 번역명: `KJV Korean Study Translation`
+- 번역명: `KJV Reader Note`
 - 상태: `ai_translated`
 - 공개 여부: `is_public=false`
 - 절 수: 32

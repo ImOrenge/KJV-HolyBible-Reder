@@ -9,7 +9,7 @@ PILOT APPROVED / READER SWITCH PASS
 ## 실행 범위
 
 - 범위: Genesis 1장 `GEN.1.1` - `GEN.1.31`
-- 번역명: `KJV Korean Study Translation`
+- 번역명: `KJV Reader Note`
 - 상태: `approved`
 - 공개 여부: `is_public=true`
 - 문체 방향: KJV 절 구조와 성경 고유 문체 보존

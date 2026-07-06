@@ -8,7 +8,7 @@ create table if not exists public.bible_verses_ko (
   verse int not null check (verse > 0),
   verse_key text not null,
   text_ko text not null check (length(trim(text_ko)) > 0),
-  translation_name text not null default 'KJV Korean Study Translation',
+  translation_name text not null default 'KJV Reader Note',
   translation_status text not null default 'draft'
     check (translation_status in ('draft', 'ai_translated', 'reviewing', 'reviewed', 'approved', 'needs_check')),
   is_public boolean not null default false,

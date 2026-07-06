@@ -1,6 +1,6 @@
 # Korean Translation Validation Report
 
-Generated: 2026-06-22T02:16:33.524Z
+Generated: 2026-06-27T07:16:15.806Z
 
 ## Result
 
@@ -8,16 +8,16 @@ PASS
 
 ## Scope
 
-- Translation name: `KJV Korean Study Translation`
-- JSONL rows: 1150
-- DB rows in scope: 1150
-- Total rows for translation: 1150
+- Translation name: `KJV Reader Note`
+- JSONL rows: 1007
+- DB rows in scope: 1007
+- Total rows for translation: 31102
 
 ## Checks
 
 | Check | Expected | Actual | Status |
 | --- | ---: | ---: | --- |
-| Expected JSONL rows imported | 1150 | 1150 | PASS |
+| Expected JSONL rows imported | 1007 | 1007 | PASS |
 | Missing expected rows | 0 | 0 | PASS |
 | Orphan Korean rows | 0 | 0 | PASS |
 | Empty Korean text rows | 0 | 0 | PASS |
@@ -28,8 +28,7 @@ PASS
 
 ```json
 {
-  "approved": 31,
-  "ai_translated": 1119
+  "approved": 1007
 }
 ```
 
@@ -37,42 +36,42 @@ PASS
 
 Warnings are review prompts, not structural failures.
 
-- Count: 33
+- Count: 84
 
 | Verse key | KJV term | Expected Korean term |
 | --- | --- | --- |
-| `GEN.1.16` | light | 빛 |
-| `GEN.10.18` | spread abroad | 퍼져 나가 |
-| `GEN.14.4` | twelve | 열둘 |
-| `GEN.15.13` | of a surety | 참으로 |
-| `GEN.16.1` | an handmaid | 몸종 |
-| `GEN.16.16` | six years | 육 년 |
-| `GEN.17.14` | uncircumcised | 할례받지 아니한 자 |
-| `GEN.17.20` | twelve | 열둘 |
-| `GEN.17.8` | wherein thou art a stranger | 체류하는 땅 |
-| `GEN.20.9` | ought not to be done | 행해져서는 아니 |
-| `GEN.24.54` | send me away | 나를 보내 |
-| `GEN.24.55` | few days | 며칠처럼 |
-| `GEN.25.15` | Hadar | 하달 |
-| `GEN.25.16` | twelve | 열둘 |
-| `GEN.25.18` | he died | 그가 죽었느니라 |
-| `GEN.25.34` | despised | 멸시 |
-| `GEN.26.15` | earth | 땅 |
-| `GEN.26.3` | sojourn | 머물 |
-| `GEN.27.44` | few days | 며칠처럼 |
-| `GEN.27.46` | daughters of the land | 그 땅의 딸들 |
-| `GEN.28.13` | God of Abraham thy father | 네 아버지 아브라함의 하나님 |
-| `GEN.29.22` | men of the place | 그곳 사람들 |
-| `GEN.30.19` | Leah conceived | 레아가 임신 |
-| `GEN.30.4` | handmaid | 여종 |
-| `GEN.30.8` | my sister | 내 누이 |
+| `ACT.1.18` | iniquity | 죄악 |
+| `ACT.1.26` | Lot | 롯 |
+| `ACT.1.5` | many days | 많은 날 |
+| `ACT.10.19` | Spirit | 영 |
+| `ACT.11.12` | Spirit | 영 |
+| `ACT.11.28` | Spirit | 영 |
+| `ACT.11.3` | uncircumcised | 할례받지 아니한 자 |
+| `ACT.12.10` | iron | 철 |
+| `ACT.12.11` | Know of a surety | 확실히 알라 |
+| `ACT.12.11` | of a surety | 참으로 |
+| `ACT.12.12` | mark | 표 |
+| `ACT.12.22` | God | 하나님 |
+| `ACT.12.25` | mark | 표 |
+| `ACT.12.3` | unleavened bread | 누룩 없는 빵 |
+| `ACT.13.19` | Lot | 롯 |
+| `ACT.13.20` | prophet | 선지자 |
+| `ACT.13.31` | many days | 많은 날 |
+| `ACT.13.6` | prophet | 선지자 |
+| `ACT.14.11` | likeness | 모양 |
+| `ACT.14.6` | lieth | 엎드려 |
+| `ACT.15.37` | mark | 표 |
+| `ACT.15.39` | mark | 표 |
+| `ACT.16.17` | most high God | 가장 높으신 하나님 |
+| `ACT.16.18` | many days | 많은 날 |
+| `ACT.16.7` | Spirit | 영 |
 
 ## Samples
 
 | Verse key | Status | Public | Korean draft |
 | --- | --- | --- | --- |
-| `GEN.1.1` | approved | true | 태초에 하나님께서 하늘과 땅을 창조하셨느니라. |
-| `GEN.1.2` | approved | true | 땅은 형체가 없고 비었으며, 어둠이 깊음의 표면 위에 있고, 하나님의 영께서 물들의 표면 위에 움직이셨느니라. |
-| `GEN.1.3` | approved | true | 하나님께서 이르시되, 빛이 있으라 하시니, 빛이 있었느니라. |
-| `GEN.1.4` | approved | true | 하나님께서 그 빛을 보시니 좋았더라; 하나님께서 그 빛을 어둠에서 나누셨느니라. |
-| `GEN.1.5` | approved | true | 하나님께서 빛을 낮이라 부르시고 어둠을 밤이라 부르셨느니라. 저녁과 아침이 되니 첫째 날이니라. |
+| `ACT.1.1` | approved | true | 오 데오빌로여, 내가 이전 글에서는 예수께서 행하시고 가르치시기를 시작하신 모든 일에 관하여 기록하였노라, |
+| `ACT.1.2` | approved | true | 곧 그분께서 택하신 사도들에게 성령을 통하여 명령들을 주신 뒤 들려 올라가신 날까지의 일이라. |
+| `ACT.1.3` | approved | true | 그분께서도 자신의 고난 뒤에 많은 확실한 증거들로 자신이 살아 계심을 그들에게 보이시고, 사십 일 동안 그들에게 보이시며 하나님의 왕국에 속한 일들을 말씀하셨느니라. |
+| `ACT.1.4` | approved | true | 또 그들과 함께 모이셨을 때 그들에게 명하사 예루살렘을 떠나지 말고, 너희가 내게서 들은 바 아버지의 약속을 기다리라 하셨느니라. |
+| `ACT.1.5` | approved | true | 이는 요한은 참으로 물로 침례를 주었으나, 너희는 이제 여러 날이 지나지 아니하여 성령으로 침례를 받으리라 하심이라. |

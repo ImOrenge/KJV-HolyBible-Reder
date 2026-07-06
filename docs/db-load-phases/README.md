@@ -23,6 +23,7 @@
 | 6 | [phase-06-app-repository-switch.md](./phase-06-app-repository-switch.md) | fixture 리더를 DB 기반 KJV 리더로 전환 | 필수 |
 | 7 | [phase-07-korean-translation-pipeline.md](./phase-07-korean-translation-pipeline.md) | 한국어 자체 번역 생성/검수 파이프라인 준비 | 후속 필수 |
 | 8 | [phase-08-search-operations-release-gates.md](./phase-08-search-operations-release-gates.md) | 검색, 백업, 재탑재, 공개 출시 게이트 정리 | 필수 |
+| 9 | [phase-09-new-testament-translation-plan.md](./phase-09-new-testament-translation-plan.md) | 신약 전권 한국어 번역 JSONL 생성과 import 실행 계획 | 후속 필수 |
 
 ## 최종 산출물
 

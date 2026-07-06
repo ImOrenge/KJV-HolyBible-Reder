@@ -4,218 +4,472 @@
     "samples": [
       {
         "status": "approved",
-        "textKo": "태초에 하나님께서 하늘과 땅을 창조하셨느니라.",
+        "textKo": "오 데오빌로여, 내가 이전 글에서는 예수께서 행하시고 가르치시기를 시작하신 모든 일에 관하여 기록하였노라,",
         "isPublic": true,
-        "verseKey": "GEN.1.1"
+        "verseKey": "ACT.1.1"
       },
       {
         "status": "approved",
-        "textKo": "땅은 형체가 없고 비었으며, 어둠이 깊음의 표면 위에 있고, 하나님의 영께서 물들의 표면 위에 움직이셨느니라.",
+        "textKo": "곧 그분께서 택하신 사도들에게 성령을 통하여 명령들을 주신 뒤 들려 올라가신 날까지의 일이라.",
         "isPublic": true,
-        "verseKey": "GEN.1.2"
+        "verseKey": "ACT.1.2"
       },
       {
         "status": "approved",
-        "textKo": "하나님께서 이르시되, 빛이 있으라 하시니, 빛이 있었느니라.",
+        "textKo": "그분께서도 자신의 고난 뒤에 많은 확실한 증거들로 자신이 살아 계심을 그들에게 보이시고, 사십 일 동안 그들에게 보이시며 하나님의 왕국에 속한 일들을 말씀하셨느니라.",
         "isPublic": true,
-        "verseKey": "GEN.1.3"
+        "verseKey": "ACT.1.3"
       },
       {
         "status": "approved",
-        "textKo": "하나님께서 그 빛을 보시니 좋았더라; 하나님께서 그 빛을 어둠에서 나누셨느니라.",
+        "textKo": "또 그들과 함께 모이셨을 때 그들에게 명하사 예루살렘을 떠나지 말고, 너희가 내게서 들은 바 아버지의 약속을 기다리라 하셨느니라.",
         "isPublic": true,
-        "verseKey": "GEN.1.4"
+        "verseKey": "ACT.1.4"
       },
       {
         "status": "approved",
-        "textKo": "하나님께서 빛을 낮이라 부르시고 어둠을 밤이라 부르셨느니라. 저녁과 아침이 되니 첫째 날이니라.",
+        "textKo": "이는 요한은 참으로 물로 침례를 주었으나, 너희는 이제 여러 날이 지나지 아니하여 성령으로 침례를 받으리라 하심이라.",
         "isPublic": true,
-        "verseKey": "GEN.1.5"
+        "verseKey": "ACT.1.5"
       }
     ],
-    "fileRows": 1150,
-    "generatedAt": "2026-06-22T02:15:23.246349+00:00",
+    "fileRows": 1007,
+    "generatedAt": "2026-06-27T07:15:08.239833+00:00",
     "orphanKoRows": 0,
     "statusCounts": {
-      "approved": 31,
-      "ai_translated": 1119
+      "approved": 1007
     },
     "termWarnings": [
       {
-        "ko_term": "빛",
-        "kjv_term": "light",
-        "verse_key": "GEN.1.16"
+        "ko_term": "죄악",
+        "kjv_term": "iniquity",
+        "verse_key": "ACT.1.18"
       },
       {
-        "ko_term": "퍼져 나가",
-        "kjv_term": "spread abroad",
-        "verse_key": "GEN.10.18"
+        "ko_term": "롯",
+        "kjv_term": "Lot",
+        "verse_key": "ACT.1.26"
       },
       {
-        "ko_term": "열둘",
-        "kjv_term": "twelve",
-        "verse_key": "GEN.14.4"
+        "ko_term": "많은 날",
+        "kjv_term": "many days",
+        "verse_key": "ACT.1.5"
       },
       {
-        "ko_term": "참으로",
-        "kjv_term": "of a surety",
-        "verse_key": "GEN.15.13"
+        "ko_term": "영",
+        "kjv_term": "Spirit",
+        "verse_key": "ACT.10.19"
       },
       {
-        "ko_term": "몸종",
-        "kjv_term": "an handmaid",
-        "verse_key": "GEN.16.1"
+        "ko_term": "영",
+        "kjv_term": "Spirit",
+        "verse_key": "ACT.11.12"
       },
       {
-        "ko_term": "육 년",
-        "kjv_term": "six years",
-        "verse_key": "GEN.16.16"
+        "ko_term": "영",
+        "kjv_term": "Spirit",
+        "verse_key": "ACT.11.28"
       },
       {
         "ko_term": "할례받지 아니한 자",
         "kjv_term": "uncircumcised",
-        "verse_key": "GEN.17.14"
+        "verse_key": "ACT.11.3"
+      },
+      {
+        "ko_term": "철",
+        "kjv_term": "iron",
+        "verse_key": "ACT.12.10"
+      },
+      {
+        "ko_term": "확실히 알라",
+        "kjv_term": "Know of a surety",
+        "verse_key": "ACT.12.11"
+      },
+      {
+        "ko_term": "참으로",
+        "kjv_term": "of a surety",
+        "verse_key": "ACT.12.11"
+      },
+      {
+        "ko_term": "표",
+        "kjv_term": "mark",
+        "verse_key": "ACT.12.12"
+      },
+      {
+        "ko_term": "하나님",
+        "kjv_term": "God",
+        "verse_key": "ACT.12.22"
+      },
+      {
+        "ko_term": "표",
+        "kjv_term": "mark",
+        "verse_key": "ACT.12.25"
+      },
+      {
+        "ko_term": "누룩 없는 빵",
+        "kjv_term": "unleavened bread",
+        "verse_key": "ACT.12.3"
+      },
+      {
+        "ko_term": "롯",
+        "kjv_term": "Lot",
+        "verse_key": "ACT.13.19"
+      },
+      {
+        "ko_term": "선지자",
+        "kjv_term": "prophet",
+        "verse_key": "ACT.13.20"
+      },
+      {
+        "ko_term": "많은 날",
+        "kjv_term": "many days",
+        "verse_key": "ACT.13.31"
+      },
+      {
+        "ko_term": "선지자",
+        "kjv_term": "prophet",
+        "verse_key": "ACT.13.6"
+      },
+      {
+        "ko_term": "모양",
+        "kjv_term": "likeness",
+        "verse_key": "ACT.14.11"
+      },
+      {
+        "ko_term": "엎드려",
+        "kjv_term": "lieth",
+        "verse_key": "ACT.14.6"
+      },
+      {
+        "ko_term": "표",
+        "kjv_term": "mark",
+        "verse_key": "ACT.15.37"
+      },
+      {
+        "ko_term": "표",
+        "kjv_term": "mark",
+        "verse_key": "ACT.15.39"
+      },
+      {
+        "ko_term": "가장 높으신 하나님",
+        "kjv_term": "most high God",
+        "verse_key": "ACT.16.17"
+      },
+      {
+        "ko_term": "많은 날",
+        "kjv_term": "many days",
+        "verse_key": "ACT.16.18"
+      },
+      {
+        "ko_term": "영",
+        "kjv_term": "Spirit",
+        "verse_key": "ACT.16.7"
+      },
+      {
+        "ko_term": "잔치",
+        "kjv_term": "feast",
+        "verse_key": "ACT.18.21"
+      },
+      {
+        "ko_term": "주의 말씀",
+        "kjv_term": "word of the Lord",
+        "verse_key": "ACT.19.10"
+      },
+      {
+        "ko_term": "방랑자",
+        "kjv_term": "vagabond",
+        "verse_key": "ACT.19.13"
+      },
+      {
+        "ko_term": "은 천 개",
+        "kjv_term": "thousand pieces of silver",
+        "verse_key": "ACT.19.19"
       },
       {
         "ko_term": "열둘",
         "kjv_term": "twelve",
-        "verse_key": "GEN.17.20"
+        "verse_key": "ACT.19.7"
       },
       {
-        "ko_term": "체류하는 땅",
-        "kjv_term": "wherein thou art a stranger",
-        "verse_key": "GEN.17.8"
+        "ko_term": "취하",
+        "kjv_term": "drunken",
+        "verse_key": "ACT.2.15"
       },
       {
-        "ko_term": "행해져서는 아니",
-        "kjv_term": "ought not to be done",
-        "verse_key": "GEN.20.9"
+        "ko_term": "선지자",
+        "kjv_term": "prophet",
+        "verse_key": "ACT.2.16"
       },
       {
-        "ko_term": "나를 보내",
-        "kjv_term": "send me away",
-        "verse_key": "GEN.24.54"
+        "ko_term": "얼굴빛",
+        "kjv_term": "countenance",
+        "verse_key": "ACT.2.28"
       },
       {
-        "ko_term": "며칠처럼",
-        "kjv_term": "few days",
-        "verse_key": "GEN.24.55"
+        "ko_term": "오늘날까지",
+        "kjv_term": "unto this day",
+        "verse_key": "ACT.2.29"
       },
       {
-        "ko_term": "하달",
-        "kjv_term": "Hadar",
-        "verse_key": "GEN.25.15"
+        "ko_term": "선지자",
+        "kjv_term": "prophet",
+        "verse_key": "ACT.2.30"
+      },
+      {
+        "ko_term": "오른편",
+        "kjv_term": "right hand",
+        "verse_key": "ACT.2.33"
+      },
+      {
+        "ko_term": "영",
+        "kjv_term": "Spirit",
+        "verse_key": "ACT.2.4"
+      },
+      {
+        "ko_term": "그의 얼굴을 보",
+        "kjv_term": "see his face",
+        "verse_key": "ACT.20.38"
+      },
+      {
+        "ko_term": "누룩 없는 빵",
+        "kjv_term": "unleavened bread",
+        "verse_key": "ACT.20.6"
+      },
+      {
+        "ko_term": "많은 날",
+        "kjv_term": "many days",
+        "verse_key": "ACT.21.10"
+      },
+      {
+        "ko_term": "선지자",
+        "kjv_term": "prophet",
+        "verse_key": "ACT.21.10"
+      },
+      {
+        "ko_term": "이집트인",
+        "kjv_term": "Egyptian",
+        "verse_key": "ACT.21.38"
+      },
+      {
+        "ko_term": "영",
+        "kjv_term": "Spirit",
+        "verse_key": "ACT.21.4"
       },
       {
         "ko_term": "열둘",
         "kjv_term": "twelve",
-        "verse_key": "GEN.25.16"
+        "verse_key": "ACT.24.11"
       },
       {
-        "ko_term": "그가 죽었느니라",
-        "kjv_term": "he died",
-        "verse_key": "GEN.25.18"
+        "ko_term": "나를 건져",
+        "kjv_term": "Deliver me",
+        "verse_key": "ACT.25.11"
       },
       {
-        "ko_term": "멸시",
-        "kjv_term": "despised",
-        "verse_key": "GEN.25.34"
+        "ko_term": "많은 날",
+        "kjv_term": "many days",
+        "verse_key": "ACT.25.14"
       },
       {
-        "ko_term": "땅",
-        "kjv_term": "earth",
-        "verse_key": "GEN.26.15"
+        "ko_term": "얼굴과 얼굴",
+        "kjv_term": "face to face",
+        "verse_key": "ACT.25.16"
+      },
+      {
+        "ko_term": "사악함",
+        "kjv_term": "wickedness",
+        "verse_key": "ACT.25.5"
+      },
+      {
+        "ko_term": "오늘날까지",
+        "kjv_term": "unto this day",
+        "verse_key": "ACT.26.22"
+      },
+      {
+        "ko_term": "열둘",
+        "kjv_term": "twelve",
+        "verse_key": "ACT.26.7"
+      },
+      {
+        "ko_term": "엎드려",
+        "kjv_term": "lieth",
+        "verse_key": "ACT.27.12"
+      },
+      {
+        "ko_term": "남쪽",
+        "kjv_term": "toward the south",
+        "verse_key": "ACT.27.12"
+      },
+      {
+        "ko_term": "많은 날",
+        "kjv_term": "many days",
+        "verse_key": "ACT.27.20"
+      },
+      {
+        "ko_term": "끊어지",
+        "kjv_term": "cut off",
+        "verse_key": "ACT.27.32"
+      },
+      {
+        "ko_term": "그것들을 지켰",
+        "kjv_term": "kept them",
+        "verse_key": "ACT.27.43"
+      },
+      {
+        "ko_term": "많은 날",
+        "kjv_term": "many days",
+        "verse_key": "ACT.27.7"
+      },
+      {
+        "ko_term": "징조",
+        "kjv_term": "sign",
+        "verse_key": "ACT.28.11"
+      },
+      {
+        "ko_term": "시위대장",
+        "kjv_term": "captain of the guard",
+        "verse_key": "ACT.28.16"
+      },
+      {
+        "ko_term": "선지자",
+        "kjv_term": "prophet",
+        "verse_key": "ACT.28.25"
+      },
+      {
+        "ko_term": "하나님",
+        "kjv_term": "God",
+        "verse_key": "ACT.28.6"
+      },
+      {
+        "ko_term": "선지자",
+        "kjv_term": "prophet",
+        "verse_key": "ACT.3.22"
+      },
+      {
+        "ko_term": "선지자",
+        "kjv_term": "prophet",
+        "verse_key": "ACT.3.23"
+      },
+      {
+        "ko_term": "오른편",
+        "kjv_term": "right hand",
+        "verse_key": "ACT.3.7"
+      },
+      {
+        "ko_term": "오른편",
+        "kjv_term": "right hand",
+        "verse_key": "ACT.5.31"
+      },
+      {
+        "ko_term": "열둘",
+        "kjv_term": "twelve",
+        "verse_key": "ACT.6.2"
+      },
+      {
+        "ko_term": "고난",
+        "kjv_term": "affliction",
+        "verse_key": "ACT.7.11"
+      },
+      {
+        "ko_term": "이집트인",
+        "kjv_term": "Egyptian",
+        "verse_key": "ACT.7.24"
+      },
+      {
+        "ko_term": "이집트인",
+        "kjv_term": "Egyptian",
+        "verse_key": "ACT.7.28"
+      },
+      {
+        "ko_term": "선지자",
+        "kjv_term": "prophet",
+        "verse_key": "ACT.7.37"
+      },
+      {
+        "ko_term": "희생 제사",
+        "kjv_term": "offered sacrifice",
+        "verse_key": "ACT.7.41"
+      },
+      {
+        "ko_term": "하나님",
+        "kjv_term": "God",
+        "verse_key": "ACT.7.43"
+      },
+      {
+        "ko_term": "선지자",
+        "kjv_term": "prophet",
+        "verse_key": "ACT.7.48"
+      },
+      {
+        "ko_term": "아이가 없",
+        "kjv_term": "no child",
+        "verse_key": "ACT.7.5"
+      },
+      {
+        "ko_term": "할례받지 아니한 자",
+        "kjv_term": "uncircumcised",
+        "verse_key": "ACT.7.51"
       },
       {
         "ko_term": "머물",
         "kjv_term": "sojourn",
-        "verse_key": "GEN.26.3"
-      },
-      {
-        "ko_term": "며칠처럼",
-        "kjv_term": "few days",
-        "verse_key": "GEN.27.44"
-      },
-      {
-        "ko_term": "그 땅의 딸들",
-        "kjv_term": "daughters of the land",
-        "verse_key": "GEN.27.46"
-      },
-      {
-        "ko_term": "네 아버지 아브라함의 하나님",
-        "kjv_term": "God of Abraham thy father",
-        "verse_key": "GEN.28.13"
-      },
-      {
-        "ko_term": "그곳 사람들",
-        "kjv_term": "men of the place",
-        "verse_key": "GEN.29.22"
-      },
-      {
-        "ko_term": "레아가 임신",
-        "kjv_term": "Leah conceived",
-        "verse_key": "GEN.30.19"
-      },
-      {
-        "ko_term": "여종",
-        "kjv_term": "handmaid",
-        "verse_key": "GEN.30.4"
-      },
-      {
-        "ko_term": "내 누이",
-        "kjv_term": "my sister",
-        "verse_key": "GEN.30.8"
-      },
-      {
-        "ko_term": "낳기를 그쳤",
-        "kjv_term": "left bearing",
-        "verse_key": "GEN.30.9"
-      },
-      {
-        "ko_term": "기둥으로 세우",
-        "kjv_term": "set it up for a pillar",
-        "verse_key": "GEN.31.45"
-      },
-      {
-        "ko_term": "우리 둘 사이를 판단",
-        "kjv_term": "judge betwixt us",
-        "verse_key": "GEN.31.53"
-      },
-      {
-        "ko_term": "시간이 지나",
-        "kjv_term": "process of time",
-        "verse_key": "GEN.4.3"
-      },
-      {
-        "ko_term": "매우 분노",
-        "kjv_term": "very wroth",
-        "verse_key": "GEN.4.5"
+        "verse_key": "ACT.7.6"
       },
       {
         "ko_term": "열둘",
         "kjv_term": "twelve",
-        "verse_key": "GEN.5.8"
+        "verse_key": "ACT.7.8"
       },
       {
-        "ko_term": "저녁에",
-        "kjv_term": "in the evening",
-        "verse_key": "GEN.8.11"
+        "ko_term": "롯",
+        "kjv_term": "Lot",
+        "verse_key": "ACT.8.21"
       },
       {
-        "ko_term": "십분의 일",
-        "kjv_term": "tenth",
-        "verse_key": "GEN.8.5"
+        "ko_term": "죄악",
+        "kjv_term": "iniquity",
+        "verse_key": "ACT.8.23"
+      },
+      {
+        "ko_term": "선지자",
+        "kjv_term": "prophet",
+        "verse_key": "ACT.8.28"
+      },
+      {
+        "ko_term": "영",
+        "kjv_term": "Spirit",
+        "verse_key": "ACT.8.29"
+      },
+      {
+        "ko_term": "선지자",
+        "kjv_term": "prophet",
+        "verse_key": "ACT.8.30"
+      },
+      {
+        "ko_term": "선지자",
+        "kjv_term": "prophet",
+        "verse_key": "ACT.8.34"
+      },
+      {
+        "ko_term": "많은 날",
+        "kjv_term": "many days",
+        "verse_key": "ACT.9.23"
+      },
+      {
+        "ko_term": "많은 날",
+        "kjv_term": "many days",
+        "verse_key": "ACT.9.43"
       }
     ],
-    "dbRowsInScope": 1150,
+    "dbRowsInScope": 1007,
     "emptyTextRows": 0,
-    "translationName": "KJV Korean Study Translation",
-    "expectedKeyCount": 1150,
-    "termWarningCount": 33,
+    "translationName": "KJV Reader Note",
+    "expectedKeyCount": 1007,
+    "termWarningCount": 84,
     "invalidStatusRows": 0,
     "approvedPrivateRows": 0,
     "missingExpectedRows": [],
     "publicNonApprovedRows": 0,
-    "totalRowsForTranslation": 1150
+    "totalRowsForTranslation": 31102
   }
 }

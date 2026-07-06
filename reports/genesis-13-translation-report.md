@@ -9,7 +9,7 @@ PASS
 ## 범위
 
 - 범위: Genesis 13장 `GEN.13.1` - `GEN.13.18`
-- 번역명: `KJV Korean Study Translation`
+- 번역명: `KJV Reader Note`
 - 상태: `ai_translated`
 - 공개 여부: `is_public=false`
 - 절 수: 18

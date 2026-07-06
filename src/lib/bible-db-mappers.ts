@@ -30,6 +30,23 @@ export type BibleVerseKoRow = {
   updated_at?: string | null;
 };
 
+export type BibleVerseKoSearchRow = {
+  verse_key: string;
+  app_book_id: string;
+  book_order: number;
+  chapter: number;
+  verse: number;
+  text_ko: string;
+  text_en: string;
+  translation_name: string;
+  translation_status: string;
+  score: number;
+  total_count?: number | null;
+  source_name: string;
+  source_module: string;
+  source_module_version: string | null;
+};
+
 export function mapTestament(testament: "OT" | "NT"): Testament {
   return testament === "OT" ? "old" : "new";
 }
@@ -92,4 +109,23 @@ export function mergeApprovedKoRows(verses: Verse[], koRows: BibleVerseKoRow[]):
       translationStatus: ko.translation_status,
     };
   });
+}
+
+export function mapKoSearchRow(row: BibleVerseKoSearchRow): Verse {
+  return {
+    id: row.verse_key,
+    verseKey: row.verse_key,
+    bookId: row.app_book_id,
+    chapter: row.chapter,
+    verse: row.verse,
+    text: row.text_ko,
+    textEn: row.text_en,
+    textKo: row.text_ko,
+    translation: "CrossWire KJV",
+    translationName: row.translation_name,
+    translationStatus: row.translation_status,
+    sourceName: row.source_name,
+    sourceModule: row.source_module,
+    sourceModuleVersion: row.source_module_version,
+  };
 }

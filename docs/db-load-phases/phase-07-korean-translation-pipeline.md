@@ -24,7 +24,7 @@ CrossWire KJV 영어 원문을 기준으로 한국어 자체 번역 초안, 용�
 ## 작업 체크리스트
 
 - [ ] `bible_verses_en`의 모든 row가 한국어 번역 후보 source가 되게 한다.
-- [x] 한국어 번역명 기본값을 확정한다. 예: `KJV Korean Study Translation`.
+- [x] 한국어 번역명 기본값을 확정한다. 예: `KJV Reader Note`.
 - [x] 초기 초안 상태를 `ai_translated` 또는 `draft` 중 하나로 확정한다.
 - [x] 번역 생성 단위를 정한다. 권 단위, 장 단위, 절 단위 중 장 단위를 기본으로 권장한다.
 - [x] 용어 사전 seed를 작성한다.
@@ -81,7 +81,7 @@ draft
 
 - 시작일: 2026-06-21
 - 파일럿 범위: Genesis 1장 `GEN.1.1` - `GEN.1.31`
-- 번역명: `KJV Korean Study Translation`
+- 번역명: `KJV Reader Note`
 - 초본 상태: `ai_translated`
 - 공개 여부: `is_public=false`
 - 문체 기준: `docs/translation-style-guide.md`

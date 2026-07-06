@@ -5,7 +5,7 @@
 ## 범위
 
 - 범위: `GEN.24.1` - `GEN.24.67`
-- 번역명: `KJV Korean Study Translation`
+- 번역명: `KJV Reader Note`
 - 상태: `ai_translated`
 - 공개 여부: `is_public=false`
 - 원천: CrossWire KJV normalized source

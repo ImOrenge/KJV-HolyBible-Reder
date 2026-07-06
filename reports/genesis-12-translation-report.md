@@ -9,7 +9,7 @@ PASS
 ## 범위
 
 - 범위: Genesis 12장 `GEN.12.1` - `GEN.12.20`
-- 번역명: `KJV Korean Study Translation`
+- 번역명: `KJV Reader Note`
 - 상태: `ai_translated`
 - 공개 여부: `is_public=false`
 - 절 수: 20

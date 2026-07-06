@@ -1,4 +1,5 @@
 import type { Book, Verse } from "./types";
+import type { BibleSearchLanguage, BibleSearchSort } from "./korean-search";
 
 export type BibleSource = {
   name: string;
@@ -21,6 +22,10 @@ export type BibleVerseResponse = {
 
 export type BibleSearchResponse = {
   query: string;
+  normalizedQuery?: string;
+  lang?: BibleSearchLanguage;
+  sort?: BibleSearchSort;
+  total?: number;
   source: BibleSource;
   verses: Verse[];
 };

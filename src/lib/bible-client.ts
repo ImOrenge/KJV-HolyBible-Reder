@@ -1,5 +1,6 @@
 import type { BibleChapterResponse, BibleSearchResponse, BibleVerseResponse } from "./bible-api-types";
 import { bibleBookByAppId, type AppBookId } from "./bible-book-codes";
+import type { BibleSearchLanguage, BibleSearchSort } from "./korean-search";
 import type { Verse } from "./types";
 
 const legacyVerseIdPattern = /^([a-z0-9]+)-(\d+)-(\d+)$/i;
@@ -41,8 +42,38 @@ export async function fetchBibleVerse(verseId: string) {
   return fetchJson<BibleVerseResponse>(`/api/bible/verses/${encodeURIComponent(verseKey)}`);
 }
 
-export async function searchBibleVerses(query: string) {
-  return fetchJson<BibleSearchResponse>(`/api/bible/search?q=${encodeURIComponent(query)}`);
+export async function searchBibleVerses(
+  query: string,
+  options: {
+    lang?: BibleSearchLanguage;
+    sort?: BibleSearchSort;
+    testament?: "OT" | "NT" | "all";
+    bookId?: string;
+    limit?: number;
+    offset?: number;
+  } = {},
+) {
+  const params = new URLSearchParams({ q: query });
+  if (options.lang) {
+    params.set("lang", options.lang);
+  }
+  if (options.sort) {
+    params.set("sort", options.sort);
+  }
+  if (options.testament && options.testament !== "all") {
+    params.set("testament", options.testament);
+  }
+  if (options.bookId && options.bookId !== "all") {
+    params.set("bookId", options.bookId);
+  }
+  if (options.limit) {
+    params.set("limit", String(options.limit));
+  }
+  if (options.offset) {
+    params.set("offset", String(options.offset));
+  }
+
+  return fetchJson<BibleSearchResponse>(`/api/bible/search?${params.toString()}`);
 }
 
 export function cacheVerseList(current: Record<string, Verse>, verses: Verse[]) {

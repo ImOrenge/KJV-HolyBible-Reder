@@ -1,4 +1,4 @@
-# KJV Korean Study Translation Style Guide
+# KJV Reader Note Style Guide
 
 ## 목표
 

@@ -9,7 +9,7 @@ const jsonlPath = resolve(args.jsonl ?? "data/translations/ko/kjv-study-draft.js
 const termsPath = resolve(args.terms ?? "supabase/seeds/translation_terms_seed.sql");
 const tempCsvPath = resolve(".tmp/ko-translation-import.csv");
 const tempSqlPath = resolve(".tmp/ko-translation-import.sql");
-const defaultTranslationName = args["translation-name"] ?? "KJV Korean Study Translation";
+const defaultTranslationName = args["translation-name"] ?? "KJV Reader Note";
 const defaultStatus = args.status ?? "ai_translated";
 
 if (!existsSync(jsonlPath)) {
@@ -45,13 +45,24 @@ mkdirSync(dirname(tempCsvPath), { recursive: true });
 writeFileSync(
   tempCsvPath,
   [
-    ["verse_key", "text_ko", "translation_name", "translation_status", "is_public", "reviewer_note"]
+    [
+      "verse_key",
+      "text_ko",
+      "search_text_ko",
+      "search_text_ko_compact",
+      "translation_name",
+      "translation_status",
+      "is_public",
+      "reviewer_note",
+    ]
       .map(csvEscape)
       .join(","),
     ...rows.map((row) =>
       [
         row.verseKey,
         row.textKo,
+        normalizeKoreanSearchText(row.textKo),
+        normalizeKoreanSearchText(row.textKo, { compact: true }),
         row.translationName,
         row.translationStatus,
         row.isPublic ? "true" : "false",
@@ -71,13 +82,15 @@ begin;
 create temp table ko_translation_stage (
   verse_key text not null,
   text_ko text not null,
+  search_text_ko text not null,
+  search_text_ko_compact text not null,
   translation_name text not null,
   translation_status text not null,
   is_public boolean not null,
   reviewer_note text
 );
 
-\\copy ko_translation_stage (verse_key, text_ko, translation_name, translation_status, is_public, reviewer_note) from ${sqlString(csvPathForPsql(tempCsvPath))} with (format csv, header true, encoding 'UTF8');
+\\copy ko_translation_stage (verse_key, text_ko, search_text_ko, search_text_ko_compact, translation_name, translation_status, is_public, reviewer_note) from ${sqlString(csvPathForPsql(tempCsvPath))} with (format csv, header true, encoding 'UTF8');
 
 create temp table ko_translation_changes as
 select
@@ -100,6 +113,8 @@ insert into public.bible_verses_ko (
   verse,
   verse_key,
   text_ko,
+  search_text_ko,
+  search_text_ko_compact,
   translation_name,
   translation_status,
   is_public,
@@ -114,6 +129,8 @@ select
   en.verse,
   en.verse_key,
   stage.text_ko,
+  stage.search_text_ko,
+  stage.search_text_ko_compact,
   stage.translation_name,
   stage.translation_status,
   stage.is_public,
@@ -128,10 +145,14 @@ on conflict (verse_key, translation_name) do update set
   chapter = excluded.chapter,
   verse = excluded.verse,
   text_ko = excluded.text_ko,
+  search_text_ko = excluded.search_text_ko,
+  search_text_ko_compact = excluded.search_text_ko_compact,
   translation_status = excluded.translation_status,
   is_public = excluded.is_public,
   reviewer_note = excluded.reviewer_note,
   updated_at = now();
+
+select public.refresh_bible_verse_search_terms_ko(${sqlString(defaultTranslationName)});
 
 insert into public.translation_reviews (
   ko_verse_id,
@@ -220,4 +241,15 @@ function parseDraftLine(line, lineNumber) {
 function csvEscape(value) {
   const text = String(value ?? "");
   return `"${text.replaceAll('"', '""')}"`;
+}
+
+function normalizeKoreanSearchText(value, options = {}) {
+  const text = String(value ?? "")
+    .normalize("NFKC")
+    .toLocaleLowerCase("ko-KR")
+    .replace(/[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~“”‘’《》〈〉「」『』…·ㆍ—–―]+/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim();
+
+  return options.compact ? text.replace(/\s+/gu, "") : text;
 }

@@ -4,7 +4,7 @@
 - Phase: Phase 07 Korean draft translation
 - Scope: `GEN.33.1` - `GEN.33.20`
 - Source: CrossWire KJV normalized module
-- Translation: `KJV Korean Study Translation`
+- Translation: `KJV Reader Note`
 - Status: `ai_translated`
 - Public: `false`
 - Result: PASS

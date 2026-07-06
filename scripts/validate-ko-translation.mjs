@@ -9,7 +9,7 @@ const jsonlPath = resolve(args.jsonl ?? "data/translations/ko/kjv-study-draft.js
 const reportPath = resolve(args.report ?? "reports/ko-translation-validation.md");
 const errorsPath = resolve(args.errors ?? "reports/ko-translation-errors.json");
 const tempSqlPath = resolve(".tmp/ko-translation-validation.sql");
-const translationName = args["translation-name"] ?? "KJV Korean Study Translation";
+const translationName = args["translation-name"] ?? "KJV Reader Note";
 
 const fileRows = existsSync(jsonlPath)
   ? readFileSync(jsonlPath, "utf8")
@@ -1557,6 +1557,34 @@ term_warnings as (
   join term_checks
     on lower(en.text_en) ~ ('(^|[^[:alpha:]])' || lower(term_checks.kjv_term) || '([^[:alpha:]]|$)')
   where ko.text_ko not like '%' || term_checks.ko_term || '%'
+),
+search_smoke_terms(query_text) as (
+  values
+    ('하나님'),
+    ('예수'),
+    ('예수 그리스도'),
+    ('성령'),
+    ('믿음'),
+    ('은혜'),
+    ('구원'),
+    ('생명'),
+    ('왕국'),
+    ('복음')
+),
+search_smoke_tests as (
+  select
+    query_text,
+    (
+      select count(*)
+      from ko_scope ko
+      where ko.translation_status = 'approved'
+        and ko.is_public = true
+        and (
+          ko.search_text_ko ilike '%' || public.normalize_korean_search_text(query_text, false) || '%'
+          or ko.search_text_ko_compact ilike '%' || public.normalize_korean_search_text(query_text, true) || '%'
+        )
+    ) as match_count
+  from search_smoke_terms
 )
 select jsonb_build_object(
   'generatedAt', now(),
@@ -1597,6 +1625,20 @@ select jsonb_build_object(
     from ko_scope
     where translation_status = 'approved' and is_public = false
   ),
+  'publicApprovedMissingSearchTextRows', (
+    select count(*)
+    from ko_scope
+    where translation_status = 'approved'
+      and is_public = true
+      and nullif(search_text_ko, '') is null
+  ),
+  'publicApprovedMissingSearchCompactRows', (
+    select count(*)
+    from ko_scope
+    where translation_status = 'approved'
+      and is_public = true
+      and nullif(search_text_ko_compact, '') is null
+  ),
   'statusCounts', (
     select coalesce(jsonb_object_agg(translation_status, row_count order by translation_status), '{}'::jsonb)
     from (
@@ -1609,6 +1651,10 @@ select jsonb_build_object(
   'termWarnings', (
     select coalesce(jsonb_agg(term_warnings order by verse_key, kjv_term), '[]'::jsonb)
     from term_warnings
+  ),
+  'searchSmokeTests', (
+    select coalesce(jsonb_agg(search_smoke_tests order by query_text), '[]'::jsonb)
+    from search_smoke_tests
   ),
   'samples', (
     select coalesce(jsonb_agg(
@@ -1654,6 +1700,8 @@ const checks = [
   ["Empty Korean text rows", 0, result.emptyTextRows],
   ["Invalid status rows", 0, result.invalidStatusRows],
   ["Public non-approved rows", 0, result.publicNonApprovedRows],
+  ["Public approved rows missing search_text_ko", 0, result.publicApprovedMissingSearchTextRows],
+  ["Public approved rows missing search_text_ko_compact", 0, result.publicApprovedMissingSearchCompactRows],
 ];
 
 const errors = checks
@@ -1672,6 +1720,12 @@ const termWarningRows = result.termWarnings.length
   ? result.termWarnings
       .slice(0, 25)
       .map((warning) => `| \`${warning.verse_key}\` | ${warning.kjv_term} | ${warning.ko_term} |`)
+      .join("\n")
+  : "| - | - | - |";
+
+const searchSmokeRows = result.searchSmokeTests.length
+  ? result.searchSmokeTests
+      .map((smoke) => `| ${smoke.query_text} | ${smoke.match_count} | ${smoke.match_count > 0 ? "PASS" : "REVIEW"} |`)
       .join("\n")
   : "| - | - | - |";
 
@@ -1711,6 +1765,14 @@ Warnings are review prompts, not structural failures.
 | Verse key | KJV term | Expected Korean term |
 | --- | --- | --- |
 ${termWarningRows}
+
+## Search Smoke Tests
+
+Search smoke tests are review prompts. Zero matches may be valid for partial translation scopes, but must be reviewed before release.
+
+| Query | Matches | Status |
+| --- | ---: | --- |
+${searchSmokeRows}
 
 ## Samples
 

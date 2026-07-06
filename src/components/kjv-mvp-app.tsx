@@ -33,7 +33,7 @@ import {
   Volume2,
   X,
 } from "lucide-react";
-import { type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type PointerEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   cacheVerseList,
@@ -68,6 +68,7 @@ import {
   saveUserData,
 } from "@/lib/user-data-repository";
 import type { BibleSource } from "@/lib/bible-api-types";
+import type { BibleSearchLanguage, BibleSearchSort } from "@/lib/korean-search";
 import type {
   CompletedChapter,
   FavoriteList,
@@ -85,6 +86,7 @@ import type {
 
 type ViewKey = "dashboard" | "reader" | "progress" | "highlights" | "favorites" | "search" | "settings";
 type MobileHomeTab = "today" | "progress" | "activity" | "study";
+type SettingsSectionKey = "account" | "tts" | "text" | "view";
 type LoadStatus = "idle" | "loading" | "ready" | "error";
 type TtsPlaybackState = "idle" | "playing" | "paused" | "error";
 type FavoriteSortKey = "recent" | "bible" | "usage";
@@ -109,7 +111,14 @@ const mobileHomeTabs: Array<{ key: MobileHomeTab; label: string; icon: React.Com
   { key: "study", label: "공부", icon: StickyNote },
 ];
 
-const mobileQuickMoveViews = new Set<ViewKey>(["progress", "highlights", "search", "settings"]);
+const settingsSections: Array<{ key: SettingsSectionKey; label: string; icon: React.ComponentType<{ size?: number }> }> = [
+  { key: "account", label: "계정 설정", icon: LogIn },
+  { key: "tts", label: "TTS", icon: Volume2 },
+  { key: "text", label: "텍스트", icon: Type },
+  { key: "view", label: "보기 모드", icon: BookOpen },
+];
+
+const mobileQuickMoveViews = new Set<ViewKey>(["progress", "highlights", "search"]);
 const viewKeys = new Set<ViewKey>(tabs.map((tab) => tab.key));
 const mobileHomeTabKeys = new Set<MobileHomeTab>(mobileHomeTabs.map((tab) => tab.key));
 
@@ -216,6 +225,133 @@ function getVerseDisplayText(verse: Verse, language: TranslationLanguage) {
   return verse.textEn ?? verse.text;
 }
 
+const SEARCH_HIGHLIGHT_SEPARATOR_PATTERN = /[\s.,;:!?'"“”‘’()[\]{}<>·ㆍ，。．…\-–—]/u;
+const SEARCH_HIGHLIGHT_SPLIT_PATTERN = /[\s.,;:!?'"“”‘’()[\]{}<>·ㆍ，。．…\-–—]+/u;
+
+function isSearchHighlightSeparator(value: string) {
+  return SEARCH_HIGHLIGHT_SEPARATOR_PATTERN.test(value);
+}
+
+function compactSearchHighlightTerm(value: string) {
+  return Array.from(value.normalize("NFKC"))
+    .filter((char) => !isSearchHighlightSeparator(char))
+    .join("");
+}
+
+function getSearchHighlightTerms(query: string) {
+  const normalizedQuery = query.normalize("NFKC").trim().replace(/\s+/g, " ");
+  const compactQuery = compactSearchHighlightTerm(normalizedQuery);
+
+  if (compactQuery.length < 2) {
+    return [];
+  }
+
+  const terms = [normalizedQuery, compactQuery, ...normalizedQuery.split(SEARCH_HIGHLIGHT_SPLIT_PATTERN)];
+  const seen = new Set<string>();
+
+  return terms
+    .map((term) => term.trim())
+    .filter((term) => compactSearchHighlightTerm(term).length >= 2)
+    .filter((term) => {
+      const key = compactSearchHighlightTerm(term).toLocaleLowerCase();
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => compactSearchHighlightTerm(b).length - compactSearchHighlightTerm(a).length);
+}
+
+function collectSearchHighlightRanges(text: string, query: string) {
+  const terms = getSearchHighlightTerms(query);
+  const ranges: Array<{ start: number; end: number }> = [];
+  const lowerText = text.normalize("NFKC").toLocaleLowerCase();
+
+  for (const term of terms) {
+    const lowerTerm = term.normalize("NFKC").toLocaleLowerCase();
+    let start = lowerText.indexOf(lowerTerm);
+
+    while (start !== -1) {
+      ranges.push({ start, end: start + lowerTerm.length });
+      start = lowerText.indexOf(lowerTerm, start + lowerTerm.length);
+    }
+  }
+
+  const compactChars: Array<{ value: string; start: number; end: number }> = [];
+  let offset = 0;
+
+  for (const char of Array.from(text)) {
+    const start = offset;
+    const end = start + char.length;
+    offset = end;
+
+    if (!isSearchHighlightSeparator(char)) {
+      compactChars.push({ value: char.normalize("NFKC").toLocaleLowerCase(), start, end });
+    }
+  }
+
+  const compactText = compactChars.map((char) => char.value).join("");
+
+  for (const term of terms) {
+    const compactTerm = compactSearchHighlightTerm(term).toLocaleLowerCase();
+    const compactLength = Array.from(compactTerm).length;
+    let compactStart = compactText.indexOf(compactTerm);
+
+    while (compactStart !== -1) {
+      const compactEnd = compactStart + compactLength - 1;
+      const firstChar = compactChars[compactStart];
+      const lastChar = compactChars[compactEnd];
+
+      if (firstChar && lastChar) {
+        ranges.push({ start: firstChar.start, end: lastChar.end });
+      }
+
+      compactStart = compactText.indexOf(compactTerm, compactStart + compactLength);
+    }
+  }
+
+  return ranges
+    .sort((a, b) => a.start - b.start || b.end - a.end)
+    .reduce<Array<{ start: number; end: number }>>((merged, range) => {
+      const previous = merged.at(-1);
+      if (!previous || range.start >= previous.end) {
+        merged.push(range);
+      }
+      return merged;
+    }, []);
+}
+
+function renderSearchHighlightedText(text: string, query: string): ReactNode {
+  const ranges = collectSearchHighlightRanges(text, query);
+
+  if (!ranges.length) {
+    return text;
+  }
+
+  const nodes: ReactNode[] = [];
+  let cursor = 0;
+
+  ranges.forEach((range, index) => {
+    if (cursor < range.start) {
+      nodes.push(text.slice(cursor, range.start));
+    }
+
+    nodes.push(
+      <mark className="search-hit-highlight" key={`${range.start}-${range.end}-${index}`}>
+        {text.slice(range.start, range.end)}
+      </mark>,
+    );
+    cursor = range.end;
+  });
+
+  if (cursor < text.length) {
+    nodes.push(text.slice(cursor));
+  }
+
+  return nodes;
+}
+
 function getVerseDisplaySource(verse: Verse, language: TranslationLanguage) {
   if (language === "ko") {
     return verse.textKo ? (verse.translationName ?? "KJV Reader Note") : "한국어 본문 없음";
@@ -319,6 +455,7 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
   const [mounted, setMounted] = useState(false);
   const [activeView, setActiveView] = useState<ViewKey>("dashboard");
   const [mobileHomeTab, setMobileHomeTab] = useState<MobileHomeTab>("today");
+  const [activeSettingsSection, setActiveSettingsSection] = useState<SettingsSectionKey>("account");
   const [userData, setUserData] = useState<UserDataState>(() => createInitialUserData(user.id));
   const [currentBookId, setCurrentBookId] = useState("gen");
   const [currentChapter, setCurrentChapter] = useState(1);
@@ -354,7 +491,12 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
   const [copyStatus, setCopyStatus] = useState("");
   const [showDemoImportPrompt, setShowDemoImportPrompt] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchLanguage, setSearchLanguage] = useState<BibleSearchLanguage>("ko");
+  const [searchSort, setSearchSort] = useState<BibleSearchSort>("canonical");
+  const [searchTestament, setSearchTestament] = useState<"all" | "OT" | "NT">("all");
+  const [searchBookFilter, setSearchBookFilter] = useState("all");
   const [searchResults, setSearchResults] = useState<Verse[]>([]);
+  const [searchTotal, setSearchTotal] = useState(0);
   const [searchStatus, setSearchStatus] = useState<LoadStatus>("idle");
   const [searchError, setSearchError] = useState("");
   const [chapterVerses, setChapterVerses] = useState<Verse[]>([]);
@@ -502,6 +644,19 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
         return new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime();
       });
   }, [favoriteSearchQuery, favoriteSortKey, readingLanguage, resolveVerseById, selectedListFavorites, userData.tags]);
+  const searchBookOptions = useMemo(
+    () =>
+      books.filter((book) => {
+        if (searchTestament === "OT") {
+          return book.testament === "old";
+        }
+        if (searchTestament === "NT") {
+          return book.testament === "new";
+        }
+        return true;
+      }),
+    [books, searchTestament],
+  );
 
   const oldChapterTotal = useMemo(() => oldBooks.reduce((total, book) => total + book.chapterCount, 0), [oldBooks]);
   const newChapterTotal = useMemo(() => newBooks.reduce((total, book) => total + book.chapterCount, 0), [newBooks]);
@@ -787,6 +942,7 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
     const query = searchQuery.trim();
     if (query.length < 2) {
       setSearchResults([]);
+      setSearchTotal(0);
       setSearchStatus("idle");
       setSearchError("");
       return;
@@ -798,12 +954,19 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
 
     const timer = window.setTimeout(async () => {
       try {
-        const response = await searchBibleVerses(query);
+        const response = await searchBibleVerses(query, {
+          lang: searchLanguage,
+          sort: searchSort,
+          testament: searchTestament,
+          bookId: searchBookFilter,
+          limit: 50,
+        });
         if (cancelled) {
           return;
         }
 
         setSearchResults(response.verses);
+        setSearchTotal(response.total ?? response.verses.length);
         rememberVerses(response.verses);
         setSearchStatus("ready");
       } catch (error) {
@@ -812,6 +975,7 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
         }
 
         setSearchResults([]);
+        setSearchTotal(0);
         setSearchStatus("error");
         setSearchError(error instanceof Error ? error.message : "검색에 실패했습니다.");
       }
@@ -821,7 +985,7 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [searchQuery]);
+  }, [searchBookFilter, searchLanguage, searchQuery, searchSort, searchTestament]);
 
   useEffect(() => {
     if (!mounted) {
@@ -1745,8 +1909,8 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
     setPendingDeleteFavoriteListId(null);
   }
 
-  async function copyVerse(verse: Verse) {
-    const text = copyTextForVerse(verse, readingLanguage);
+  async function copyVerse(verse: Verse, language: TranslationLanguage = readingLanguage) {
+    const text = copyTextForVerse(verse, language);
     try {
       await navigator.clipboard.writeText(text);
       setCopyStatus(`${formatReference(verse)} 복사 완료`);
@@ -1989,22 +2153,28 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
     return ["INPUT", "TEXTAREA", "SELECT"].includes(element.tagName) || element.isContentEditable;
   }
 
-  function renderReferenceItem(verse: Verse, actionLabel = "열기") {
+  function renderReferenceItem(
+    verse: Verse,
+    actionLabel = "열기",
+    displayLanguage: TranslationLanguage = readingLanguage,
+    searchHighlightQuery = "",
+  ) {
     const highlight = highlightsByVerse.get(verse.id);
     const favorite = favoritesByVerse.get(verse.id);
+    const displayText = getVerseDisplayText(verse, displayLanguage);
     return (
       <div className="list-row" key={verse.id}>
         <div>
           <div className="row-title">{formatReference(verse)}</div>
-          <p>{getVerseDisplayText(verse, readingLanguage)}</p>
+          <p>{searchHighlightQuery ? renderSearchHighlightedText(displayText, searchHighlightQuery) : displayText}</p>
           <div className="row-meta">
             {highlight ? <span className={`chip chip-${highlight.color}`}>강조</span> : null}
             {favorite ? <span className="chip chip-ink">인용</span> : null}
-            {readingLanguage === "ko" && !verse.textKo ? <span className="chip chip-ink">EN fallback</span> : null}
+            {displayLanguage === "ko" && !verse.textKo ? <span className="chip chip-ink">EN fallback</span> : null}
           </div>
         </div>
         <div className="row-actions">
-          <button className="icon-button" type="button" onClick={() => copyVerse(verse)} aria-label="구절 복사">
+          <button className="icon-button" type="button" onClick={() => copyVerse(verse, displayLanguage)} aria-label="구절 복사">
             <Copy size={16} />
           </button>
           <button className="small-button" type="button" onClick={() => openChapter(verse.bookId, verse.chapter, verse.verse)}>
@@ -2034,6 +2204,7 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
       ? `${getChapterLabel(noteTarget.bookId, noteTarget.chapter)} ${noteTarget.verse}절 노트`
       : `${getChapterLabel(noteTarget.bookId, noteTarget.chapter)} 노트`
     : "";
+  const searchDisplayLanguage: TranslationLanguage = searchLanguage === "en" ? "en" : "ko";
   const commandItems = [
     {
       label: "이어 읽기",
@@ -2925,14 +3096,65 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
         {activeView === "search" ? (
           <section className="panel wide-panel">
             <div className="panel-heading">
-              <span>KJV 검색</span>
+              <span>본문 검색</span>
               <Search size={18} />
             </div>
-            <div className="search-row">
-              <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="예: grace, love, John" />
+            <div className="search-panel-controls">
+              <label className="search-field">
+                키워드
+                <input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder={searchLanguage === "en" ? "예: grace, love, John" : "예: 믿음, 예수 그리스도, 성령"}
+                  type="search"
+                />
+              </label>
+              <div className="filter-row search-filter-row">
+                <label>
+                  언어
+                  <select value={searchLanguage} onChange={(event) => setSearchLanguage(event.target.value as BibleSearchLanguage)}>
+                    <option value="ko">한국어</option>
+                    <option value="en">KJV 영어</option>
+                    <option value="all">전체</option>
+                  </select>
+                </label>
+                <label>
+                  정렬
+                  <select value={searchSort} onChange={(event) => setSearchSort(event.target.value as BibleSearchSort)}>
+                    <option value="canonical">성경 순서</option>
+                    <option value="relevance">관련도</option>
+                  </select>
+                </label>
+                <label>
+                  범위
+                  <select
+                    value={searchTestament}
+                    onChange={(event) => {
+                      setSearchTestament(event.target.value as "all" | "OT" | "NT");
+                      setSearchBookFilter("all");
+                    }}
+                  >
+                    <option value="all">전체</option>
+                    <option value="OT">구약</option>
+                    <option value="NT">신약</option>
+                  </select>
+                </label>
+                <label>
+                  성경 권
+                  <select value={searchBookFilter} onChange={(event) => setSearchBookFilter(event.target.value)}>
+                    <option value="all">전체 성경</option>
+                    {searchBookOptions.map((book) => (
+                      <option key={book.id} value={book.id}>{book.nameKo}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </div>
+            <div className="search-summary" aria-live="polite">
+              {searchStatus === "ready" && searchQuery.trim().length >= 2 ? `${searchResults.length}/${searchTotal}개 결과` : "2글자 이상 입력"}
             </div>
             <div className="list-stack">
-              {searchResults.map((verse) => renderReferenceItem(verse))}
+              {searchResults.map((verse) => renderReferenceItem(verse, "열기", searchDisplayLanguage, searchQuery))}
               {searchStatus === "loading" ? <p className="empty-text">검색 중입니다.</p> : null}
               {searchStatus === "error" ? <p className="empty-text">{searchError}</p> : null}
               {searchStatus === "ready" && searchQuery.trim().length >= 2 && !searchResults.length ? (
@@ -2944,119 +3166,184 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
 
         {activeView === "settings" ? (
           <section className="settings-grid">
-            <div className="panel">
+            <div className="panel settings-shell">
               <div className="panel-heading">
-                <span>읽기 설정</span>
-                <Type size={18} />
+                <span>설정</span>
+                <Settings size={18} />
               </div>
-              <label>
-                글자 크기
-                <input
-                  max={26}
-                  min={15}
-                  type="range"
-                  value={userData.settings.fontSize}
-                  onChange={(event) => updateSettings({ fontSize: Number(event.target.value) })}
-                />
-              </label>
-              <label>
-                줄 간격
-                <input
-                  max={2.2}
-                  min={1.35}
-                  step={0.05}
-                  type="range"
-                  value={userData.settings.lineHeight}
-                  onChange={(event) => updateSettings({ lineHeight: Number(event.target.value) })}
-                />
-              </label>
-              <label>
-                보기 모드
-                <select
-                  value={userData.settings.readingMode}
-                  onChange={(event) => updateSettings({ readingMode: event.target.value as UserDataState["settings"]["readingMode"] })}
-                >
-                  <option value="normal">일반 보기</option>
-                  <option value="verse-numbers">절 번호 강조</option>
-                  <option value="focus">집중 읽기</option>
-                </select>
-              </label>
-              <button
-                className="secondary-button"
-                type="button"
-                onClick={() => updateSettings({ theme: userData.settings.theme === "dark" ? "light" : "dark" })}
-              >
-                {userData.settings.theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-                {userData.settings.theme === "dark" ? "라이트 모드" : "다크 모드"}
-              </button>
-            </div>
 
-            <div className="panel">
-              <div className="panel-heading">
-                <span>TTS 설정</span>
-                <Volume2 size={18} />
-              </div>
-              <label>
-                속도
-                <select
-                  value={userData.settings.ttsSpeed}
-                  onChange={(event) => updateSettings({ ttsSpeed: Number(event.target.value) })}
-                >
-                  <option value={0.75}>0.75x</option>
-                  <option value={1}>1.0x</option>
-                  <option value={1.25}>1.25x</option>
-                  <option value={1.5}>1.5x</option>
-                </select>
-              </label>
-              <label>
-                음성
-                <select value={userData.settings.ttsVoice} onChange={(event) => updateSettings({ ttsVoice: event.target.value })}>
-                  <option value="">브라우저 기본</option>
-                  {voices.map((voice) => (
-                    <option key={voice.name} value={voice.name}>{voice.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="toggle-row">
-                <input
-                  checked={userData.settings.ttsRepeat}
-                  onChange={(event) => updateSettings({ ttsRepeat: event.target.checked })}
-                  type="checkbox"
-                />
-                반복 재생
-              </label>
-              <label className="toggle-row">
-                <input
-                  checked={userData.settings.ttsAutoScroll}
-                  onChange={(event) => updateSettings({ ttsAutoScroll: event.target.checked })}
-                  type="checkbox"
-                />
-                읽는 절로 자동 이동
-              </label>
-              <div className="tts-controls">
-                <button className="icon-button" type="button" onClick={() => playSpeechQueue(chapterVerses, 0, "현재 장")} aria-label="재생">
-                  <Play size={17} />
-                </button>
-                <button className="icon-button" type="button" onClick={isPaused ? resumeSpeech : pauseSpeech} aria-label="일시정지 또는 재개">
-                  <Pause size={17} />
-                </button>
-                <button className="icon-button" type="button" onClick={stopSpeech} aria-label="정지">
-                  <Square size={17} />
-                </button>
-              </div>
-              <p className="status-line">{ttsStatus}</p>
-            </div>
+              <div className="settings-menu" role="group" aria-label="설정 메뉴">
+                {settingsSections.map((section) => {
+                  const Icon = section.icon;
+                  const isActiveSection = activeSettingsSection === section.key;
 
-            <div className="panel">
-              <div className="panel-heading">
-                <span>로컬 데이터</span>
-                <RotateCcw size={18} />
+                  return (
+                    <button
+                      aria-pressed={isActiveSection}
+                      className={isActiveSection ? "settings-menu-button active" : "settings-menu-button"}
+                      key={section.key}
+                      type="button"
+                      onClick={() => setActiveSettingsSection(section.key)}
+                    >
+                      <Icon size={17} />
+                      <span>{section.label}</span>
+                    </button>
+                  );
+                })}
               </div>
-              <p className="empty-text">localStorage 기반 v0 상태입니다.</p>
-              <button className="secondary-button danger" type="button" onClick={resetLocalData}>
-                <RotateCcw size={16} />
-                초기화
-              </button>
+
+              <div className="settings-section">
+                {activeSettingsSection === "account" ? (
+                  <>
+                    <div className="panel-heading settings-section-heading">
+                      <span>계정 설정</span>
+                      {isAuthenticated ? <LogOut size={18} /> : <LogIn size={18} />}
+                    </div>
+                    <div className="settings-account-summary">
+                      <div>
+                        <span className="eyebrow">현재 계정</span>
+                        <strong>{user.displayName}</strong>
+                        <small>{isAuthenticated ? user.email || "로그인 상태" : "비로그인 리더"}</small>
+                      </div>
+                      <span className={isAuthenticated ? "settings-status active" : "settings-status"}>
+                        {isAuthenticated ? "로그인" : "비로그인"}
+                      </span>
+                    </div>
+                    <div className="settings-action-grid">
+                      <button className="secondary-button" type="button" onClick={logout}>
+                        {isAuthenticated ? <LogOut size={16} /> : <LogIn size={16} />}
+                        {isAuthenticated ? "로그아웃" : "로그인"}
+                      </button>
+                      <button className="secondary-button danger" type="button" onClick={resetLocalData}>
+                        <RotateCcw size={16} />
+                        로컬 데이터 초기화
+                      </button>
+                    </div>
+                  </>
+                ) : null}
+
+                {activeSettingsSection === "tts" ? (
+                  <>
+                    <div className="panel-heading settings-section-heading">
+                      <span>TTS 설정</span>
+                      <Volume2 size={18} />
+                    </div>
+                    <label>
+                      속도
+                      <select
+                        value={userData.settings.ttsSpeed}
+                        onChange={(event) => updateSettings({ ttsSpeed: Number(event.target.value) })}
+                      >
+                        <option value={0.75}>0.75x</option>
+                        <option value={1}>1.0x</option>
+                        <option value={1.25}>1.25x</option>
+                        <option value={1.5}>1.5x</option>
+                      </select>
+                    </label>
+                    <label>
+                      음성
+                      <select value={userData.settings.ttsVoice} onChange={(event) => updateSettings({ ttsVoice: event.target.value })}>
+                        <option value="">브라우저 기본</option>
+                        {voices.map((voice) => (
+                          <option key={voice.name} value={voice.name}>{voice.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="toggle-row">
+                      <input
+                        checked={userData.settings.ttsRepeat}
+                        onChange={(event) => updateSettings({ ttsRepeat: event.target.checked })}
+                        type="checkbox"
+                      />
+                      반복 재생
+                    </label>
+                    <label className="toggle-row">
+                      <input
+                        checked={userData.settings.ttsAutoScroll}
+                        onChange={(event) => updateSettings({ ttsAutoScroll: event.target.checked })}
+                        type="checkbox"
+                      />
+                      읽는 절로 자동 이동
+                    </label>
+                    <div className="tts-controls">
+                      <button className="icon-button" type="button" onClick={() => playSpeechQueue(chapterVerses, 0, "현재 장")} aria-label="재생">
+                        <Play size={17} />
+                      </button>
+                      <button className="icon-button" type="button" onClick={isPaused ? resumeSpeech : pauseSpeech} aria-label="일시정지 또는 재개">
+                        <Pause size={17} />
+                      </button>
+                      <button className="icon-button" type="button" onClick={stopSpeech} aria-label="정지">
+                        <Square size={17} />
+                      </button>
+                    </div>
+                    <p className="status-line">{ttsStatus}</p>
+                  </>
+                ) : null}
+
+                {activeSettingsSection === "text" ? (
+                  <>
+                    <div className="panel-heading settings-section-heading">
+                      <span>텍스트 설정</span>
+                      <Type size={18} />
+                    </div>
+                    <label>
+                      <span className="settings-value-row">
+                        <span>글자 크기</span>
+                        <strong>{userData.settings.fontSize}px</strong>
+                      </span>
+                      <input
+                        max={26}
+                        min={15}
+                        type="range"
+                        value={userData.settings.fontSize}
+                        onChange={(event) => updateSettings({ fontSize: Number(event.target.value) })}
+                      />
+                    </label>
+                    <label>
+                      <span className="settings-value-row">
+                        <span>줄 간격</span>
+                        <strong>{userData.settings.lineHeight.toFixed(2)}</strong>
+                      </span>
+                      <input
+                        max={2.2}
+                        min={1.35}
+                        step={0.05}
+                        type="range"
+                        value={userData.settings.lineHeight}
+                        onChange={(event) => updateSettings({ lineHeight: Number(event.target.value) })}
+                      />
+                    </label>
+                  </>
+                ) : null}
+
+                {activeSettingsSection === "view" ? (
+                  <>
+                    <div className="panel-heading settings-section-heading">
+                      <span>보기 모드</span>
+                      <BookOpen size={18} />
+                    </div>
+                    <label>
+                      읽기 모드
+                      <select
+                        value={userData.settings.readingMode}
+                        onChange={(event) => updateSettings({ readingMode: event.target.value as UserDataState["settings"]["readingMode"] })}
+                      >
+                        <option value="normal">일반 보기</option>
+                        <option value="verse-numbers">절 번호 강조</option>
+                        <option value="focus">집중 읽기</option>
+                      </select>
+                    </label>
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      onClick={() => updateSettings({ theme: userData.settings.theme === "dark" ? "light" : "dark" })}
+                    >
+                      {userData.settings.theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+                      {userData.settings.theme === "dark" ? "라이트 모드" : "다크 모드"}
+                    </button>
+                  </>
+                ) : null}
+              </div>
             </div>
           </section>
         ) : null}
@@ -3094,6 +3381,14 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
         >
           <Command size={18} />
           <span>빠른이동</span>
+        </button>
+        <button
+          className={activeView === "settings" ? "mobile-nav-item active" : "mobile-nav-item"}
+          type="button"
+          onClick={() => setActiveView("settings")}
+        >
+          <Settings size={18} />
+          <span>설정</span>
         </button>
       </nav>
 

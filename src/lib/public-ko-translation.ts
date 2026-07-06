@@ -5,7 +5,7 @@ export function getConfiguredPublicKoTranslationName() {
     process.env.KJV_PUBLIC_KO_TRANSLATION_NAME ??
     process.env.NEXT_PUBLIC_KJV_PUBLIC_KO_TRANSLATION_NAME;
 
-  return configured?.trim() || null;
+  return configured?.trim() || DEFAULT_PUBLIC_KO_TRANSLATION_NAME;
 }
 
 export function isConfiguredPublicKoTranslation(translationName: string) {
