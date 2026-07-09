@@ -20,7 +20,7 @@ const config: ExpoConfig = {
     supportsTablet: true,
   },
   android: {
-    package: "app.kjvreadernote.mobile",
+    package: "com.kjvreader",
     versionCode: 4,
   },
   web: {
