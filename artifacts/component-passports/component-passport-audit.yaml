@@ -1,0 +1,118 @@
+audit:
+  id: component-passport-audit
+  status: verified-current-loop
+  updated_at: 2026-07-08T19:08:41+09:00
+  scope:
+    source: "apps/web/src/components/kjv-mvp-app.tsx mobile viewport at /app"
+    target:
+      expo_web: "http://localhost:8082"
+      expo_native: "Expo Go on emulator-5554 via Metro http://localhost:8081"
+    viewport:
+      width: 390
+      height: 844
+  passport_inventory:
+    total: 14
+    verified:
+      - mobile-bottom-nav-home-tabs
+      - reader-main-verse-list-toolbar
+      - selected-verse-detail-panel
+      - command-palette-shortcut-help
+      - favorite-citation-lists
+      - reader-note-feedback-modals
+      - progress-plan-dashboard
+      - home-activity-study-panels
+      - reader-chapter-picker-sheet
+      - reader-selection-action-sheet
+      - search-results-and-filter-sheets
+      - settings-view-controls
+      - highlight-library-filters
+      - reader-tts-playback-controls
+  evidence:
+    static_gates:
+      - command: npm run typecheck
+        result: pass
+      - command: npm run structure:mobile
+        result: pass
+        checked_groups:
+          - mobile-bottom-nav
+          - home-tabs
+          - home-activity-study-panels
+          - quick-move
+          - reader-actions
+          - reader-main-verse-list-toolbar
+          - selected-verse-detail-panel
+          - reader-selection-action-sheet
+          - reader-chapter-picker-sheet
+          - search-controls
+          - highlight-library
+          - saved-items
+          - favorite-modal
+          - reader-note-feedback-modals
+          - progress-plan-dashboard
+          - settings-sections
+          - reader-tts-playback-controls
+      - command: npm run style:mobile
+        result: pass
+    browser_parity:
+      - command: "npm run browser:mobile -- --web-url=http://localhost:3001/app --mobile-url=http://localhost:8082 --width=390 --height=844"
+        result: pass
+        finding: "No layoutFailures; webFlow and mobileFlow both passed."
+    visual_parity:
+      - command: "npm run visual:mobile:all -- --web-url=http://localhost:3001/app --mobile-url=http://localhost:8083 --width=390 --height=844 --port=9345"
+        result: pass
+        states: 22
+        report: D:\kjv-educator\.tmp\visual-parity\visual-parity-report.json
+        finding: "All 22 states pass against the fresh Expo Web server with browser-to-browser crop defaults set to 0; web/mobile/diff triptych artifacts are current."
+        highest_changed_ratios:
+          favoriteModal: 0.1808
+          quickMove: 0.1507
+          reader: 0.1417
+          selectionSheet: 0.1375
+          selectedVersePanel: 0.1361
+          feedbackModal: 0.1361
+      - command: "npm run visual:mobile:all -- --states=reader,selectionSheet,favoriteModal,chapterPicker --web-url=http://localhost:3001/app --mobile-url=http://localhost:8083 --width=390 --height=844"
+        result: pass
+        states: 4
+        finding: "Focused rerun passed against a fresh Expo Web server after adding the Expo Web SVG icon adapter."
+        changed_ratios:
+          reader: 0.1417
+          selectionSheet: 0.1375
+          favoriteModal: 0.1808
+          chapterPicker: 0.0944
+    runtime_adapter_probe:
+      - command: "fetch http://localhost:8083 Expo bundle and inspect for webIconShapes/viewBox"
+        result: pass
+        finding: "Expo Web bundle includes the SVG icon adapter; Expo Native keeps the existing text-glyph fallback."
+    harness_probe:
+      - command: "node scripts/compare-mobile-visuals.mjs --mobile-top-crop=0 --mobile-bottom-crop=0 against note modal screenshots"
+        result: pass
+        finding: "Browser-to-browser raw comparison lowered chapterNote from 0.1882 to 0.1038 and verseNote from 0.1840 to 0.1052, showing the old default mobile crop was distorting Expo Web parity metrics."
+    expo_native:
+      - command: npm run audit:mobile-clicks
+        result: pass
+        steps: 27
+        failures: 0
+        report: D:\kjv-educator\.tmp\mobile-click-audit\report.json
+        findings:
+          - "Full native audit now completes after adding ADB command timeouts and a search-result fallback tap path."
+          - "Home today/progress/activity/study, reader navigation/language/selection/favorite/note, favorites, quick move, highlights, search, search result open, and settings sections all passed."
+          - "Search result opens the native reader and shows 창세기, 읽음 완료, and In the beginning."
+          - "Settings account view shows 계정 설정, 현재 계정, and 로컬 데이터 초기화."
+          - "Settings TTS view shows TTS 설정, 속도, and 현재 장 읽기."
+          - "Settings text view shows 텍스트 설정, 글자 크기, and 줄 간격."
+          - "Settings view mode shows 보기 모드, 읽기 모드, and 웹 API 기준 주소."
+        artifacts:
+          - D:\kjv-educator\.tmp\mobile-click-audit\22-open-search-result.png
+          - D:\kjv-educator\.tmp\mobile-click-audit\22-open-search-result.xml
+          - D:\kjv-educator\.tmp\mobile-click-audit\24-settings-tts.png
+          - D:\kjv-educator\.tmp\mobile-click-audit\25-settings-text.png
+          - D:\kjv-educator\.tmp\mobile-click-audit\26-settings-view.png
+  current_decision:
+    code_patch_needed: true
+    reason: "The current loop added an Expo Web SVG icon adapter and corrected the browser-to-browser visual comparison crop defaults. Full visual gates still pass, and the next real component target is favoriteModal at changedRatio 0.1808."
+  known_automation_risk:
+    - "ADB/UIAutomator can still be slow on emulator state changes, but the audit runner now applies ADB command timeouts and records a complete report instead of hanging at search-result-open."
+    - "The visual capture runner depends on dev-only web reader query params for deterministic reader state; Expo Web state is still prepared by in-app navigation."
+  next_action:
+    type: continue-loop
+    target: "continue with any newly changed component passport or lower the remaining high visual diffs if product priority requires tighter pixel parity"

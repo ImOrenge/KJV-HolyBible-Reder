@@ -1,0 +1,88 @@
+component:
+  id: reader-note-feedback-modals
+  status: verified
+  updated_at: 2026-07-08T19:08:41+09:00
+  owner_scope: screen-component-port
+  source:
+    repo: D:\kjv-educator
+    paths:
+      - apps/web/src/components/kjv-mvp-app.tsx
+      - apps/web/src/components/feedback/translation-feedback-form.tsx
+    route: /app
+    baseline_component: "Reader chapter note, verse note, and translation feedback modal"
+  target:
+    expo:
+      path: apps/mobile/App.tsx
+      surface: "Expo React Native app and Expo Web parity surface"
+    probes:
+      - scripts/capture-mobile-visuals.mjs
+      - scripts/verify-mobile-visual-parity.mjs
+      - scripts/verify-mobile-structure-parity.mjs
+  dependencies:
+    shared_types:
+      - TranslationFeedbackIssueType
+      - TranslationLanguage
+      - Verse
+    runtime_adapters:
+      storage: AsyncStorage for local study notes
+      feedback_submit: submitTranslationFeedback with Supabase access token
+      native_inputs: React Native TextInput in place of web textarea/input/select
+  ported_behavior:
+    - "Chapter and verse note modals keep the web heading, textarea placeholder, delete, cancel, and save actions."
+    - "Chapter, verse, and feedback modal titles use a compact modal title style instead of the larger screen heading scale."
+    - "Chapter and verse note modals use a note-specific title style and primary-action spacing that follows the web mobile confirm-modal rhythm."
+    - "Chapter and verse note textarea height and the input-to-action gap now match the web mobile note-textarea rhythm more closely."
+    - "Translation feedback modal now mirrors the web structure: close icon, verse preview, issue prompt, selected phrase, suggested translation, explanation, cancel, and submit action."
+    - "Feedback field labels and placeholder copy match the web TranslationFeedbackForm."
+    - "Feedback submit disables during submit and when the selected verse has no approved Korean translation."
+    - "Selected-verse feedback action now follows the web disabled behavior when selectedVerse.textKo is missing."
+  evidence:
+    - type: typecheck
+      command: npm run typecheck
+      result: pass
+    - type: structure
+      command: npm run structure:mobile
+      result: pass
+      finding: "reader-note-feedback-modals labels and placeholders are present in apps/mobile/App.tsx"
+    - type: style
+      command: npm run style:mobile
+      result: pass
+    - type: browser-flow
+      command: npm run browser:mobile -- --web-url=http://localhost:3001/app --mobile-url=http://localhost:8082 --width=390 --height=844
+      result: pass
+    - type: visual-diff
+      command: npm run visual:mobile:all -- --web-url=http://localhost:3001/app --mobile-url=http://localhost:8083 --width=390 --height=844 --port=9345
+      result: pass
+      states: 22
+      ratios:
+        chapterNote: 0.1038
+        verseNote: 0.1052
+        feedbackModal: 0.1361
+      artifact: D:\kjv-educator\.tmp\visual-parity\visual-parity-report.json
+    - type: harness
+      command: node --check scripts/verify-mobile-visual-parity.mjs && node --check scripts/compare-mobile-visuals.mjs
+      result: pass
+      finding: "Visual comparison now defaults to no mobile crop for Expo Web browser-to-browser captures while still allowing explicit crop overrides for other targets."
+    - type: harness
+      command: node --check scripts/capture-mobile-visuals.mjs
+      result: pass
+      finding: "Reader visual states now re-enter the web reader fixture before capture, preventing persisted progress from changing selected-verse setup between states."
+    - type: expo-native-screenshot
+      command: "adb force-stop host.exp.exponent; adb open exp://127.0.0.1:8081; tap reader tab; tap chapter note"
+      result: pass
+      artifact: D:\kjv-educator\.tmp\mobile-click-audit\native-reader-chapter-note-modal-after-title-patch.png
+    - type: expo-native-smoke
+      command: npm run audit:mobile-clicks
+      result: pass
+      finding: "Expo Native click audit completed 27/27 steps with 0 failures."
+  divergence:
+    intentional:
+      - "Expo Native renders the feedback issue select as horizontal touch chips while preserving the source option labels and state model."
+      - "Expo Web visual diff is used for layout parity; Expo Native evidence is launch/focus/UI-dump smoke for this loop."
+    unresolved:
+      - "The local unauthenticated/no-approved-Korean selected verse state did not open the feedback body modal; it verified the same disabled/gated selected-verse state as the web source. Authenticated feedback submit still needs a session-backed native probe."
+  next_action:
+    type: port-next-component
+    candidates:
+      - progress-plan-dashboard
+      - reader-tts-playback-controls

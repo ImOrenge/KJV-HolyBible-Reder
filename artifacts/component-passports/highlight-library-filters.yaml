@@ -1,0 +1,67 @@
+component:
+  id: highlight-library-filters
+  status: verified
+  owner_scope: screen-component-port
+  source:
+    repo: D:\kjv-educator
+    path: apps/web/src/components/kjv-mvp-app.tsx
+    route: /app
+    baseline_component: "Highlight library, color filter, book filter, highlight row actions"
+  target:
+    expo:
+      path: apps/mobile/App.tsx
+      surface: "Expo React Native app and Expo Web parity surface"
+    shared:
+      data_model: packages/shared/src/types.ts
+      bible_api: packages/shared/src/bible-client.ts
+  dependencies:
+    shared_types:
+      - Highlight
+      - HighlightColor
+      - Verse
+      - TranslationLanguage
+    runtime_adapters:
+      storage: AsyncStorage via shared repository normalization
+      verse_fetch: createBibleApiClient.fetchBibleVerse
+      clipboard: expo-clipboard
+  ported_behavior:
+    - "Highlight library title and color filter labels match the web mobile source: '강조 구절' and '전체 색상'."
+    - "Color filter options use Korean domain labels from highlightOptions instead of raw color values."
+    - "Stored highlighted verses are fetched into an Expo-side verse cache so the list can render verse body text outside the current chapter."
+    - "Highlight rows show reference, color chip, verse text, optional note, updated time, open, copy, and remove actions."
+    - "Empty state wording matches the web source: '강조한 구절이 없습니다.'"
+  evidence:
+    - type: typecheck
+      command: npm run typecheck
+      result: pass
+    - type: structure
+      command: npm run structure:mobile
+      result: pass
+    - type: style
+      command: npm run style:mobile
+      result: pass
+    - type: browser-flow
+      command: npm run browser:mobile -- --web-url=http://localhost:3001/app --mobile-url=http://localhost:8082 --width=390 --height=844
+      result: pass
+    - type: visual-diff
+      command: npm run visual:mobile:all -- --states=highlights --web-url=http://localhost:3001/app --mobile-url=http://localhost:8082 --width=390 --height=844
+      result: pass
+      states: 1
+      ratios:
+        highlights: 0.0626
+    - type: expo-native-focused-interaction
+      command: "Focused ADB probe: open Expo, quick move to 강조 구절, verify labels/actions/body in focused-highlight-screen-3.xml"
+      result: pass
+      artifact: D:\kjv-educator\.tmp\mobile-click-audit\focused-highlight-screen-3.xml
+      finding: "Verified 강조 구절, 전체 색상, 성경 권, 전체 성경, 열기, 복사, 해제, and highlighted verse body text."
+  divergence:
+    intentional:
+      - "Expo Native renders web select controls as horizontal touch chips; option labels and selected state are kept equivalent."
+      - "Expo Web visual diff carries pixel evidence while Expo Native uses focused interaction and accessibility text evidence."
+    unresolved:
+      - "Full 27-step ADB audit was unstable in one run because the app returned to home before later steps; focused highlight-native evidence passed for this component."
+  next_action:
+    type: port-next-component
+    candidates:
+      - reader-note-feedback-modals
+      - progress-plan-dashboard

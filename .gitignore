@@ -17,7 +17,9 @@ dist/
 .playwright-mcp/
 .tmp/
 .vscode/
+.expo/
 coverage/
+*.tsbuildinfo
 
 # logs
 npm-debug.log*

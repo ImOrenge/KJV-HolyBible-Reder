@@ -1,0 +1,83 @@
+component:
+  id: command-palette-shortcut-help
+  status: verified
+  owner_scope: component-port
+  source:
+    app: apps/web
+    path: apps/web/src/components/kjv-mvp-app.tsx
+    surface: /app mobile command palette opened from bottom quick move nav
+  target:
+    app: apps/mobile
+    path: apps/mobile/App.tsx
+    surface: Expo quick move command palette
+  component_kind: feature-composite
+  change_gate: behavioral
+  ported_behavior:
+    - Bottom quick move tab opens a modal command palette with the same "명령" and "빠른 이동" heading hierarchy.
+    - The command search input uses the same placeholder and filters label plus description text.
+    - Command rows preserve the web label and description set for home tabs, reader, chapter picker, progress, highlights, favorites, search, settings, and chapter note.
+    - Disabled reading-plan command remains visible when no plan is active.
+    - The close control uses the same close meaning as the web modal.
+    - Selecting commands closes the palette and navigates to the target surface.
+  states:
+    required:
+      - quickMove
+      - quickMove scrolled command list
+      - highlights via command
+      - search via command
+    verified:
+      - palette open
+      - disabled plan command
+      - command list scrolling
+      - highlight command navigation
+      - search command navigation
+  dependencies:
+    internal:
+      - quickMoveCommands
+      - runQuickMoveCommand
+      - openChapterPicker
+      - openReadingPlanTarget
+    external:
+      - react-native
+      - local text-backed Icon glyph map
+  evidence:
+    current_level: 5
+    updated_at: 2026-07-07T21:41:43+09:00
+    items:
+      - type: typecheck
+        command: npm run typecheck
+        result: pass
+      - type: structure-parity
+        command: npm run structure:mobile
+        result: pass
+      - type: style-parity
+        command: npm run style:mobile
+        result: pass
+      - type: browser-smoke
+        command: npm run browser:mobile -- --web-url=http://localhost:3001/app --mobile-url=http://localhost:8082 --width=390 --height=844
+        result: pass
+      - type: visual-diff
+        command: npm run visual:mobile:all -- --states=quickMove --web-url=http://localhost:3001/app --mobile-url=http://localhost:8082 --width=390 --height=844
+        result: pass
+        artifacts:
+          - .tmp/visual-parity/quickMove-web.png
+          - .tmp/visual-parity/quickMove-mobile.png
+          - .tmp/visual-parity/visual-parity-report.json
+        findings:
+          - quickMove changedRatio 0.1165
+          - quickMove meanDiff 0.0519
+      - type: expo-native-screenshot-smoke
+        target: android-emulator
+        result: pass
+        artifacts:
+          - .tmp/mobile-click-audit/manual-quick-move-palette.png
+        findings:
+          - palette opened from the bottom quick move tab with the same heading, search input, disabled plan command, and command rows
+  divergence:
+    intentional:
+      - Expo Native uses native text/icon rendering and a React Native ScrollView while preserving modal hierarchy, labels, list behavior, and navigation.
+    unresolved: []
+  next_action:
+    type: continue-component-loop
+    target: reader-selection-action-sheet
+    confidence: medium

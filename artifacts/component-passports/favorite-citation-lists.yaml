@@ -1,0 +1,107 @@
+component:
+  id: favorite-citation-lists
+  status: verified
+  updated_at: 2026-07-08T19:08:41+09:00
+  owner_scope: screen-component-port
+  source:
+    repo: D:\kjv-educator
+    path: apps/web/src/components/kjv-mvp-app.tsx
+    route: /app
+    baseline_component: "favorite list selector, favorite save modal, selected verse favorite actions"
+  target:
+    expo:
+      path: apps/mobile/App.tsx
+      surface: "Expo React Native app and Expo Web parity surface"
+    shared:
+      data_model: packages/shared/src/types.ts
+      storage: packages/shared/src/user-data-repository.ts
+  dependencies:
+    shared_types:
+      - FavoriteList
+      - FavoriteVerse
+      - Tag
+    runtime_adapters:
+      clipboard: expo-clipboard
+      storage: AsyncStorage via shared repository normalization
+      verse_fetch: createBibleApiClient.fetchBibleVerse
+  ported_behavior:
+    - "Favorite save modal with title, memo, tags, list selection, and new list creation"
+    - "Selected verse and multi-select favorite saving share the same modal path"
+    - "Favorites tab filters by selected list and shows list counts"
+    - "Favorites tab uses the same collapsed mobile list selector and sort selector structure as the web mobile viewport"
+    - "Favorite modal stacks the new-list input and create action on mobile like the web mobile modal"
+    - "Favorite modal uses the web mobile modal title scale, viewport backdrop semantics on Expo Web, and the web mobile 12px/14px modal spacing contract"
+    - "Favorite modal fields keep the web mobile label-to-control gap for title, tags, memo, and list selection."
+    - "List copy resolves stored verses and increments usage count"
+    - "List delete preserves favorites that still belong to another list"
+    - "Selection sheet shows operation status after favorite save/copy"
+  evidence:
+    - type: typecheck
+      command: npm run typecheck
+      result: pass
+    - type: structure
+      command: npm run structure:mobile
+      result: pass
+    - type: style
+      command: npm run style:mobile
+      result: pass
+    - type: browser-flow
+      command: npm run browser:reader -- --web-url=http://localhost:3001/app --mobile-url=http://localhost:8082 --width=390 --height=844
+      result: pass
+    - type: browser-flow
+      command: npm run browser:mobile -- --web-url=http://localhost:3001/app --mobile-url=http://localhost:8082 --width=390 --height=844
+      result: pass
+    - type: visual-diff
+      command: npm run visual:mobile:all -- --states=favorites --web-url=http://localhost:3001/app --mobile-url=http://localhost:8082 --width=390 --height=844
+      result: pass
+      changedRatio: 0.0777
+      meanDiff: 0.0528
+      artifact:
+        web: .tmp/visual-parity/favorites-web.png
+        mobile: .tmp/visual-parity/favorites-mobile.png
+    - type: visual-diff
+      command: npm run visual:mobile:all -- --states=favoriteModal --web-url=http://localhost:3001/app --mobile-url=http://localhost:8083 --width=390 --height=844
+      result: pass
+      changedRatio: 0.1808
+      meanDiff: 0.0945
+      artifact:
+        web: .tmp/visual-parity/favoriteModal-web.png
+        mobile: .tmp/visual-parity/favoriteModal-mobile.png
+        triptych: .tmp/visual-parity/favoriteModal-triptych.png
+    - type: runtime-adapter
+      command: "Expo Web bundle probe against http://localhost:8083"
+      result: pass
+      finding: webIconShapes/viewBox SVG adapter is present in the Expo Web bundle; native fallback remains text-backed.
+    - type: expo-native-screenshot
+      command: "adb force-stop host.exp.exponent; adb open exp://127.0.0.1:8081; tap favorites tab; tap list selector"
+      result: pass
+      artifacts:
+        closed: .tmp/mobile-click-audit/native-favorites-after-force-reload-wait.png
+        open: .tmp/mobile-click-audit/native-favorites-list-dropdown-open.png
+    - type: visual-diff
+      command: npm run visual:mobile:all -- --states=home,reader,chapterPicker,selectionSheet,chapterNote,selectedVersePanel,favoriteModal,verseNote,quickMove,progress
+      result: pass
+      states: 10
+    - type: visual-diff
+      command: npm run visual:mobile:all -- --states=highlights,favorites,searchResults,settings,settingsTts,settingsText,settingsView
+      result: pass
+      states: 7
+    - type: visual-diff
+      command: npm run visual:mobile:all -- --states=search
+      result: pass
+      states: 1
+    - type: expo-native-interaction
+      command: npm run audit:mobile-clicks
+      result: pass
+      steps: 27
+  divergence:
+    intentional:
+      - "Expo Native uses React Native controls and safe-area behavior, so pixel parity is verified through Expo Web and Native is verified through interaction smoke."
+      - "Expo Web favorite modal now uses viewport backdrop semantics, web mobile field spacing, and the SVG icon adapter; remaining visual delta is from React Native Web input/text rendering and native input rendering while field order and controls match."
+    unresolved: []
+  next_action:
+    type: port-next-component
+    candidates:
+      - reader-note-feedback-modals
+      - search-results-and-filter-sheets
+      - settings-view-controls

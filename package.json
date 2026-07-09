@@ -1,37 +1,44 @@
 {
-  "name": "kjv-reader-note",
+  "name": "kjv-reader-note-monorepo",
   "version": "0.3.1",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint",
+    "dev": "npm run dev:web",
+    "dev:web": "npm run dev -w @kjv/web --",
+    "dev:mobile": "npm run start -w @kjv/mobile",
+    "dev:mobile:web": "npm run web -w @kjv/mobile",
+    "dev:compare": "node scripts/dev-compare.mjs",
+    "audit:mobile-clicks": "node scripts/audit-mobile-clicks.mjs",
+    "style:mobile": "node scripts/verify-mobile-style-parity.mjs",
+    "structure:mobile": "node scripts/verify-mobile-structure-parity.mjs",
+    "visual:mobile": "node scripts/compare-mobile-visuals.mjs",
+    "visual:mobile:all": "node scripts/verify-mobile-visual-parity.mjs",
+    "capture:mobile-visuals": "node scripts/capture-mobile-visuals.mjs",
+    "browser:mobile": "node scripts/verify-mobile-browser-parity.mjs",
+    "browser:reader": "node scripts/verify-reader-browser-parity.mjs",
+    "build": "npm run build -w @kjv/web",
+    "typecheck": "npm run typecheck -ws --if-present",
+    "lint": "npm run lint -ws --if-present",
+    "expo:doctor": "npm run doctor -w @kjv/mobile",
     "db:import-kjv": "node scripts/import-kjv.mjs",
     "db:validate-kjv": "node scripts/validate-kjv.mjs",
     "db:import-ko": "node scripts/import-ko-translation.mjs",
     "db:backfill-ko-search": "node scripts/backfill-ko-search.mjs",
     "db:validate-ko": "node scripts/validate-ko-translation.mjs"
   },
-  "dependencies": {
-    "@supabase/ssr": "^0.12.0",
-    "@supabase/supabase-js": "^2.108.2",
-    "lucide-react": "latest",
-    "next": "latest",
-    "react": "latest",
-    "react-dom": "latest"
-  },
   "overrides": {
-    "postcss": "^8.5.10"
+    "postcss": "^8.5.10",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "latest",
-    "@types/node": "latest",
-    "@types/react": "latest",
-    "@types/react-dom": "latest",
-    "eslint": "latest",
-    "eslint-config-next": "latest",
-    "tailwindcss": "latest",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "sharp": "^0.35.3",
     "typescript": "latest"
   }
 }

@@ -1,0 +1,68 @@
+component:
+  id: reader-tts-playback-controls
+  status: verified
+  owner_scope: screen-component-port
+  source:
+    repo: D:\kjv-educator
+    paths:
+      - apps/web/src/components/kjv-mvp-app.tsx
+      - apps/web/src/app/globals.css
+    route: /app
+    baseline_component: "Reader TTS action buttons, settings TTS controls, and player bar"
+  target:
+    expo:
+      path: apps/mobile/App.tsx
+      surface: "Expo React Native app and Expo Web parity surface"
+    probes:
+      - scripts/capture-mobile-visuals.mjs
+      - scripts/verify-mobile-visual-parity.mjs
+      - scripts/verify-mobile-structure-parity.mjs
+  dependencies:
+    runtime_adapters:
+      web: window.speechSynthesis
+      expo_native: expo-speech
+      chapter_fetch: createBibleApiClient.fetchBibleChapter for today-plan playback
+  ported_behavior:
+    - "Reader action row now matches the web TTS surface by exposing 읽기, 오늘 분량, and 오늘 읽기 when a plan exists."
+    - "Mobile TTS playback now uses a verse queue instead of one long text blob, enabling previous and next verse movement."
+    - "Current speaking verse is tracked and highlighted in the reader list."
+    - "A bottom player bar is shown while playing or paused with TTS state, queue label, 이전 구절, 재생, 일시정지 또는 재개, 정지, and 다음 구절 controls."
+    - "Settings TTS section keeps speed, voice, repeat, auto-scroll, current chapter play, pause/resume, stop, and status controls."
+  evidence:
+    - type: typecheck
+      command: npm run typecheck
+      result: pass
+    - type: structure
+      command: npm run structure:mobile
+      result: pass
+      finding: "reader-tts-playback-controls labels and accessibility strings are present in apps/mobile/App.tsx"
+    - type: style
+      command: npm run style:mobile
+      result: pass
+    - type: browser-flow
+      command: npm run browser:mobile -- --web-url=http://localhost:3001/app --mobile-url=http://localhost:8082 --width=390 --height=844
+      result: pass
+    - type: visual-diff
+      command: npm run visual:mobile:all -- --states=reader,settingsTts --web-url=http://localhost:3001/app --mobile-url=http://localhost:8082 --width=390 --height=844
+      result: pass
+      states: 2
+      ratios:
+        reader: 0.1738
+        settingsTts: 0.1276
+      artifact: D:\kjv-educator\.tmp\visual-parity\visual-parity-report.json
+    - type: expo-native-focused-interaction
+      command: "Focused ADB probe: restart Expo, open reader, tap 읽기, verify TTS player labels and controls"
+      result: pass
+      artifact: D:\kjv-educator\.tmp\mobile-click-audit\focused-reader-tts-player.xml
+      finding: "Verified TTS · playing, 현재 장 · 31개, 재생 중, 이전 구절, 재생, 일시정지 또는 재개, 정지, and 다음 구절."
+  divergence:
+    intentional:
+      - "Expo Native uses expo-speech rather than web speechSynthesis; queue semantics and visible controls are aligned while platform speech engine behavior differs."
+      - "Headless browser visual capture does not reliably open the real speech overlay, so overlay proof is native focused UI-dump evidence instead of screenshot diff."
+    unresolved:
+      - "Previous/next native controls were verified as rendered; a future full ADB interaction audit should tap previous/next and assert the queue label advances."
+  next_action:
+    type: port-next-component
+    candidates:
+      - home-activity-study-panels
+      - reader-chapter-picker-sheet

@@ -1,0 +1,31 @@
+{
+  "name": "@kjv/shared",
+  "version": "0.3.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./bible-api-types": "./src/bible-api-types.ts",
+    "./bible-book-codes": "./src/bible-book-codes.ts",
+    "./bible-client": "./src/bible-client.ts",
+    "./bible-data": "./src/bible-data.ts",
+    "./bible-repository": "./src/bible-repository.ts",
+    "./brand": "./src/brand.ts",
+    "./korean-search": "./src/korean-search.ts",
+    "./reading-plan": "./src/reading-plan.ts",
+    "./search-highlight": "./src/search-highlight.ts",
+    "./supabase-user-data-repository": "./src/supabase-user-data-repository.ts",
+    "./translation-feedback-client": "./src/translation-feedback-client.ts",
+    "./translation-feedback/feedback-types": "./src/translation-feedback/feedback-types.ts",
+    "./translation-feedback/feedback-validation": "./src/translation-feedback/feedback-validation.ts",
+    "./types": "./src/types.ts",
+    "./user-data-repository": "./src/user-data-repository.ts"
+  },
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "latest"
+  }
+}

@@ -1,0 +1,108 @@
+component:
+  id: reader-main-verse-list-toolbar
+  status: verified
+  owner_scope: mobile-reader-parity
+  source:
+    repo: apps/web
+    path: apps/web/src/components/kjv-mvp-app.tsx
+    style:
+      - apps/web/src/app/globals.css
+    routes:
+      - /app
+  target:
+    expo:
+      path: apps/mobile/App.tsx
+      surface: reader toolbar, reader action grid, verse list rows
+      native_mode: native
+  change_gate:
+    type: style-contract
+    summary: Expo reader toolbar, action grid, and verse rows were tightened to follow the web mobile viewport proportions and state markers.
+  dependencies:
+    components:
+      - ActionButton
+      - Icon
+    runtime:
+      - expo-speech
+      - react-native Pressable
+    styles:
+      - readerPanelToolbar
+      - readerTitleBlock
+      - readerActionRow
+      - readerActionButton
+      - verseRow
+      - verseMarkers
+  states:
+    required:
+      - default reader
+      - chapter navigation toolbar
+      - reader action grid
+      - EN/KR active language toggle
+      - verse row selected state
+      - verse marker slot
+  parity_contract:
+    visible_actions:
+      - 읽음 완료
+      - EN
+      - KR
+      - 읽기
+      - 다중 선택
+      - 장 노트
+    layout:
+      - mobile toolbar uses previous button, title/meta block, next button
+      - reader actions use a three-column mobile grid
+      - verse rows use number, text, marker-slot structure
+    intentional_divergence:
+      - target: expo-native
+        reason: Expo Native keeps local text glyphs while Expo Web uses the SVG icon adapter; labels, order, and hit targets match.
+  evidence:
+    current_level: 5
+    updated_at: 2026-07-08T18:46:12+09:00
+    items:
+      - type: static
+        command: npm run typecheck
+        result: pass
+      - type: structure
+        command: npm run structure:mobile
+        result: pass
+        finding: reader-main-verse-list-toolbar labels present
+      - type: style
+        command: npm run style:mobile
+        result: pass
+      - type: visual-diff
+        command: npm run visual:mobile:all -- --states=reader --web-url=http://localhost:3001/app --mobile-url=http://localhost:8082 --width=390 --height=844
+        result: pass
+        before_diff_ratio: 0.1737
+        after_diff_ratio: 0.1604
+        after_mean_diff: 0.0765
+        artifacts:
+          - .tmp/visual-parity/reader-web.png
+          - .tmp/visual-parity/reader-mobile.png
+          - .tmp/visual-parity/visual-parity-report.json
+      - type: runtime-adapter
+        command: "Expo Web bundle probe against http://localhost:8083"
+        result: pass
+        finding: webIconShapes/viewBox SVG adapter is present in the Expo Web bundle; native fallback remains text-backed.
+      - type: browser-smoke
+        command: npm run browser:mobile -- --web-url=http://localhost:3001/app --mobile-url=http://localhost:8082 --width=390 --height=844
+        result: pass
+      - type: native-screenshot-smoke
+        command: adb tap sequence after Expo Go reload from exp://127.0.0.1:8081
+        result: pass
+        finding: latest native bundle showed reader toolbar without EN/KR glyph icons, selected verse marker slot, multi-select sheet, and chapter-note modal
+        artifacts:
+          - .tmp/mobile-click-audit/manual-reader-latest-toolbar.png
+          - .tmp/mobile-click-audit/manual-reader-selection-latest.png
+          - .tmp/mobile-click-audit/manual-reader-chapter-note-latest.png
+  divergence:
+    intentional:
+      - id: expo-native-text-backed-icons
+        target: expo-native
+        reason: Expo Native uses local text glyphs while Expo Web uses the SVG icon adapter; action semantics and labels are preserved.
+    unresolved: []
+    automation:
+      - id: native-uiautomator-dump-instability
+        target: expo-native
+        reason: focused XML probe hit an Android uiautomator dump hang during selection-sheet polling; native behavior was verified by direct ADB taps and screenshots instead.
+  next_action:
+    type: continue-loop
+    target: next reader component

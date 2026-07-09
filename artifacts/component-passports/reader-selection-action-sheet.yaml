@@ -1,0 +1,93 @@
+component:
+  id: reader-selection-action-sheet
+  status: verified
+  updated_at: 2026-07-08T13:08:59+09:00
+  owner_scope: component-port
+  source:
+    app: apps/web
+    path: apps/web/src/components/kjv-mvp-app.tsx
+    surface: /app reader multi-select action sheet at 390x844
+  target:
+    app: apps/mobile
+    path: apps/mobile/App.tsx
+    surface: Expo reader multi-select action sheet
+  component_kind: feature-composite
+  change_gate: behavioral
+  ported_behavior:
+    - Reader multi-select mode exposes the same bottom action sheet with selected count, range-selection guidance, and copy/citation/read/clear actions.
+    - The mobile sheet hides batch highlight swatches like the web mobile viewport.
+    - Copy feedback remains visible long enough for native users and automation to confirm the action.
+    - Citation save opens the same citation modal path from selected verses.
+    - Selection clear returns the sheet to its empty selection state.
+    - Selection sheet action buttons now use the same filled surface treatment as the web mobile secondary buttons.
+    - Batch-selected verse border color now follows the web accent-3/secondary-accent selection contract instead of the warning color.
+    - Expo Native defaults to the local web API on port 3001, matching the current web app server used by the parity loop.
+  states:
+    required:
+      - selectionSheet
+      - selected verse copy feedback
+      - selected verse citation modal
+      - cleared selection empty state
+    verified:
+      - selected count
+      - range guidance text
+      - copy action
+      - citation save action
+      - clear action
+      - no mobile batch swatch row
+  dependencies:
+    internal:
+      - selectedVerseIds
+      - selectedVerses
+      - selectionAnchorVerseId
+      - copySelectedVerses
+      - saveSelectedFavorites
+      - clearVerseSelection
+      - getDefaultApiBaseUrl
+    external:
+      - react-native
+      - expo-clipboard
+      - "@expo/vector-icons/Ionicons"
+  evidence:
+    current_level: 5
+    items:
+      - type: typecheck
+        command: npm run typecheck
+        result: pass
+      - type: structure-parity
+        command: npm run structure:mobile
+        result: pass
+      - type: style-parity
+        command: npm run style:mobile
+        result: pass
+      - type: browser-smoke
+        command: npm run browser:mobile -- --web-url=http://localhost:3001/app --mobile-url=http://localhost:8082 --width=390 --height=844
+        result: pass
+      - type: visual-diff
+        command: npm run visual:mobile:all -- --states=selectionSheet --web-url=http://localhost:3001/app --mobile-url=http://localhost:8082 --width=390 --height=844
+        result: pass
+        artifact: .tmp/visual-parity/visual-parity-report.json
+        findings:
+          - selectionSheet changedRatio 0.1608 meanDiff 0.0789
+      - type: expo-native-interaction
+        target: android-emulator
+        result: pass
+        artifacts:
+          - .tmp/mobile-click-audit/focused-reader-selection-sheet.xml
+          - .tmp/mobile-click-audit/focused-reader-selection-copy.xml
+          - .tmp/mobile-click-audit/focused-reader-selection-favorite-modal.xml
+          - .tmp/mobile-click-audit/focused-reader-selection-clear.xml
+        findings:
+          - sheet displayed one selected verse and range guidance
+          - copy action displayed one-verse copy feedback
+          - citation save opened the citation modal
+          - clear action returned to the empty selection state
+          - latest full native audit passed 27/27 after the selection style patch
+  divergence:
+    intentional:
+      - Expo Native uses native icon glyphs and React Native touchables while preserving the action set, order, labels, and bottom-sheet behavior.
+    unresolved: []
+  next_action:
+    type: continue-component-loop
+    target: selected-verse-detail-panel
+    confidence: medium

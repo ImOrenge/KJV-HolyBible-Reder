@@ -1,0 +1,96 @@
+component:
+  id: selected-verse-detail-panel
+  status: verified
+  owner_scope: mobile-reader-parity
+  source:
+    repo: apps/web
+    path: apps/web/src/components/kjv-mvp-app.tsx
+    style:
+      - apps/web/src/app/globals.css
+    routes:
+      - /app
+  target:
+    expo:
+      path: apps/mobile/App.tsx
+      surface: reader selected verse action panel
+      native_mode: native
+  change_gate:
+    type: style-contract
+    summary: Expo selected verse panel now follows the web mobile viewport contract by hiding desktop-only highlight swatches and highlight-note textarea.
+  dependencies:
+    components:
+      - ActionButton
+      - Icon
+    runtime:
+      - expo-clipboard
+      - expo-speech
+      - react-native Pressable
+      - react-native TextInput
+    styles:
+      - verseActionPanel
+      - selectedReference
+      - quickActions
+      - compactIconButton
+      - panelActionButton
+  states:
+    required:
+      - selected verse panel
+      - copy action
+      - verse note modal
+      - translation feedback disabled-or-modal state
+      - citation save modal
+  parity_contract:
+    visible_actions:
+      - 구절 복사
+      - 선택 구절 읽기
+      - 구절 노트
+      - 번역 의견
+      - 인용 구절 저장
+    hidden_on_mobile:
+      - 강조 메모
+      - 강조 해제
+      - highlight swatches
+    intentional_divergence:
+      - target: expo-native
+        reason: icon glyphs are text-backed in the current native prototype, but labels and action order match the web mobile surface.
+  evidence:
+    current_level: 5
+    updated_at: 2026-07-07T21:03:36+09:00
+    items:
+      - type: static
+        command: npm run typecheck
+        result: pass
+      - type: structure
+        command: npm run structure:mobile
+        result: pass
+        finding: selected-verse-detail-panel labels present and mobile-hidden highlight controls absent
+      - type: style
+        command: npm run style:mobile
+        result: pass
+      - type: visual-diff
+        command: npm run visual:mobile:all -- --states=selectedVersePanel --web-url=http://localhost:3001/app --mobile-url=http://localhost:8082 --width=390 --height=844
+        result: pass
+        diff_ratio: 0.1528
+        artifacts:
+          - .tmp/visual-parity/selectedVersePanel-web.png
+          - .tmp/visual-parity/selectedVersePanel-mobile.png
+          - .tmp/visual-parity/visual-parity-report.json
+      - type: browser-smoke
+        command: npm run browser:mobile -- --web-url=http://localhost:3001/app --mobile-url=http://localhost:8082 --width=390 --height=844
+        result: pass
+      - type: native-interaction
+        command: node .tmp/focused-selected-verse-panel.mjs
+        result: pass
+        artifacts:
+          - .tmp/mobile-click-audit/focused-selected-verse-panel-report.json
+          - .tmp/mobile-click-audit/focused-selected-verse-panel.xml
+          - .tmp/mobile-click-audit/focused-selected-verse-copy.xml
+          - .tmp/mobile-click-audit/focused-selected-verse-note-modal.xml
+          - .tmp/mobile-click-audit/focused-selected-verse-feedback-modal.xml
+          - .tmp/mobile-click-audit/focused-selected-verse-favorite-modal.xml
+  divergence:
+    intentional: []
+    unresolved: []
+  next_action:
+    type: continue-loop
+    target: next reader component

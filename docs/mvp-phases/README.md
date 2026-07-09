@@ -24,6 +24,7 @@
 - [user-data-security-management-policy.md](./user-data-security-management-policy.md): Supabase Auth/RLS 전환을 위한 유저 데이터 보안관리 정책.
 - [translation-feedback-admin-rbac-architecture.md](./translation-feedback-admin-rbac-architecture.md): 번역 피드백 폼, 어드민 리뷰 큐, RBAC 권한 체계 구현 아키텍처.
 - [word-annotation-interpretation-guide-architecture.md](./word-annotation-interpretation-guide-architecture.md): 성경 단어 주석, 문맥 해석, 리더 내 해석 가이드 레이어 구현 아키텍처.
+- [hebrew-bible-dictionary-architecture.md](./hebrew-bible-dictionary-architecture.md): 구약 히브리어 성경단어 사전, 테마 탐색, 리더 원어 패널 구현 아키텍처.
 - [bible-discussion-community-implementation-plan.md](./bible-discussion-community-implementation-plan.md): MVP 이후 구절 연결 토론 커뮤니티, 신고 큐, 모더레이션 RBAC 구현 계획.
 
 ## 전체 구현 원칙
