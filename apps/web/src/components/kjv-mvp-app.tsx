@@ -523,6 +523,7 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
   const suppressVerseClickRef = useRef(false);
   const progressSaveTimerRef = useRef<number | null>(null);
   const autoCompleteTimerRef = useRef<number | null>(null);
+  const autoCompleteTargetVerseIdRef = useRef<string | null>(null);
   const currentReadingVerseIdRef = useRef<string | null>(null);
   const readerLocationRef = useRef<{ activeView: ViewKey; bookId: string; chapter: number }>({
     activeView: "dashboard",
@@ -577,6 +578,7 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
       window.clearTimeout(autoCompleteTimerRef.current);
       autoCompleteTimerRef.current = null;
     }
+    autoCompleteTargetVerseIdRef.current = null;
   }, []);
 
   function setTrackedReadingVerseId(verseId: string | null) {
@@ -624,14 +626,20 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
   }, [chapterVerses, currentBookId, currentChapter]);
 
   const scheduleAutoCompleteForLastVerse = useCallback((verse: Verse) => {
-    clearAutoCompleteTimer();
-
     if (!isLastVerseInLoadedChapter(verse) || isChapterCompleted(verse.bookId, verse.chapter)) {
+      clearAutoCompleteTimer();
       return;
     }
 
+    if (autoCompleteTimerRef.current && autoCompleteTargetVerseIdRef.current === verse.id) {
+      return;
+    }
+
+    clearAutoCompleteTimer();
+    autoCompleteTargetVerseIdRef.current = verse.id;
     autoCompleteTimerRef.current = window.setTimeout(() => {
       autoCompleteTimerRef.current = null;
+      autoCompleteTargetVerseIdRef.current = null;
       const readerLocation = readerLocationRef.current;
       if (
         readerLocation.activeView !== "reader" ||
@@ -1055,6 +1063,51 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
   }, [activeView, chapterVerses, mounted, scheduleTrackedProgress]);
 
   useEffect(() => {
+    if (!mounted || activeView !== "reader" || !chapterVerses.length) {
+      return;
+    }
+
+    const lastVerse = chapterVerses.at(-1);
+    if (!lastVerse) {
+      return;
+    }
+    const trackedLastVerse = lastVerse;
+
+    function trackLastVerseVisibility() {
+      const element = verseElementsRef.current.get(trackedLastVerse.id);
+      if (!element) {
+        return;
+      }
+
+      const rect = element.getBoundingClientRect();
+      const visibleHeight = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
+      const visibleRatio = rect.height > 0 ? visibleHeight / rect.height : 0;
+
+      if (visibleRatio >= 0.35) {
+        scheduleTrackedProgress(trackedLastVerse);
+        return;
+      }
+
+      if (currentReadingVerseIdRef.current === trackedLastVerse.id && autoCompleteTimerRef.current) {
+        window.clearTimeout(autoCompleteTimerRef.current);
+        autoCompleteTimerRef.current = null;
+        autoCompleteTargetVerseIdRef.current = null;
+      }
+    }
+
+    trackLastVerseVisibility();
+    const visibilityCheckTimer = window.setInterval(trackLastVerseVisibility, 500);
+    window.addEventListener("scroll", trackLastVerseVisibility, { passive: true });
+    window.addEventListener("resize", trackLastVerseVisibility);
+
+    return () => {
+      window.clearInterval(visibilityCheckTimer);
+      window.removeEventListener("scroll", trackLastVerseVisibility);
+      window.removeEventListener("resize", trackLastVerseVisibility);
+    };
+  }, [activeView, chapterVerses, mounted, scheduleTrackedProgress]);
+
+  useEffect(() => {
     const query = searchQuery.trim();
     if (query.length < 2) {
       setSearchResults([]);
@@ -1254,6 +1307,7 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
       }
       if (autoCompleteTimerRef.current) {
         window.clearTimeout(autoCompleteTimerRef.current);
+        autoCompleteTargetVerseIdRef.current = null;
       }
     };
   }, []);
