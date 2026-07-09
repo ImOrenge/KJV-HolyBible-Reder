@@ -4,6 +4,7 @@ export * from "./bible-data";
 export * from "./bible-repository";
 export * from "./brand";
 export * from "./korean-search";
+export * from "./privacy-policy";
 export * from "./reading-plan";
 export * from "./search-highlight";
 export * from "./supabase-user-data-repository";

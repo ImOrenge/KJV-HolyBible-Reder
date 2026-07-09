@@ -147,6 +147,75 @@ button:disabled {
   text-decoration: underline;
 }
 
+.privacy-page {
+  background: var(--bg);
+  min-height: 100vh;
+  padding: clamp(22px, 5vw, 64px);
+}
+
+.privacy-document {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 28px;
+  margin-inline: auto;
+  max-width: 860px;
+  padding: clamp(22px, 4vw, 42px);
+}
+
+.privacy-back-link {
+  color: var(--accent);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.privacy-back-link:hover {
+  text-decoration: underline;
+}
+
+.privacy-header {
+  display: grid;
+  gap: 12px;
+}
+
+.privacy-header h1 {
+  font-size: clamp(2rem, 5vw, 3.3rem);
+  line-height: 1.08;
+  margin: 0;
+}
+
+.privacy-header p,
+.privacy-section p {
+  color: var(--muted);
+  line-height: 1.72;
+  margin: 0;
+}
+
+.privacy-header span {
+  color: var(--accent);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.privacy-section-list {
+  display: grid;
+  gap: 24px;
+}
+
+.privacy-section {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  padding-top: 20px;
+}
+
+.privacy-section h2 {
+  font-size: 1.22rem;
+  margin: 0;
+}
+
 .form-status {
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -3406,9 +3475,15 @@ kbd {
 
 .landing-footer-inner {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   max-width: var(--landing-max);
   width: 100%;
+}
+
+.landing-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .landing-footer p {

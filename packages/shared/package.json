@@ -12,6 +12,7 @@
     "./bible-repository": "./src/bible-repository.ts",
     "./brand": "./src/brand.ts",
     "./korean-search": "./src/korean-search.ts",
+    "./privacy-policy": "./src/privacy-policy.ts",
     "./reading-plan": "./src/reading-plan.ts",
     "./search-highlight": "./src/search-highlight.ts",
     "./supabase-user-data-repository": "./src/supabase-user-data-repository.ts",

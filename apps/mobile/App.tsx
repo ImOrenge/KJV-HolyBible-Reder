@@ -23,6 +23,10 @@ import {
   mergeUserDataForImport,
   normalizeVerseId,
   percent,
+  privacyPolicyIntro,
+  privacyPolicySections,
+  privacyPolicyTitle,
+  privacyPolicyUpdatedAt,
   readingPlanOptions,
   saveRemoteUserData,
   saveUserDataToStorage,
@@ -403,6 +407,7 @@ function AppShell() {
   const [authStatus, setAuthStatus] = useState<SubmitStatus>("idle");
   const [authMessage, setAuthMessage] = useState("");
   const [showAuthForm, setShowAuthForm] = useState(false);
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   const [bookId, setBookId] = useState("gen");
   const [chapter, setChapter] = useState(1);
   const [chapterStatus, setChapterStatus] = useState<LoadStatus>("idle");
@@ -678,20 +683,41 @@ function AppShell() {
     }
 
     let cancelled = false;
+    let completed = false;
+    const authTimeout = setTimeout(() => {
+      if (cancelled || completed) {
+        return;
+      }
+      completed = true;
+      setAuthSession(null);
+      setAuthUser(null);
+      setAuthReady(true);
+      setAuthStatus("error");
+      setAuthMessage("세션 확인이 지연되어 비로그인 상태로 시작합니다.");
+    }, 5000);
+
+    const finishAuthCheck = (session: Session | null) => {
+      if (cancelled || completed) {
+        return;
+      }
+      completed = true;
+      clearTimeout(authTimeout);
+      setAuthSession(session);
+      setAuthUser(session?.user ?? null);
+      setAuthReady(true);
+    };
+
     void supabase.auth
       .getSession()
       .then(({ data }) => {
-        if (cancelled) {
-          return;
-        }
-        setAuthSession(data.session);
-        setAuthUser(data.session?.user ?? null);
-        setAuthReady(true);
+        finishAuthCheck(data.session);
       })
       .catch(() => {
-        if (cancelled) {
+        if (cancelled || completed) {
           return;
         }
+        completed = true;
+        clearTimeout(authTimeout);
         setAuthSession(null);
         setAuthUser(null);
         setAuthReady(true);
@@ -700,6 +726,8 @@ function AppShell() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      clearTimeout(authTimeout);
+      completed = true;
       setAuthSession(session);
       setAuthUser(session?.user ?? null);
       setAuthReady(true);
@@ -707,6 +735,7 @@ function AppShell() {
 
     return () => {
       cancelled = true;
+      clearTimeout(authTimeout);
       subscription.unsubscribe();
     };
   }, [supabase]);
@@ -2296,6 +2325,7 @@ function AppShell() {
                     mode={credentialMode}
                     onChangeEmail={setAuthEmail}
                     onChangePassword={setAuthPassword}
+                    onPrivacyPress={credentialMode === "sign-up" ? () => setShowPrivacyPolicy(true) : undefined}
                     onSubmit={credentialMode === "login" ? signIn : signUp}
                     styles={styles}
                     supabaseAvailable={Boolean(supabase)}
@@ -2303,6 +2333,7 @@ function AppShell() {
                 </View>
               )}
             </ScrollView>
+            {showPrivacyPolicy ? <PrivacyPolicyModal onClose={() => setShowPrivacyPolicy(false)} styles={styles} /> : null}
           </KeyboardAvoidingView>
         </SafeAreaView>
       </SafeAreaProvider>
@@ -3912,6 +3943,7 @@ function AuthCredentialForm({
   mode,
   onChangeEmail,
   onChangePassword,
+  onPrivacyPress,
   onSecondarySubmit,
   onSubmit,
   secondaryIcon,
@@ -3926,6 +3958,7 @@ function AuthCredentialForm({
   mode: AuthCredentialMode;
   onChangeEmail: (value: string) => void;
   onChangePassword: (value: string) => void;
+  onPrivacyPress?: () => void;
   onSubmit: () => void;
   styles: ReturnType<typeof createStyles>;
   supabaseAvailable: boolean;
@@ -3975,8 +4008,55 @@ function AuthCredentialForm({
           />
         ) : null}
       </View>
+      {mode === "sign-up" && onPrivacyPress ? (
+        <Pressable onPress={onPrivacyPress} style={styles.authPrivacyLink}>
+          <Text style={styles.authPrivacyText}>
+            회원가입 전 <Text style={styles.authPrivacyLinkText}>개인정보 취급방침</Text>을 확인하세요.
+          </Text>
+        </Pressable>
+      ) : null}
       {!supabaseAvailable ? <Text style={styles.errorText}>Supabase 공개 설정이 Expo에 전달되지 않았습니다.</Text> : null}
       {authMessage ? <Text style={authStatus === "error" ? styles.errorText : styles.successText}>{authMessage}</Text> : null}
+    </View>
+  );
+}
+
+function PrivacyPolicyModal({
+  onClose,
+  styles,
+}: {
+  onClose: () => void;
+  styles: ReturnType<typeof createStyles>;
+}) {
+  return (
+    <View style={[styles.modalBackdrop, styles.centerModalBackdrop]}>
+      <View style={styles.privacyModalSheet}>
+        <View style={styles.chapterPickerHeader}>
+          <View style={styles.favoriteModalTitleBlock}>
+            <Text style={styles.noteModalTitleText}>{privacyPolicyTitle}</Text>
+            <Text style={styles.metaText}>시행일: {privacyPolicyUpdatedAt}</Text>
+          </View>
+          <Pressable onPress={onClose} style={styles.iconButton}>
+            <Icon color={styles.tokens.text} name="close-outline" size={18} />
+          </Pressable>
+        </View>
+        <ScrollView style={styles.privacyModalBody}>
+          <Text style={styles.privacyModalIntro}>{privacyPolicyIntro}</Text>
+          {privacyPolicySections.map((section) => (
+            <View key={section.title} style={styles.privacyModalSection}>
+              <Text style={styles.privacyModalSectionTitle}>{section.title}</Text>
+              {section.body.map((paragraph) => (
+                <Text key={paragraph} style={styles.privacyModalParagraph}>
+                  {paragraph}
+                </Text>
+              ))}
+            </View>
+          ))}
+        </ScrollView>
+        <View style={[styles.modalActions, styles.noteModalActions]}>
+          <ModalTextButton label="닫기" onPress={onClose} styles={styles} variant="primary" />
+        </View>
+      </View>
     </View>
   );
 }
@@ -4413,6 +4493,27 @@ function createStyles(colors: typeof lightColors, viewportHeight = 844) {
         color: colors.text,
         fontSize: 12,
         fontWeight: "900",
+      },
+      authPrivacyLink: {
+        backgroundColor: colors.surfaceStrong,
+        borderColor: colors.border,
+        borderRadius: 6,
+        borderWidth: 1,
+        justifyContent: "center",
+        minHeight: 44,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+      },
+      authPrivacyText: {
+        color: colors.muted,
+        fontSize: 12,
+        fontWeight: "700",
+        lineHeight: 18,
+      },
+      authPrivacyLinkText: {
+        color: colors.accent,
+        fontWeight: "900",
+        textDecorationLine: "underline",
       },
       header: {
         alignItems: "center",
@@ -5286,6 +5387,42 @@ function createStyles(colors: typeof lightColors, viewportHeight = 844) {
         maxHeight: "82%",
         padding: 18,
         width: "100%",
+      },
+      privacyModalSheet: {
+        backgroundColor: colors.surface,
+        borderColor: colors.border,
+        borderRadius: 8,
+        borderWidth: 1,
+        gap: 14,
+        maxHeight: "88%",
+        padding: 18,
+        width: "100%",
+      },
+      privacyModalBody: {
+        maxHeight: Platform.OS === "web" ? 560 : 520,
+      },
+      privacyModalIntro: {
+        color: colors.text,
+        fontSize: 14,
+        lineHeight: 22,
+        marginBottom: 16,
+      },
+      privacyModalSection: {
+        borderTopColor: colors.border,
+        borderTopWidth: 1,
+        gap: 8,
+        paddingTop: 14,
+        marginBottom: 16,
+      },
+      privacyModalSectionTitle: {
+        color: colors.text,
+        fontSize: 15,
+        fontWeight: "900",
+      },
+      privacyModalParagraph: {
+        color: colors.muted,
+        fontSize: 13,
+        lineHeight: 20,
       },
       feedbackModalSheet: {
         backgroundColor: colors.surface,

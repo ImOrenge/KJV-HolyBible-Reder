@@ -28,6 +28,16 @@ function validatePassword(password: string) {
   return password.length >= 8;
 }
 
+function readSafeNextPath(formData: FormData) {
+  const nextPath = String(formData.get("next") ?? "").trim();
+
+  if (!nextPath || !nextPath.startsWith("/") || nextPath.startsWith("//")) {
+    return "/app";
+  }
+
+  return nextPath;
+}
+
 export async function signInWithEmail(_: AuthActionState, formData: FormData): Promise<AuthActionState> {
   const email = readEmail(formData);
   const password = readPassword(formData);
@@ -52,7 +62,7 @@ export async function signInWithEmail(_: AuthActionState, formData: FormData): P
     };
   }
 
-  redirect("/app");
+  redirect(readSafeNextPath(formData));
 }
 
 export async function signUpWithEmail(_: AuthActionState, formData: FormData): Promise<AuthActionState> {

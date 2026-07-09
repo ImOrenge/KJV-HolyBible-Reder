@@ -339,6 +339,9 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
       </section>
       <footer className="landing-footer" aria-label="성경 본문 출처 및 라이선스">
         <div className="landing-footer-inner">
+          <nav className="landing-footer-links" aria-label="서비스 정책">
+            <Link href="/privacy">개인정보 취급방침</Link>
+          </nav>
           <p>
             성경 본문 출처: CrossWire Bible Society{" "}
             <a href="https://crosswire.org/sword/modules/ModInfo.jsp?modName=KJV" target="_blank" rel="noreferrer">

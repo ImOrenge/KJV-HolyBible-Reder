@@ -12,6 +12,7 @@ type AuthMode = "login" | "sign-up" | "reset-password" | "update-password";
 type EmailAuthFormProps = {
   action: (state: AuthActionState, formData: FormData) => Promise<AuthActionState>;
   mode: AuthMode;
+  next?: string;
 };
 
 const initialAuthActionState: AuthActionState = {
@@ -60,7 +61,7 @@ function SubmitButton({ label }: { label: string }) {
   );
 }
 
-export function EmailAuthForm({ action, mode }: EmailAuthFormProps) {
+export function EmailAuthForm({ action, mode, next }: EmailAuthFormProps) {
   const [state, formAction] = useActionState(action, initialAuthActionState);
   const content = modeContent[mode];
   const needsEmail = mode !== "update-password";
@@ -78,6 +79,8 @@ export function EmailAuthForm({ action, mode }: EmailAuthFormProps) {
         </div>
 
         <form action={formAction} className="auth-form">
+          {next ? <input name="next" type="hidden" value={next} /> : null}
+
           {needsEmail ? (
             <label>
               이메일
