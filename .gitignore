@@ -18,6 +18,9 @@ dist/
 .tmp/
 .vscode/
 .expo/
+apps/mobile/credentials.json
+apps/mobile/credentials/
+apps/mobile/*.bak.jks
 coverage/
 *.tsbuildinfo
 
