@@ -41,6 +41,7 @@ component:
       - settings tab active
       - dashboard today tab
       - dashboard progress tab
+      - dashboard community tab
       - dashboard activity tab
       - dashboard study tab
   parity_contract:
@@ -53,11 +54,12 @@ component:
       - 명령 검색
       - 오늘
       - 통독
+      - 커뮤니티
       - 활동
       - 공부
     layout:
       - bottom navigation uses five equal columns with 4px gaps and 48px minimum hit targets
-      - home tab segment uses four equal columns with 4px gaps and 44px minimum hit targets
+      - home tab segment uses five equal columns with 4px gaps and 44px minimum hit targets
       - active items use the surfaceStrong/accentSoft filled state and text color promotion
     intentional_divergence:
       - target: expo-native

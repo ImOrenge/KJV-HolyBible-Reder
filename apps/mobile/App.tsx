@@ -35,6 +35,7 @@ import {
   privacyPolicyTitle,
   privacyPolicyUpdatedAt,
   readingPlanOptions,
+  recordCommunityReadingCompletion,
   saveRemoteUserData,
   saveUserDataToStorage,
   searchHebrewDictionary,
@@ -85,6 +86,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { CommunityHomePanel } from "./src/community-home-panel";
 import { PersonalNoteRichTextEditor } from "./src/components/personal-note-rich-text-editor";
 import { OnboardingScreen } from "./src/onboarding-screen";
 import { studyUiFeatureFlags } from "./src/study-ui-feature-flags";
@@ -92,7 +94,7 @@ import { studyUiFeatureFlags } from "./src/study-ui-feature-flags";
 WebBrowser.maybeCompleteAuthSession();
 
 type ViewKey = StudyUiMobileViewKey;
-type HomeTab = "today" | "progress" | "activity" | "study";
+type HomeTab = "today" | "progress" | "community" | "activity" | "study";
 type SettingsSectionKey = "account" | "tts" | "text" | "view";
 type SearchSelectKey = "language" | "sort" | "testament" | "book";
 type EntryMode = "welcome" | "login" | "sign-up" | "guest";
@@ -134,6 +136,7 @@ const iconGlyphs = {
   "log-out-outline": "↩",
   "moon-outline": "◐",
   "pause-circle-outline": "Ⅱ",
+  "people-outline": "◎",
   "person-add-outline": "+",
   "play-circle-outline": "▶",
   "reader-outline": "▤",
@@ -551,6 +554,7 @@ function AppShell() {
   const pendingStoredVerseFetchesRef = useRef(new Set<string>());
   const verseLayoutsRef = useRef(new Map<string, { height: number; y: number }>());
   const speechQueueRef = useRef<SpeechQueueItem[]>([]);
+  const speechCompletionRef = useRef<Array<{ bookId: string; chapter: number; method: "chapter_tts" | "today_plan_tts" }>>([]);
   const speechIndexRef = useRef(0);
   const speechCancelRef = useRef(false);
 
@@ -1952,8 +1956,17 @@ function AppShell() {
         setSpeakingVerseId(null);
         setTtsPlaybackState("idle");
         setTtsStatus(`${ttsQueueLabel} 완료`);
+        const completions = speechCompletionRef.current;
+        speechCompletionRef.current = [];
+        if (authSession?.access_token) {
+          void Promise.all(completions.map((completion) => recordCommunityReadingCompletion(completion, {
+            accessToken: authSession.access_token,
+            baseUrl: apiBaseUrl,
+          }))).catch(() => undefined);
+        }
       },
       onError: () => {
+        speechCompletionRef.current = [];
         setSpeakingVerseId(null);
         setTtsPlaybackState("idle");
         setTtsStatus("TTS 재생 오류");
@@ -1967,6 +1980,7 @@ function AppShell() {
           return;
         }
         setSpeakingVerseId(null);
+        speechCompletionRef.current = [];
         setTtsPlaybackState("idle");
         setTtsStatus("정지");
       },
@@ -1975,7 +1989,12 @@ function AppShell() {
     });
   };
 
-  const playSpeechQueue = (items: SpeechQueueItem[], startIndex = 0, label = "재생 목록") => {
+  const playSpeechQueue = (
+    items: SpeechQueueItem[],
+    startIndex = 0,
+    label = "재생 목록",
+    completions: Array<{ bookId: string; chapter: number; method: "chapter_tts" | "today_plan_tts" }> = [],
+  ) => {
     const queue = items.filter((item) => item.text.trim());
     if (!queue.length) {
       return;
@@ -1985,6 +2004,7 @@ function AppShell() {
     void Speech.stop().finally(() => {
       speechCancelRef.current = false;
       speechQueueRef.current = queue;
+      speechCompletionRef.current = completions;
       setTtsQueueLabel(`${label} · ${queue.length}개`);
       speakQueueAtIndex(Math.min(Math.max(startIndex, 0), queue.length - 1));
     });
@@ -2011,6 +2031,7 @@ function AppShell() {
       verses.map((verse) => ({ id: verse.id, label: formatReference(verse), text: getVerseDisplayText(verse, readingLanguage) })),
       0,
       "현재 장",
+      [{ bookId, chapter, method: "chapter_tts" }],
     );
   };
 
@@ -2028,6 +2049,7 @@ function AppShell() {
         planVerses.map((verse) => ({ id: verse.id, label: formatReference(verse), text: getVerseDisplayText(verse, readingLanguage) })),
         0,
         "오늘 분량",
+        readingPlanDay.chapters.map((item) => ({ ...item, method: "today_plan_tts" as const })),
       );
     } catch {
       setTtsStatus("오늘 분량 재생 실패");
@@ -2862,6 +2884,7 @@ function AppShell() {
                 <View style={styles.homeSegment}>
                   <HomeTabButton active={homeTab === "today"} icon="calendar-outline" label="오늘" onPress={() => setHomeTab("today")} styles={styles} />
                   <HomeTabButton active={homeTab === "progress"} icon="stats-chart-outline" label="통독" onPress={() => setHomeTab("progress")} styles={styles} />
+                  <HomeTabButton active={homeTab === "community"} icon="people-outline" label="커뮤니티" onPress={() => setHomeTab("community")} styles={styles} />
                   <HomeTabButton active={homeTab === "activity"} icon="layers-outline" label="활동" onPress={() => setHomeTab("activity")} styles={styles} />
                   <HomeTabButton active={homeTab === "study"} icon="bookmark-outline" label="공부" onPress={() => setHomeTab("study")} styles={styles} />
                 </View>
@@ -2938,6 +2961,35 @@ function AppShell() {
                     <ProgressMetricCard detail={`총 ${userData.completedChapters.length} / ${totalChapters}장`} label="오늘 읽은 장" value={`${completedToday}`} styles={styles} />
                     <ProgressMetricCard detail={`${completedOld}/${oldChapterTotal} · ${completedNew}/${newChapterTotal}`} label="구약 / 신약" value={`${oldPercent}% · ${newPercent}%`} styles={styles} />
                   </>
+                ) : null}
+
+                {homeTab === "community" ? (
+                  <CommunityHomePanel
+                    accessToken={authSession?.access_token}
+                    apiBaseUrl={apiBaseUrl}
+                    currentReference={
+                      currentReadingVerse
+                        ? { reference: formatReference(currentReadingVerse), verseKey: currentReadingVerse.verseKey ?? currentReadingVerse.id }
+                        : userData.progress
+                          ? {
+                              reference: `${getBook(userData.progress.bookId)?.nameKo ?? userData.progress.bookId} ${userData.progress.chapter}:${userData.progress.verse}`,
+                              verseKey: `${userData.progress.bookId.toUpperCase()}.${userData.progress.chapter}.${userData.progress.verse}`,
+                            }
+                          : null
+                    }
+                    onLogin={() => {
+                      setShowAuthForm(true);
+                      setEntryMode("login");
+                    }}
+                    onOpenReader={() => {
+                      if (userData.progress) {
+                        setBookId(userData.progress.bookId);
+                        setChapter(userData.progress.chapter);
+                      }
+                      setActiveView("reader");
+                    }}
+                    theme={colors}
+                  />
                 ) : null}
 
                 {homeTab === "activity" ? (
@@ -5440,14 +5492,14 @@ function createStyles(colors: typeof lightColors, viewportHeight = 844) {
         borderWidth: 1,
         flex: 1,
         flexDirection: "row",
-        gap: 6,
+        gap: 2,
         justifyContent: "center",
         minHeight: 44,
         minWidth: 0,
         outlineColor: "transparent",
         outlineStyle: "solid",
         outlineWidth: 0,
-        paddingHorizontal: 8,
+        paddingHorizontal: 2,
       },
       homeTabButtonActive: {
         backgroundColor: colors.surfaceStrong,
@@ -5455,7 +5507,7 @@ function createStyles(colors: typeof lightColors, viewportHeight = 844) {
       },
       homeTabText: {
         color: colors.muted,
-        fontSize: 12,
+        fontSize: 11,
         fontWeight: "800",
       },
       homeTabTextActive: {

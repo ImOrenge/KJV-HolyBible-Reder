@@ -31,6 +31,7 @@ import {
   Tags,
   Type,
   UserRound,
+  Users,
   Volume2,
   X,
 } from "lucide-react";
@@ -66,6 +67,8 @@ import { ReaderVerseActions, type ReaderContextTab } from "@/components/reader-v
 import { ReaderVerseRow } from "@/components/reader-verse-row";
 import { createClient as createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { ContinueReadingPanel, ProgressMetricPanel } from "@/components/app-preview-panels";
+import { CommunityHomePanel } from "@/components/community/community-home-panel";
+import { recordCommunityReadingCompletion } from "@kjv/shared/community";
 import {
   clearUserData,
   createInitialUserData,
@@ -126,7 +129,7 @@ type KjvMvpAppProps = {
   readerRoute?: StudyUiReaderRoute;
   user: AppUser;
 };
-type MobileHomeTab = "today" | "progress" | "activity" | "study";
+type MobileHomeTab = "today" | "progress" | "community" | "activity" | "study";
 type SettingsSectionKey = "account" | "tts" | "text" | "view";
 type LoadStatus = "idle" | "loading" | "ready" | "error";
 type TtsPlaybackState = "idle" | "playing" | "paused" | "error";
@@ -152,6 +155,7 @@ const tabs: Array<{ key: ViewKey; label: string; icon: React.ComponentType<{ siz
 const mobileHomeTabs: Array<{ key: MobileHomeTab; label: string; icon: React.ComponentType<{ size?: number }> }> = [
   { key: "today", label: "오늘", icon: CalendarDays },
   { key: "progress", label: "통독", icon: BarChart3 },
+  { key: "community", label: "커뮤니티", icon: Users },
   { key: "activity", label: "활동", icon: Layers },
   { key: "study", label: "공부", icon: StickyNote },
 ];
@@ -733,7 +737,7 @@ export function KjvMvpApp({
     return completedKeys.has(chapterKey(bookId, chapter));
   }, [completedKeys]);
 
-  const markChapterCompleted = useCallback((bookId: string, chapter: number, announce = false) => {
+  const markChapterCompleted = useCallback((bookId: string, chapter: number, announce = false, method?: "scroll" | "chapter_tts" | "today_plan_tts") => {
     if (completedKeys.has(chapterKey(bookId, chapter))) {
       return;
     }
@@ -761,7 +765,10 @@ export function KjvMvpApp({
     if (announce) {
       setCopyStatus(`${getChapterLabel(bookId, chapter)} 읽음 완료`);
     }
-  }, [completedKeys, user.id]);
+    if (method && user.isAuthenticated) {
+      void recordCommunityReadingCompletion({ bookId, chapter, method }, {}).catch(() => undefined);
+    }
+  }, [completedKeys, user.id, user.isAuthenticated]);
 
   const isLastVerseInLoadedChapter = useCallback((verse: Verse) => {
     const lastVerse = chapterVerses.at(-1);
@@ -793,7 +800,7 @@ export function KjvMvpApp({
         return;
       }
 
-      markChapterCompleted(verse.bookId, verse.chapter, true);
+      markChapterCompleted(verse.bookId, verse.chapter, true, "scroll");
     }, 2000);
   }, [clearAutoCompleteTimer, isChapterCompleted, isLastVerseInLoadedChapter, markChapterCompleted]);
 
@@ -809,7 +816,12 @@ export function KjvMvpApp({
       return;
     }
 
-    markChapterCompleted(verse.bookId, verse.chapter, true);
+    markChapterCompleted(
+      verse.bookId,
+      verse.chapter,
+      true,
+      queueMode === "today-plan" ? "today_plan_tts" : "chapter_tts",
+    );
   }, [isFinalQueuedVerseForChapter, markChapterCompleted]);
 
   const highlightsByVerse = useMemo(
@@ -3683,6 +3695,25 @@ export function KjvMvpApp({
                 )}
               </div>
             </section>
+
+            <CommunityHomePanel
+              currentReference={
+                currentReadingVerse
+                  ? { reference: formatReference(currentReadingVerse), verseKey: currentReadingVerse.verseKey ?? currentReadingVerse.id }
+                  : userData.progress
+                    ? {
+                        reference: `${getChapterLabel(userData.progress.bookId, userData.progress.chapter)} ${userData.progress.verse}절`,
+                        verseKey: `${userData.progress.bookId.toUpperCase()}.${userData.progress.chapter}.${userData.progress.verse}`,
+                      }
+                    : null
+              }
+              onLogin={() => router.push("/auth/login")}
+              onOpenReader={() => {
+                if (userData.progress) openChapter(userData.progress.bookId, userData.progress.chapter, userData.progress.verse);
+                else setActiveView("reader");
+              }}
+              user={user}
+            />
 
             <section className="panel home-section home-section-activity">
               <div className="panel-heading">
