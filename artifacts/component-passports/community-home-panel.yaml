@@ -1,0 +1,51 @@
+component:
+  id: community-home-panel
+  status: candidate
+  owner_scope: qt-community-ranking
+  source:
+    web: apps/web/src/components/community/community-home-panel.tsx
+    expo: apps/mobile/src/community-home-panel.tsx
+    shared_contract: packages/shared/src/community.ts
+    style: apps/web/src/app/globals.css
+  component_kind: feature
+  change_gate:
+    type: behavioral
+    summary: Adds authenticated QT publishing, comments, helpful reactions, profile visibility, points, and ranking interactions to the home community tab.
+  public_api:
+    props:
+      - currentReference
+      - user or accessToken
+      - apiBaseUrl
+      - onLogin
+      - onOpenReader
+  state:
+    required:
+      - guest login gate
+      - loading and error
+      - composer ready and disabled
+      - populated and empty feed
+      - selected thread and comments
+      - ranking opt-in and opt-out
+      - weekly monthly all-time ranking
+  accessibility_contract:
+    - native buttons and pressables keep explicit labels or visible command text
+    - status messages are announced on web
+    - ranking period controls expose pressed state on web
+  css_contract:
+    namespace: community-
+    global_css: apps/web/src/app/globals.css
+    tokens:
+      - --surface
+      - --surface-2
+      - --line
+      - --text
+      - --muted
+      - --accent
+  validation:
+    required:
+      - typecheck
+      - lint
+      - build
+      - authenticated API smoke
+      - web mobile screenshot at 390px
+      - Expo typecheck and interaction smoke
