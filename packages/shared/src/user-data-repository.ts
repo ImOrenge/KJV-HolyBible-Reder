@@ -32,6 +32,10 @@ export function createInitialUserData(userId = "demo-user"): UserDataState {
     completedChapters: [],
     highlights: [],
     studyNotes: [],
+    personalNotes: [],
+    personalNoteVerseLinks: [],
+    personalNoteTags: [],
+    verseTags: [],
     favoriteVerses: [],
     favoriteLists: [
       {
@@ -70,6 +74,10 @@ export function normalizeUserData(parsed: Partial<UserDataState>, userId: string
     completedChapters: (parsed.completedChapters ?? []).map((chapter) => withCurrentUser(chapter, userId)),
     highlights: (parsed.highlights ?? []).map((highlight) => withCurrentUser(highlight, userId)),
     studyNotes: (parsed.studyNotes ?? []).map((note) => withCurrentUser(note, userId)),
+    personalNotes: (parsed.personalNotes ?? []).map((note) => withCurrentUser(note, userId)),
+    personalNoteVerseLinks: (parsed.personalNoteVerseLinks ?? []).map((link) => withCurrentUser(link, userId)),
+    personalNoteTags: (parsed.personalNoteTags ?? []).map((tag) => withCurrentUser(tag, userId)),
+    verseTags: (parsed.verseTags ?? []).map((tag) => withCurrentUser(tag, userId)),
     favoriteLists,
     favoriteVerses: (parsed.favoriteVerses ?? []).map((favorite) => ({
       ...withCurrentUser(favorite, userId),

@@ -17,6 +17,7 @@ import {
   getReadingPlanDay,
   getTotalChapterCount,
   hasImportableUserData,
+  hebrewDictionaryThemes,
   issueTypeLabels,
   loadRemoteUserData,
   loadUserDataFromStorage,
@@ -30,13 +31,16 @@ import {
   readingPlanOptions,
   saveRemoteUserData,
   saveUserDataToStorage,
+  searchHebrewDictionary,
   submitTranslationFeedback,
   translationFeedbackIssueTypes,
   type BibleSearchLanguage,
   type BibleSearchSort,
   type FavoriteList,
+  type HebrewDictionarySort,
   type Highlight,
   type HighlightColor,
+  type PersonalNote,
   type ReadingMode,
   type ReadingPlanTemplate,
   type Tag,
@@ -70,7 +74,7 @@ import {
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
-type ViewKey = "dashboard" | "reader" | "quickMove" | "progress" | "highlights" | "favorites" | "search" | "settings";
+type ViewKey = "dashboard" | "reader" | "quickMove" | "progress" | "highlights" | "favorites" | "search" | "notes" | "dictionary" | "settings";
 type HomeTab = "today" | "progress" | "activity" | "study";
 type SettingsSectionKey = "account" | "tts" | "text" | "view";
 type SearchSelectKey = "language" | "sort" | "testament" | "book";
@@ -104,6 +108,7 @@ const iconGlyphs = {
   "flag-outline": "⚑",
   "funnel-outline": "≡",
   "language-outline": "가",
+  "library-outline": "A",
   "list-checks": "☑",
   "home-outline": "⌂",
   "layers-outline": "▤",
@@ -439,6 +444,16 @@ function AppShell() {
   const [searchTestament, setSearchTestament] = useState<"all" | "OT" | "NT">("all");
   const [searchBookFilter, setSearchBookFilter] = useState("all");
   const [activeSearchSelect, setActiveSearchSelect] = useState<SearchSelectKey | null>(null);
+  const [dictionaryQuery, setDictionaryQuery] = useState("");
+  const [dictionaryTheme, setDictionaryTheme] = useState("all");
+  const [dictionaryBookFilter, setDictionaryBookFilter] = useState("all");
+  const [dictionarySort, setDictionarySort] = useState<HebrewDictionarySort>("canonical");
+  const [selectedDictionaryEntryId, setSelectedDictionaryEntryId] = useState<string | null>(null);
+  const [noteSearchQuery, setNoteSearchQuery] = useState("");
+  const [selectedPersonalNoteId, setSelectedPersonalNoteId] = useState<string | null>(null);
+  const [personalNoteTitle, setPersonalNoteTitle] = useState("");
+  const [personalNoteBody, setPersonalNoteBody] = useState("");
+  const [personalNoteTagInput, setPersonalNoteTagInput] = useState("");
   const [highlightColorFilter, setHighlightColorFilter] = useState<"all" | HighlightColor>("all");
   const [highlightBookFilter, setHighlightBookFilter] = useState("all");
   const [favoriteSearchQuery, setFavoriteSearchQuery] = useState("");
@@ -565,7 +580,47 @@ function AppShell() {
   const searchBookSelectOptions = [{ label: "전체 성경", value: "all" }, ...searchBookOptions.map((book) => ({ label: book.nameKo, value: book.id }))];
   const selectedSearchBookLabel = searchBookSelectOptions.find((option) => option.value === searchBookFilter)?.label ?? "전체 성경";
   const searchDisplayLanguage: TranslationLanguage = searchLanguage === "en" ? "en" : "ko";
-  const quickMoveActive = isQuickMoveOpen || activeView === "progress" || activeView === "highlights" || activeView === "search";
+  const dictionarySearchResult = useMemo(
+    () =>
+      searchHebrewDictionary({
+        bookId: dictionaryBookFilter,
+        limit: 30,
+        q: dictionaryQuery,
+        sort: dictionarySort,
+        theme: dictionaryTheme,
+      }),
+    [dictionaryBookFilter, dictionaryQuery, dictionarySort, dictionaryTheme],
+  );
+  const selectedDictionaryEntry =
+    dictionarySearchResult.entries.find((entry) => entry.id === selectedDictionaryEntryId) ?? dictionarySearchResult.entries[0] ?? null;
+  const visiblePersonalNotes = useMemo(() => {
+    const normalizedQuery = noteSearchQuery.trim().toLocaleLowerCase("ko-KR");
+    return userData.personalNotes
+      .filter((note) => note.status === "active")
+      .filter((note) => {
+        if (!normalizedQuery) {
+          return true;
+        }
+        const noteTags = userData.personalNoteTags
+          .filter((tagLink) => tagLink.noteId === note.id)
+          .map((tagLink) => userData.tags.find((tag) => tag.id === tagLink.tagId)?.name)
+          .filter(Boolean)
+          .join(" ");
+        return [note.title, note.bodyText, noteTags].join(" ").toLocaleLowerCase("ko-KR").includes(normalizedQuery);
+      })
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  }, [noteSearchQuery, userData.personalNoteTags, userData.personalNotes, userData.tags]);
+  const selectedPersonalNote =
+    (selectedPersonalNoteId ? userData.personalNotes.find((note) => note.id === selectedPersonalNoteId) : null) ??
+    visiblePersonalNotes[0] ??
+    null;
+  const selectedPersonalNoteLinks = selectedPersonalNote
+    ? userData.personalNoteVerseLinks
+        .filter((link) => link.noteId === selectedPersonalNote.id)
+        .sort((left, right) => left.linkOrder - right.linkOrder)
+    : [];
+  const quickMoveActive =
+    isQuickMoveOpen || activeView === "progress" || activeView === "highlights" || activeView === "search" || activeView === "notes" || activeView === "dictionary";
   const filteredHighlights = useMemo(
     () =>
       userData.highlights
@@ -991,6 +1046,27 @@ function AppShell() {
   useEffect(() => {
     setChapterNoteDraft(chapterNote?.note ?? "");
   }, [chapterNote?.note, bookId, chapter]);
+
+  useEffect(() => {
+    if (!selectedPersonalNote) {
+      setSelectedPersonalNoteId(null);
+      setPersonalNoteTitle("");
+      setPersonalNoteBody("");
+      setPersonalNoteTagInput("");
+      return;
+    }
+
+    setSelectedPersonalNoteId(selectedPersonalNote.id);
+    setPersonalNoteTitle(selectedPersonalNote.title);
+    setPersonalNoteBody(selectedPersonalNote.bodyMarkdown);
+    setPersonalNoteTagInput(
+      userData.personalNoteTags
+        .filter((tagLink) => tagLink.noteId === selectedPersonalNote.id)
+        .map((tagLink) => userData.tags.find((tag) => tag.id === tagLink.tagId)?.name)
+        .filter(Boolean)
+        .join(", "),
+    );
+  }, [selectedPersonalNote?.id, selectedPersonalNote?.title, selectedPersonalNote?.bodyMarkdown, userData.personalNoteTags, userData.tags]);
 
   const setReadingLanguage = (language: TranslationLanguage) => {
     updateSettings({ defaultTranslation: language });
@@ -1447,6 +1523,145 @@ function AppShell() {
     setChapterNoteDraft("");
     setCopyStatus("장 노트 삭제됨");
     setShowChapterNote(false);
+    setTimeout(() => setCopyStatus(""), 1600);
+  };
+
+  const openNewPersonalNote = (
+    linkedVerses: Verse[] = selectedVerses.length ? selectedVerses : selectedVerse ? [selectedVerse] : [],
+    initial?: { bodyMarkdown?: string; tagInput?: string; title?: string },
+  ) => {
+    const now = new Date().toISOString();
+    const noteId = createId("personal-note");
+    const title =
+      initial?.title ??
+      (linkedVerses.length === 1
+        ? `${formatReference(linkedVerses[0])} 노트`
+        : linkedVerses.length > 1
+          ? `${linkedVerses.length}개 구절 노트`
+          : "새 성경노트");
+    const bodyMarkdown = initial?.bodyMarkdown ?? "";
+    const note: PersonalNote = {
+      id: noteId,
+      userId: activeUserId,
+      title,
+      bodyMarkdown,
+      bodyText: bodyMarkdown.replace(/[#*_>`-]/g, " ").replace(/\s+/g, " ").trim(),
+      editorFormat: "markdown-lite",
+      status: "active",
+      pinned: false,
+      createdAt: now,
+      updatedAt: now,
+      lastSavedAt: now,
+    };
+
+    setUserData((current) => ({
+      ...current,
+      personalNotes: [note, ...current.personalNotes],
+      personalNoteVerseLinks: [
+        ...linkedVerses.map((verse, index) => ({
+          id: createId("note-link"),
+          userId: activeUserId,
+          noteId,
+          verseKey: verse.id,
+          bookId: verse.bookId,
+          chapter: verse.chapter,
+          verse: verse.verse,
+          selectedText: getVerseDisplayText(verse, readingLanguage),
+          linkOrder: index,
+          createdAt: now,
+        })),
+        ...current.personalNoteVerseLinks,
+      ],
+    }));
+    setSelectedPersonalNoteId(noteId);
+    setPersonalNoteTitle(title);
+    setPersonalNoteBody(bodyMarkdown);
+    setPersonalNoteTagInput(initial?.tagInput ?? "");
+    setActiveView("notes");
+    setReaderSelectionMode(false);
+  };
+
+  const savePersonalNote = () => {
+    const now = new Date().toISOString();
+    const existingId = selectedPersonalNote?.id ?? selectedPersonalNoteId ?? createId("personal-note");
+    const title = personalNoteTitle.trim() || "제목 없는 성경노트";
+    const bodyMarkdown = personalNoteBody.trim();
+    const bodyText = bodyMarkdown.replace(/[#*_>`-]/g, " ").replace(/\s+/g, " ").trim();
+    const tagNames = personalNoteTagInput
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+
+    setUserData((current) => {
+      const nextTags = [...current.tags];
+      const tagIds = tagNames.map((name) => {
+        const existingTag = nextTags.find((tag) => tag.name.toLocaleLowerCase("ko-KR") === name.toLocaleLowerCase("ko-KR"));
+        if (existingTag) {
+          return existingTag.id;
+        }
+
+        const tag: Tag = {
+          id: createId("tag"),
+          userId: activeUserId,
+          name,
+          createdAt: now,
+        };
+        nextTags.push(tag);
+        return tag.id;
+      });
+      const existingNote = current.personalNotes.find((note) => note.id === existingId);
+      const nextNote: PersonalNote = {
+        id: existingId,
+        userId: activeUserId,
+        title,
+        bodyMarkdown,
+        bodyText,
+        editorFormat: "markdown-lite",
+        status: "active",
+        pinned: existingNote?.pinned ?? false,
+        createdAt: existingNote?.createdAt ?? now,
+        updatedAt: now,
+        lastSavedAt: now,
+      };
+
+      return {
+        ...current,
+        tags: nextTags,
+        personalNotes: [nextNote, ...current.personalNotes.filter((note) => note.id !== existingId)],
+        personalNoteTags: [
+          ...tagIds.map((tagId) => ({
+            userId: activeUserId,
+            noteId: existingId,
+            tagId,
+            createdAt: now,
+          })),
+          ...current.personalNoteTags.filter((tagLink) => tagLink.noteId !== existingId),
+        ],
+      };
+    });
+    setSelectedPersonalNoteId(existingId);
+    setCopyStatus("성경노트 저장됨");
+    setTimeout(() => setCopyStatus(""), 1600);
+  };
+
+  const deletePersonalNote = () => {
+    const noteId = selectedPersonalNote?.id;
+    if (!noteId) {
+      return;
+    }
+
+    setUserData((current) => ({
+      ...current,
+      personalNotes: current.personalNotes.filter((note) => note.id !== noteId),
+      personalNoteTags: current.personalNoteTags.filter((tagLink) => tagLink.noteId !== noteId),
+      personalNoteVerseLinks: current.personalNoteVerseLinks.filter((link) => link.noteId !== noteId),
+      verseTags: current.verseTags.filter((tag) => tag.sourceNoteId !== noteId),
+    }));
+    setSelectedPersonalNoteId(null);
+    setPersonalNoteTitle("");
+    setPersonalNoteBody("");
+    setPersonalNoteTagInput("");
+    setCopyStatus("성경노트 삭제됨");
     setTimeout(() => setCopyStatus(""), 1600);
   };
 
@@ -2171,6 +2386,8 @@ function AppShell() {
     { label: "강조 구절", description: "색상별 표시", action: () => setActiveView("highlights") },
     { label: "인용 보관함", description: "목록과 복사", action: () => setActiveView("favorites") },
     { label: "검색", description: "KJV 본문 검색", action: () => setActiveView("search") },
+    { label: "성경노트", description: "개인 노트와 구절 링크", action: () => setActiveView("notes") },
+    { label: "히브리어 사전", description: "원어, 발음, 한영 뜻, 출현 구절", action: () => setActiveView("dictionary") },
     { label: "설정", description: "읽기와 TTS", action: () => setActiveView("settings") },
     { label: "현재 장 노트", description: `${currentBook.nameKo} ${chapter}장`, action: () => { setActiveView("reader"); setShowChapterNote(true); } },
   ].filter((command) => {
@@ -2708,6 +2925,13 @@ function AppShell() {
                       styles={styles}
                       variant="panel"
                     />
+                    <ActionButton
+                      icon="reader-outline"
+                      label="성경노트 만들기"
+                      onPress={() => openNewPersonalNote([selectedVerse])}
+                      styles={styles}
+                      variant="panel"
+                    />
                   </View>
                 ) : null}
 
@@ -2760,6 +2984,20 @@ function AppShell() {
                     <Text style={styles.metaText}>한국어/KJV, 권별 검색</Text>
                   </View>
                   <Icon color={colors.accent} name="search-outline" size={18} />
+                </Pressable>
+                <Pressable onPress={() => setActiveView("notes")} style={styles.quickAction}>
+                  <View>
+                    <Text style={styles.panelTitle}>성경노트</Text>
+                    <Text style={styles.metaText}>개인 노트 {userData.personalNotes.length}개</Text>
+                  </View>
+                  <Icon color={colors.accent} name="reader-outline" size={18} />
+                </Pressable>
+                <Pressable onPress={() => setActiveView("dictionary")} style={styles.quickAction}>
+                  <View>
+                    <Text style={styles.panelTitle}>히브리어 사전</Text>
+                    <Text style={styles.metaText}>발음, 한영 뜻, 예시 구절</Text>
+                  </View>
+                  <Icon color={colors.accent} name="library-outline" size={18} />
                 </Pressable>
               </View>
             ) : null}
@@ -2835,6 +3073,225 @@ function AppShell() {
                 {searchStatus === "ready" && query.trim().length >= 2 && !searchResults.length ? (
                   <Text style={styles.emptyText}>검색 결과가 없습니다.</Text>
                 ) : null}
+              </View>
+            ) : null}
+
+            {activeView === "dictionary" ? (
+              <View style={styles.section}>
+                <View style={[styles.selectedPanel, styles.formPanel]}>
+                  <View style={styles.panelHeading}>
+                    <View>
+                      <Text style={styles.eyebrow}>Hebrew Lexicon</Text>
+                      <Text style={styles.panelTitle}>히브리어 사전</Text>
+                    </View>
+                    <Icon color={colors.text} name="library-outline" size={18} />
+                  </View>
+                  <TextInput
+                    autoCapitalize="none"
+                    onChangeText={setDictionaryQuery}
+                    placeholder="히브리어, 발음, Strong 번호, 한영 뜻 검색"
+                    placeholderTextColor={colors.muted}
+                    style={styles.searchInput}
+                    value={dictionaryQuery}
+                  />
+                  <Text style={styles.groupLabel}>테마</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalStrip}>
+                    <Chip active={dictionaryTheme === "all"} label="전체" onPress={() => setDictionaryTheme("all")} styles={styles} />
+                    {hebrewDictionaryThemes.map((theme) => (
+                      <Chip
+                        active={dictionaryTheme === theme.id}
+                        key={theme.id}
+                        label={theme.titleKo}
+                        onPress={() => setDictionaryTheme(theme.id)}
+                        styles={styles}
+                      />
+                    ))}
+                  </ScrollView>
+                  <Text style={styles.groupLabel}>구약 권별 필터</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalStrip}>
+                    <Chip active={dictionaryBookFilter === "all"} label="전체" onPress={() => setDictionaryBookFilter("all")} styles={styles} />
+                    {oldBooks.map((book) => (
+                      <Chip
+                        active={dictionaryBookFilter === book.id}
+                        key={book.id}
+                        label={book.nameKo}
+                        onPress={() => setDictionaryBookFilter(book.id)}
+                        styles={styles}
+                      />
+                    ))}
+                  </ScrollView>
+                  <Text style={styles.groupLabel}>정렬</Text>
+                  <View style={styles.actionRow}>
+                    {[
+                      ["canonical", "성경 순서"],
+                      ["alphabetical", "알파벳"],
+                      ["theme", "테마"],
+                    ].map(([value, label]) => (
+                      <Chip
+                        active={dictionarySort === value}
+                        key={value}
+                        label={label}
+                        onPress={() => setDictionarySort(value as HebrewDictionarySort)}
+                        styles={styles}
+                      />
+                    ))}
+                  </View>
+                  <Text style={styles.searchSummary}>{dictionarySearchResult.total}개 단어</Text>
+                </View>
+
+                {selectedDictionaryEntry ? (
+                  <View style={styles.selectedPanel}>
+                    <View style={styles.panelHeading}>
+                      <View style={styles.readerTitleBlock}>
+                        <Text style={styles.eyebrow}>{selectedDictionaryEntry.strongNumber}</Text>
+                        <Text style={styles.sectionTitle}>{selectedDictionaryEntry.lemmaHe} · {selectedDictionaryEntry.transliteration}</Text>
+                        <Text style={styles.metaText}>{selectedDictionaryEntry.pronunciationSymbol} · {selectedDictionaryEntry.pronunciationKo}</Text>
+                      </View>
+                      <Text style={styles.badge}>{selectedDictionaryEntry.morphologySummary}</Text>
+                    </View>
+                    <Text style={styles.panelTitle}>{selectedDictionaryEntry.glossKo}</Text>
+                    <Text style={styles.resultText}>{selectedDictionaryEntry.definitionKo}</Text>
+                    <Text style={styles.metaText}>{selectedDictionaryEntry.glossEn} · {selectedDictionaryEntry.definitionEn}</Text>
+                    <Text style={styles.metaText}>{selectedDictionaryEntry.interpretationNoteKo}</Text>
+                    <Text style={styles.groupLabel}>출현 예시</Text>
+                    {selectedDictionaryEntry.sampleVerses.map((occurrence) => (
+                      <View key={occurrence.id} style={styles.studyItem}>
+                        <Text style={styles.panelTitle}>
+                          {getBook(occurrence.appBookId)?.nameKo ?? occurrence.appBookId} {occurrence.chapter}:{occurrence.verse}
+                        </Text>
+                        <Text style={styles.resultText}>{occurrence.surfaceHe} · {occurrence.transliteration}</Text>
+                        {occurrence.phraseKo ? <Text style={styles.metaText}>{occurrence.phraseKo}</Text> : null}
+                        {occurrence.phraseEn ? <Text style={styles.metaText}>{occurrence.phraseEn}</Text> : null}
+                      </View>
+                    ))}
+                    <ActionButton
+                      icon="reader-outline"
+                      label="내 노트에 추가"
+                      onPress={() => {
+                        openNewPersonalNote([], {
+                          bodyMarkdown: `# ${selectedDictionaryEntry.lemmaHe} (${selectedDictionaryEntry.transliteration})\n\n${selectedDictionaryEntry.glossKo}\n\n${selectedDictionaryEntry.definitionKo}`,
+                          tagInput: "히브리어 사전",
+                          title: `${selectedDictionaryEntry.transliteration} 단어 노트`,
+                        });
+                      }}
+                      styles={styles}
+                    />
+                  </View>
+                ) : null}
+
+                {dictionarySearchResult.entries.map((entry) => (
+                  <Pressable
+                    key={entry.id}
+                    onPress={() => setSelectedDictionaryEntryId(entry.id)}
+                    style={[styles.studyItem, selectedDictionaryEntry?.id === entry.id ? styles.verseRowSelected : null]}
+                  >
+                    <Text style={styles.panelTitle}>{entry.lemmaHe} · {entry.transliteration}</Text>
+                    <Text style={styles.resultText}>{entry.glossKo}</Text>
+                    <Text style={styles.metaText}>{entry.strongNumber} · {entry.pronunciationSymbol} · {entry.firstReference ?? "예시 구절 준비 중"}</Text>
+                  </Pressable>
+                ))}
+                {!dictionarySearchResult.entries.length ? <Text style={styles.emptyText}>조건에 맞는 히브리어 단어가 없습니다.</Text> : null}
+              </View>
+            ) : null}
+
+            {activeView === "notes" ? (
+              <View style={styles.section}>
+                <View style={[styles.selectedPanel, styles.formPanel]}>
+                  <View style={styles.panelHeading}>
+                    <View>
+                      <Text style={styles.eyebrow}>Personal Notes</Text>
+                      <Text style={styles.panelTitle}>성경노트</Text>
+                    </View>
+                    <ActionButton icon="reader-outline" label="새 노트" onPress={() => openNewPersonalNote([])} styles={styles} />
+                  </View>
+                  <TextInput
+                    onChangeText={setNoteSearchQuery}
+                    placeholder="제목, 본문, 태그 검색"
+                    placeholderTextColor={colors.muted}
+                    style={styles.searchInput}
+                    value={noteSearchQuery}
+                  />
+                  <Text style={styles.searchSummary}>{visiblePersonalNotes.length}/{userData.personalNotes.length}개 노트</Text>
+                </View>
+
+                {selectedPersonalNote ? (
+                  <View style={styles.selectedPanel}>
+                    <View style={styles.panelHeading}>
+                      <View>
+                        <Text style={styles.eyebrow}>편집기</Text>
+                        <Text style={styles.panelTitle}>{selectedPersonalNote.title}</Text>
+                      </View>
+                      <Text style={styles.badge}>{formatShortDate(selectedPersonalNote.updatedAt)}</Text>
+                    </View>
+                    <Text style={styles.groupLabel}>제목</Text>
+                    <TextInput
+                      onChangeText={setPersonalNoteTitle}
+                      placeholder="노트 제목"
+                      placeholderTextColor={colors.muted}
+                      style={styles.searchInput}
+                      value={personalNoteTitle}
+                    />
+                    <Text style={styles.groupLabel}>본문</Text>
+                    <TextInput
+                      multiline
+                      onChangeText={setPersonalNoteBody}
+                      placeholder="묵상, 단어 관찰, 적용점을 기록"
+                      placeholderTextColor={colors.muted}
+                      style={styles.noteInput}
+                      value={personalNoteBody}
+                    />
+                    <Text style={styles.groupLabel}>태그</Text>
+                    <TextInput
+                      onChangeText={setPersonalNoteTagInput}
+                      placeholder="태그, 쉼표 구분"
+                      placeholderTextColor={colors.muted}
+                      style={styles.searchInput}
+                      value={personalNoteTagInput}
+                    />
+                    {selectedPersonalNoteLinks.length ? (
+                      <View style={styles.badgeRow}>
+                        {selectedPersonalNoteLinks.map((link) => (
+                          <Pressable
+                            key={link.id}
+                            onPress={() => {
+                              pendingSelectedVerseIdRef.current = link.verseKey;
+                              setBookId(link.bookId);
+                              setChapter(link.chapter);
+                              setActiveView("reader");
+                            }}
+                          >
+                            <Text style={styles.badge}>{getBook(link.bookId)?.nameKo ?? link.bookId} {link.chapter}:{link.verse}</Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    ) : (
+                      <Text style={styles.metaText}>연결된 구절이 없습니다. 리더에서 구절을 선택해 새 노트를 만들 수 있습니다.</Text>
+                    )}
+                    {copyStatus ? <Text style={styles.successText}>{copyStatus}</Text> : null}
+                    <View style={styles.actionRow}>
+                      <ActionButton icon="save-outline" label="저장" onPress={savePersonalNote} styles={styles} />
+                      <ActionButton icon="trash-outline" label="삭제" onPress={deletePersonalNote} styles={styles} />
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.emptyState}>
+                    <Text style={styles.panelTitle}>저장한 성경노트가 없습니다.</Text>
+                    <Text style={styles.metaText}>개별 노트를 만들고 구절 링크와 태그를 함께 저장할 수 있습니다.</Text>
+                    <ActionButton icon="reader-outline" label="첫 노트 만들기" onPress={() => openNewPersonalNote([])} styles={styles} />
+                  </View>
+                )}
+
+                {visiblePersonalNotes.map((note) => (
+                  <Pressable
+                    key={note.id}
+                    onPress={() => setSelectedPersonalNoteId(note.id)}
+                    style={[styles.studyItem, selectedPersonalNote?.id === note.id ? styles.verseRowSelected : null]}
+                  >
+                    <Text style={styles.panelTitle}>{note.title}</Text>
+                    <Text numberOfLines={3} style={styles.resultText}>{note.bodyText || note.bodyMarkdown || "본문 없음"}</Text>
+                    <Text style={styles.metaText}>{formatShortDate(note.updatedAt)}</Text>
+                  </Pressable>
+                ))}
               </View>
             ) : null}
 
@@ -3725,6 +4182,7 @@ function AppShell() {
                 <View style={styles.selectionActions}>
                   <ActionButton icon="copy-outline" label="복사" onPress={copySelectedVerses} styles={styles} variant="selection" />
                   <ActionButton icon="bookmark-outline" label="인용 저장" onPress={saveSelectedFavorites} styles={styles} variant="selection" />
+                  <ActionButton icon="reader-outline" label="새 노트" onPress={() => openNewPersonalNote(selectedVerses)} styles={styles} variant="selection" />
                   <ActionButton icon="volume-medium-outline" label="읽기" onPress={speakSelectedVerses} styles={styles} variant="selection" />
                   <ActionButton icon="refresh-outline" label="선택 해제" onPress={clearVerseSelection} styles={styles} variant="selection" />
                 </View>

@@ -3,6 +3,7 @@ export * from "./bible-client";
 export * from "./bible-data";
 export * from "./bible-repository";
 export * from "./brand";
+export * from "./hebrew-dictionary";
 export * from "./korean-search";
 export * from "./privacy-policy";
 export * from "./reading-plan";

@@ -3,11 +3,15 @@ import type {
   FavoriteList,
   FavoriteVerse,
   Highlight,
+  PersonalNote,
+  PersonalNoteTag,
+  PersonalNoteVerseLink,
   ReadingPlan,
   ReadingProgress,
   StudyNote,
   Tag,
   UserDataState,
+  VerseTag,
 } from "./types";
 import { createInitialUserData, defaultFavoriteListId, defaultSettings, normalizeUserData } from "./user-data-repository";
 
@@ -203,6 +207,88 @@ function mergeStudyNotes(remote: StudyNote[], local: StudyNote[], userId: string
   return [...merged.values()].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 }
 
+function mergePersonalNotes(remote: PersonalNote[], local: PersonalNote[], userId: string) {
+  const merged = new Map<string, PersonalNote>();
+  const idMap = new Map<string, string>();
+
+  for (const item of [...remote, ...local]) {
+    const next = withUser(item, userId);
+    const existing = merged.get(next.id);
+    merged.set(next.id, newerBy(existing, next, (note) => note.updatedAt));
+    idMap.set(item.id, next.id);
+  }
+
+  return {
+    noteIdMap: idMap,
+    personalNotes: [...merged.values()].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)),
+  };
+}
+
+function mergePersonalNoteVerseLinks(
+  remote: PersonalNoteVerseLink[],
+  local: PersonalNoteVerseLink[],
+  userId: string,
+  noteIdMap: Map<string, string>,
+) {
+  const merged = new Map<string, PersonalNoteVerseLink>();
+
+  for (const item of [...remote, ...local]) {
+    const mapped = withUser(
+      {
+        ...item,
+        noteId: noteIdMap.get(item.noteId) ?? item.noteId,
+      },
+      userId,
+    );
+    const key = `${mapped.noteId}:${mapped.verseKey}:${mapped.selectedText ?? ""}`;
+    merged.set(key, newerBy(merged.get(key), mapped, (link) => link.createdAt));
+  }
+
+  return [...merged.values()].sort((left, right) => left.linkOrder - right.linkOrder || left.createdAt.localeCompare(right.createdAt));
+}
+
+function mergePersonalNoteTags(
+  remote: PersonalNoteTag[],
+  local: PersonalNoteTag[],
+  userId: string,
+  noteIdMap: Map<string, string>,
+  tagIdMap: Map<string, string>,
+) {
+  const merged = new Map<string, PersonalNoteTag>();
+
+  for (const item of [...remote, ...local]) {
+    const mapped = withUser(
+      {
+        ...item,
+        noteId: noteIdMap.get(item.noteId) ?? item.noteId,
+        tagId: tagIdMap.get(item.tagId) ?? item.tagId,
+      },
+      userId,
+    );
+    merged.set(`${mapped.noteId}:${mapped.tagId}`, mapped);
+  }
+
+  return [...merged.values()].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+}
+
+function mergeVerseTags(remote: VerseTag[], local: VerseTag[], userId: string, tagIdMap: Map<string, string>, noteIdMap: Map<string, string>) {
+  const merged = new Map<string, VerseTag>();
+
+  for (const item of [...remote, ...local]) {
+    const mapped = withUser(
+      {
+        ...item,
+        tagId: tagIdMap.get(item.tagId) ?? item.tagId,
+        sourceNoteId: item.sourceNoteId ? noteIdMap.get(item.sourceNoteId) ?? item.sourceNoteId : undefined,
+      },
+      userId,
+    );
+    merged.set(`${mapped.verseKey}:${mapped.tagId}`, newerBy(merged.get(`${mapped.verseKey}:${mapped.tagId}`), mapped, (tag) => tag.createdAt));
+  }
+
+  return [...merged.values()].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+}
+
 function pickLatestProgress(remote: ReadingProgress | null, local: ReadingProgress | null, userId: string) {
   const selected = newerBy(remote ? withUser(remote, userId) : undefined, local ? withUser(local, userId) : null, (progress) =>
     progress?.lastReadAt,
@@ -254,6 +340,10 @@ export function hasImportableUserData(data: UserDataState) {
       data.completedChapters.length ||
       data.highlights.length ||
       data.studyNotes.length ||
+      data.personalNotes.length ||
+      data.personalNoteVerseLinks.length ||
+      data.personalNoteTags.length ||
+      data.verseTags.length ||
       data.favoriteVerses.length ||
       data.tags.length ||
       data.favoriteLists.some((list) => list.id !== defaultFavoriteListId || list.name !== "기본 목록") ||
@@ -267,6 +357,7 @@ export function mergeUserDataForImport(remoteData: UserDataState, localData: Use
   const local = normalizeUserData(localData, userId);
   const { tags, tagIdMap } = mergeTags(remote.tags, local.tags, userId);
   const { favoriteLists, listIdMap } = mergeFavoriteLists(remote.favoriteLists, local.favoriteLists, userId);
+  const { personalNotes, noteIdMap } = mergePersonalNotes(remote.personalNotes, local.personalNotes, userId);
 
   return normalizeUserData(
     {
@@ -279,6 +370,10 @@ export function mergeUserDataForImport(remoteData: UserDataState, localData: Use
       recentReads: mergeRecentReads(remote.recentReads, local.recentReads, userId),
       settings: local.settings,
       studyNotes: mergeStudyNotes(remote.studyNotes, local.studyNotes, userId),
+      personalNotes,
+      personalNoteVerseLinks: mergePersonalNoteVerseLinks(remote.personalNoteVerseLinks, local.personalNoteVerseLinks, userId, noteIdMap),
+      personalNoteTags: mergePersonalNoteTags(remote.personalNoteTags, local.personalNoteTags, userId, noteIdMap, tagIdMap),
+      verseTags: mergeVerseTags(remote.verseTags, local.verseTags, userId, tagIdMap, noteIdMap),
       tags,
     },
     userId,

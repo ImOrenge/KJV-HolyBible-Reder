@@ -85,6 +85,55 @@ export type StudyNote = {
   updatedAt: string;
 };
 
+export type PersonalNoteStatus = "active" | "archived";
+export type PersonalNoteEditorFormat = "markdown-lite";
+
+export type PersonalNote = {
+  id: string;
+  userId: string;
+  title: string;
+  bodyMarkdown: string;
+  bodyText: string;
+  editorFormat: PersonalNoteEditorFormat;
+  status: PersonalNoteStatus;
+  pinned: boolean;
+  createdAt: string;
+  updatedAt: string;
+  lastSavedAt?: string;
+};
+
+export type PersonalNoteVerseLink = {
+  id: string;
+  userId: string;
+  noteId: string;
+  verseKey: string;
+  bookId: string;
+  chapter: number;
+  verse: number;
+  selectedText?: string;
+  linkOrder: number;
+  createdAt: string;
+};
+
+export type PersonalNoteTag = {
+  userId: string;
+  noteId: string;
+  tagId: string;
+  createdAt: string;
+};
+
+export type VerseTag = {
+  id: string;
+  userId: string;
+  verseKey: string;
+  bookId: string;
+  chapter: number;
+  verse: number;
+  tagId: string;
+  sourceNoteId?: string;
+  createdAt: string;
+};
+
 export type FavoriteVerse = {
   id: string;
   userId: string;
@@ -140,6 +189,10 @@ export type UserDataState = {
   completedChapters: CompletedChapter[];
   highlights: Highlight[];
   studyNotes: StudyNote[];
+  personalNotes: PersonalNote[];
+  personalNoteVerseLinks: PersonalNoteVerseLink[];
+  personalNoteTags: PersonalNoteTag[];
+  verseTags: VerseTag[];
   favoriteVerses: FavoriteVerse[];
   favoriteLists: FavoriteList[];
   tags: Tag[];

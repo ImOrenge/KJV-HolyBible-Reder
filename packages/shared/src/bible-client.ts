@@ -1,5 +1,6 @@
 import type { BibleChapterResponse, BibleSearchResponse, BibleVerseResponse } from "./bible-api-types";
 import { bibleBookByAppId, type AppBookId } from "./bible-book-codes";
+import type { HebrewDictionarySearchParams, HebrewDictionarySearchResponse } from "./hebrew-dictionary";
 import type { BibleSearchLanguage, BibleSearchSort } from "./korean-search";
 import type { Verse } from "./types";
 
@@ -92,6 +93,37 @@ export async function searchBibleVerses(
   return fetchJson<BibleSearchResponse>(`/api/bible/search?${params.toString()}`, clientOptions);
 }
 
+export async function searchHebrewDictionaryEntries(
+  options: HebrewDictionarySearchParams = {},
+  clientOptions?: BibleApiClientOptions,
+) {
+  const params = new URLSearchParams();
+  if (options.q) {
+    params.set("q", options.q);
+  }
+  if (options.alphabet && options.alphabet !== "all") {
+    params.set("alphabet", options.alphabet);
+  }
+  if (options.theme && options.theme !== "all") {
+    params.set("theme", options.theme);
+  }
+  if (options.bookId && options.bookId !== "all") {
+    params.set("bookId", options.bookId);
+  }
+  if (options.sort) {
+    params.set("sort", options.sort);
+  }
+  if (options.limit) {
+    params.set("limit", String(options.limit));
+  }
+  if (options.offset) {
+    params.set("offset", String(options.offset));
+  }
+
+  const query = params.toString();
+  return fetchJson<HebrewDictionarySearchResponse>(`/api/bible/hebrew-dictionary${query ? `?${query}` : ""}`, clientOptions);
+}
+
 export function createBibleApiClient(options: BibleApiClientOptions) {
   return {
     fetchBibleChapter: (bookId: string, chapter: number) => fetchBibleChapter(bookId, chapter, options),
@@ -100,6 +132,9 @@ export function createBibleApiClient(options: BibleApiClientOptions) {
       query: string,
       searchOptions?: Parameters<typeof searchBibleVerses>[1],
     ) => searchBibleVerses(query, searchOptions, options),
+    searchHebrewDictionaryEntries: (
+      searchOptions?: Parameters<typeof searchHebrewDictionaryEntries>[0],
+    ) => searchHebrewDictionaryEntries(searchOptions, options),
   };
 }
 
