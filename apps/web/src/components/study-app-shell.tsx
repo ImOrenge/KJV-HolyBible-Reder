@@ -23,12 +23,19 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { AppUser } from "@/lib/auth/app-user";
-import { buildLegacyStudyAppUrl, getStudyUiAreaForView, type StudyUiArea, type StudyUiWebViewKey } from "@kjv/shared/study-ui";
+import {
+  buildStudyUiTargetUrl,
+  getStudyUiAreaForView,
+  type StudyUiArea,
+  type StudyUiReaderRoute,
+  type StudyUiRouteState,
+  type StudyUiWebViewKey,
+} from "@kjv/shared/study-ui";
 
 import { KjvMvpApp } from "./kjv-mvp-app";
 
 type StudyAppShellProps = {
-  initialView: StudyUiWebViewKey;
+  initialRoute: StudyUiRouteState;
   user: AppUser;
 };
 
@@ -86,16 +93,38 @@ const viewLabels: Record<StudyUiWebViewKey, string> = {
 
 const commandItems = sidebarSections.flatMap((section) => section.items).concat({ icon: Settings, label: "설정", view: "settings" });
 
-export function StudyAppShell({ initialView, user }: StudyAppShellProps) {
+export function StudyAppShell({ initialRoute, user }: StudyAppShellProps) {
   const router = useRouter();
   const commandDialogRef = useRef<HTMLDialogElement>(null);
-  const [activeView, setActiveView] = useState<StudyUiWebViewKey>(initialView);
+  const initialReaderBookId = initialRoute.reader?.bookId;
+  const initialReaderChapter = initialRoute.reader?.chapter;
+  const initialReaderVerseKey = initialRoute.reader?.primaryVerseKey;
+  const initialReaderPanel = initialRoute.reader?.panel;
+  const initialReaderWord = initialRoute.reader?.word;
+  const [activeView, setActiveView] = useState<StudyUiWebViewKey>(initialRoute.view);
+  const [readerRoute, setReaderRoute] = useState<StudyUiReaderRoute | undefined>(initialRoute.reader);
+  const readerRouteRef = useRef(readerRoute);
   const [commandQuery, setCommandQuery] = useState("");
   const [isCommandOpen, setIsCommandOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const activeArea = getStudyUiAreaForView(activeView);
 
-  useEffect(() => setActiveView(initialView), [initialView]);
+  useEffect(() => {
+    setActiveView(initialRoute.view);
+    if (initialReaderBookId && initialReaderChapter) {
+      setReaderRoute({
+        bookId: initialReaderBookId,
+        chapter: initialReaderChapter,
+        ...(initialReaderVerseKey ? { primaryVerseKey: initialReaderVerseKey } : {}),
+        ...(initialReaderPanel ? { panel: initialReaderPanel } : {}),
+        ...(initialReaderWord ? { word: initialReaderWord } : {}),
+      });
+    }
+  }, [initialReaderBookId, initialReaderChapter, initialReaderPanel, initialReaderVerseKey, initialReaderWord, initialRoute.view]);
+
+  useEffect(() => {
+    readerRouteRef.current = readerRoute;
+  }, [readerRoute]);
 
   useEffect(() => {
     const dialog = commandDialogRef.current;
@@ -108,7 +137,19 @@ export function StudyAppShell({ initialView, user }: StudyAppShellProps) {
     setActiveView(view);
     setIsCommandOpen(false);
     setCommandQuery("");
-    router.push(buildLegacyStudyAppUrl(view), { scroll: false });
+    router.push(buildStudyUiTargetUrl(view, view === "reader" ? readerRouteRef.current : undefined), { scroll: false });
+  }, [router]);
+
+  const rememberReaderLocation = useCallback((route: StudyUiReaderRoute) => {
+    setReaderRoute((current) => current?.bookId === route.bookId && current.chapter === route.chapter ? current : route);
+  }, []);
+
+  const navigateReader = useCallback((route: StudyUiReaderRoute) => {
+    setReaderRoute(route);
+    setActiveView("reader");
+    setIsCommandOpen(false);
+    setCommandQuery("");
+    router.push(buildStudyUiTargetUrl("reader", route), { scroll: false });
   }, [router]);
 
   const filteredCommands = useMemo(() => {
@@ -195,7 +236,15 @@ export function StudyAppShell({ initialView, user }: StudyAppShellProps) {
         </header>
 
         <div className="f-study-shell__content">
-          <KjvMvpApp activeView={activeView} navigationMode="shell" onViewChange={navigate} user={user} />
+          <KjvMvpApp
+            activeView={activeView}
+            navigationMode="shell"
+            onReaderLocationChange={rememberReaderLocation}
+            onReaderNavigate={navigateReader}
+            onViewChange={navigate}
+            readerRoute={activeView === "reader" ? readerRoute : undefined}
+            user={user}
+          />
         </div>
       </div>
 

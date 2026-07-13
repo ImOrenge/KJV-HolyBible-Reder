@@ -123,13 +123,15 @@ flowchart LR
 
 - [x] `StudyContext`와 `StudyContextSource`를 `packages/shared`에 추가한다.
 - [x] `bookId`, `chapter`, `verseKeys`, `primaryVerseKey`, `returnTarget` validation을 추가한다.
-- [ ] 웹 URL query와 모바일 route params adapter를 정의한다.
+- [x] 웹 목표 URL과 legacy query adapter를 정의한다.
+- [ ] 모바일 route params adapter를 정의한다.
 - [x] `uiShellV2`, `readerV2`, `notesV2` feature flag를 추가한다.
 - [x] semantic color와 spacing token을 정의한다.
 - [x] touch target, panel width, scripture width, radius, line-height 기준을 token화한다.
 - [ ] typography, elevation, safe area token을 정의한다.
 - [ ] 현재 주요 흐름의 action 수와 첫 본문 위치를 기록한다.
 - [ ] `320`, `390`, `768`, `1024`, `1440px` 기준 screenshot을 남긴다.
+- [x] 개편 후 Shell을 `320`, `390`, `768`, `1024`, `1440px`에서 캡처한다.
 - [ ] 기존 UI 컴포넌트를 primitive/composite/section/screen/shell로 분류한다.
 - [x] legacy 화면 adapter의 입력/출력 계약을 작성한다.
 - [x] route query serializer에서 `selectedText`를 제외한다.
@@ -164,9 +166,10 @@ flowchart LR
 - [x] 전역 검색/명령 버튼을 top bar에 추가한다.
 - [ ] account, sync 상태, TTS mini player slot을 분리한다.
 - [x] active 항목에 `aria-current`와 비색상 indicator를 적용한다.
-- [x] 기존 `/app`과 `activeView`를 route adapter로 연결한다.
+- [x] 기존 `/app`과 `activeView`를 `/app/today`, `/app/read`, `/app/study/*`, `/app/library`, `/app/settings` route adapter로 연결한다.
 - [x] browser back과 `?view=` deep link를 검증한다.
-- [ ] browser forward와 목표 `/app/...` route deep link를 검증한다.
+- [x] 목표 `/app/...` route와 Reader 권·장·절 deep link를 검증한다.
+- [x] browser forward를 검증한다.
 
 ### 7.2 모바일 태스크
 
@@ -188,7 +191,7 @@ flowchart LR
 
 ### 완료 기준
 
-- [ ] 웹 전역 navigation이 `1024px` 이상에서 줄바꿈되지 않는다.
+- [x] 웹 전역 navigation이 `1024px` 이상에서 줄바꿈되지 않는다.
 - [x] 모바일 하단 tab은 5개를 넘지 않는다.
 - [ ] tab 전환과 browser back이 데이터 fetch를 불필요하게 반복하지 않는다.
 - [ ] 온보딩, 로그인, 비로그인 진입이 새 Shell에서도 유지된다.

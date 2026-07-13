@@ -27,11 +27,11 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 
 | 영역 | 현재 구현 | 다음 경계 |
 | --- | --- | --- |
-| 공통 계약 | `StudyContext`, semantic token, feature flag, legacy view/area mapping, 개인정보 제외 navigation event allowlist | 모바일 route params와 safe-area/elevation token |
-| 웹 Shell | `uiShellV2` flag 아래 232/72px sidebar, top bar, account slot, 명령 검색, 5영역 모바일 nav | 목표 `/app/...` route 분리, sync/TTS slot |
-| 웹 legacy adapter | 기존 `KjvMvpApp`을 controlled `activeView`로 열고 `/app?view=` history와 연결 | 화면별 feature component 교체 |
+| 공통 계약 | `StudyContext`, semantic token, feature flag, 목표/legacy route mapping, Reader route parser, 개인정보 제외 navigation event allowlist | 모바일 route params와 safe-area/elevation token |
+| 웹 Shell | `uiShellV2` flag 아래 232/72px sidebar, top bar, account slot, 명령 검색, 5영역 모바일 nav | sync/TTS slot |
+| 웹 legacy adapter | 기존 `KjvMvpApp`을 controlled `activeView`로 열고 `/app/...` history 및 Reader 권·장·절 deep link와 연결 | 화면별 feature component 교체 |
 | 모바일 Shell | `uiShellV2` flag 아래 `오늘/성경/공부/보관함/설정` 5탭과 header 명령 검색 | tab/stack router와 Android/iOS 복귀 계약 |
-| 검증 | typecheck, lint, build, Expo Doctor, 구조/스타일 검사, 320/390/1440px 브라우저 smoke | 768/1024px 캡처와 실제 Android/iOS 검증 |
+| 검증 | typecheck, lint, build, Expo Doctor, 구조/스타일 검사, 320/390/768/1024/1440px 브라우저 smoke | 실제 Android/iOS 검증 |
 
 이 상태는 P2 완료를 뜻하지 않는다. Reader, Notes, Dictionary Detail을 독립 screen/pane으로 분리하기 전까지 기존 대형 컴포넌트는 legacy adapter 안에서 유지한다.
 

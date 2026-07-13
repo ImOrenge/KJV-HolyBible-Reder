@@ -100,11 +100,14 @@ import type {
   ReadingPlanTemplate,
 } from "@/lib/types";
 import {
+  createStudyUiReaderRoute,
+  getStudyUiReaderVerseNumber,
   markdownLiteToPersonalNoteDocument,
   normalizePersonalNoteDocument,
   personalNoteDocumentToMarkdown,
   personalNoteDocumentToText,
   type PersonalNoteDocument,
+  type StudyUiReaderRoute,
 } from "@kjv/shared";
 
 export type KjvMvpViewKey = "dashboard" | "reader" | "progress" | "highlights" | "favorites" | "notes" | "dictionary" | "search" | "settings";
@@ -113,7 +116,10 @@ type KjvMvpAppProps = {
   activeView?: ViewKey;
   initialView?: ViewKey;
   navigationMode?: "legacy" | "shell";
+  onReaderLocationChange?: (route: StudyUiReaderRoute) => void;
+  onReaderNavigate?: (route: StudyUiReaderRoute) => void;
   onViewChange?: (view: ViewKey) => void;
+  readerRoute?: StudyUiReaderRoute;
   user: AppUser;
 };
 type MobileHomeTab = "today" | "progress" | "activity" | "study";
@@ -527,10 +533,17 @@ export function KjvMvpApp({
   activeView: controlledActiveView,
   initialView = "dashboard",
   navigationMode = "legacy",
+  onReaderLocationChange,
+  onReaderNavigate,
   onViewChange,
+  readerRoute,
   user,
 }: KjvMvpAppProps) {
   const router = useRouter();
+  const initialReaderRouteRef = useRef(readerRoute);
+  const readerRouteBookId = readerRoute?.bookId;
+  const readerRouteChapter = readerRoute?.chapter;
+  const readerRouteVerseNumber = getStudyUiReaderVerseNumber(readerRoute);
   const books = useMemo(() => getBooks(), []);
   const oldBooks = useMemo(() => getBooks("old"), []);
   const newBooks = useMemo(() => getBooks("new"), []);
@@ -544,8 +557,8 @@ export function KjvMvpApp({
   const [mobileHomeTab, setMobileHomeTab] = useState<MobileHomeTab>("today");
   const [activeSettingsSection, setActiveSettingsSection] = useState<SettingsSectionKey>("account");
   const [userData, setUserData] = useState<UserDataState>(() => createInitialUserData(user.id));
-  const [currentBookId, setCurrentBookId] = useState("gen");
-  const [currentChapter, setCurrentChapter] = useState(1);
+  const [currentBookId, setCurrentBookId] = useState<string>(readerRoute?.bookId ?? "gen");
+  const [currentChapter, setCurrentChapter] = useState(readerRoute?.chapter ?? 1);
   const [selectedVerseId, setSelectedVerseId] = useState<string | null>(null);
   const [currentReadingVerseId, setCurrentReadingVerseId] = useState<string | null>(null);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -613,7 +626,7 @@ export function KjvMvpApp({
   const [chapterSource, setChapterSource] = useState<BibleSource | null>(null);
   const [chapterStatus, setChapterStatus] = useState<LoadStatus>("idle");
   const [chapterError, setChapterError] = useState("");
-  const [targetVerseNumber, setTargetVerseNumber] = useState<number | null>(null);
+  const [targetVerseNumber, setTargetVerseNumber] = useState<number | null>(readerRouteVerseNumber ?? null);
   const [verseCache, setVerseCache] = useState<Record<string, Verse>>({});
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [speakingVerseId, setSpeakingVerseId] = useState<string | null>(null);
@@ -1106,11 +1119,14 @@ export function KjvMvpApp({
     const devBook = devParams?.get("book");
     const devChapter = Number(devParams?.get("chapter"));
     const devSelectMode = devParams?.get("selectMode") === "1";
-    const initialBookId = devBook && getBook(devBook) ? devBook : loaded.progress?.bookId ?? "gen";
+    const requestedReaderRoute = initialReaderRouteRef.current;
+    const initialBookId = devBook && getBook(devBook)
+      ? devBook
+      : requestedReaderRoute?.bookId ?? loaded.progress?.bookId ?? "gen";
     const initialChapter =
       Number.isFinite(devChapter) && getChapters(initialBookId).includes(devChapter)
         ? devChapter
-        : loaded.progress?.chapter ?? 1;
+        : requestedReaderRoute?.chapter ?? loaded.progress?.chapter ?? 1;
     setUserData(loaded);
     setShowDemoImportPrompt(user.isAuthenticated && shouldOfferDemoDataImport(user.id));
     if (devView && viewKeys.has(devView)) {
@@ -1137,13 +1153,42 @@ export function KjvMvpApp({
       setNoteTarget({ scope: "chapter", bookId: initialBookId, chapter: initialChapter });
       setNoteDraft("");
     }
-    if (loaded.progress && !devBook) {
+    if (requestedReaderRoute && !devBook) {
+      setCurrentBookId(requestedReaderRoute.bookId);
+      setCurrentChapter(requestedReaderRoute.chapter);
+      setTargetVerseNumber(getStudyUiReaderVerseNumber(requestedReaderRoute) ?? 1);
+    } else if (loaded.progress && !devBook) {
       setCurrentBookId(loaded.progress.bookId);
       setCurrentChapter(loaded.progress.chapter);
       setTargetVerseNumber(loaded.progress.verse);
     }
     setMounted(true);
   }, [setActiveView, user.id, user.isAuthenticated]);
+
+  useEffect(() => {
+    if (!mounted || !readerRouteBookId || !readerRouteChapter) return;
+
+    const nextVerse = readerRouteVerseNumber ?? 1;
+    if (readerRouteBookId !== currentBookId || readerRouteChapter !== currentChapter) {
+      setCurrentBookId(readerRouteBookId);
+      setCurrentChapter(readerRouteChapter);
+      setSelectedVerseId(null);
+      clearAutoCompleteTimer();
+      setTrackedReadingVerseId(null);
+      setSelectedVerseIds([]);
+      setSelectionAnchorVerseId(null);
+      setChapterVerses([]);
+      setChapterSource(null);
+      setChapterStatus("loading");
+      setChapterError("");
+      verseElementsRef.current.clear();
+    }
+    setTargetVerseNumber(nextVerse);
+  }, [clearAutoCompleteTimer, currentBookId, currentChapter, mounted, readerRouteBookId, readerRouteChapter, readerRouteVerseNumber]);
+
+  useEffect(() => {
+    onReaderLocationChange?.(createStudyUiReaderRoute({ bookId: currentBookId, chapter: currentChapter }));
+  }, [currentBookId, currentChapter, onReaderLocationChange]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1672,6 +1717,7 @@ export function KjvMvpApp({
   }
 
   function openChapter(bookId: string, chapter: number, verse = 1, view: ViewKey = "reader") {
+    if (!getBook(bookId)) return;
     const chapterList = getChapters(bookId);
     const nextChapter = chapterList.includes(chapter) ? chapter : 1;
     setCurrentBookId(bookId);
@@ -1686,7 +1732,11 @@ export function KjvMvpApp({
     setChapterStatus("loading");
     setChapterError("");
     setTargetVerseNumber(verse);
-    setActiveView(view);
+    if (view === "reader" && onReaderNavigate) {
+      onReaderNavigate(createStudyUiReaderRoute({ bookId, chapter: nextChapter, verse }));
+    } else {
+      setActiveView(view);
+    }
     verseElementsRef.current.clear();
     if (progressSaveTimerRef.current) {
       window.clearTimeout(progressSaveTimerRef.current);

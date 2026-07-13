@@ -31,6 +31,27 @@ export type StudyUiWebViewKey = (typeof STUDY_UI_WEB_VIEW_KEYS)[number];
 export type StudyUiMobileViewKey = StudyUiWebViewKey | "quickMove";
 export type StudyUiArea = (typeof STUDY_UI_AREAS)[number];
 
+export type StudyUiReaderRoute = {
+  bookId: AppBookId;
+  chapter: number;
+  primaryVerseKey?: string;
+  panel?: StudyContextPanel;
+  word?: string;
+};
+
+export type StudyUiRouteState = {
+  reader?: StudyUiReaderRoute;
+  view: StudyUiWebViewKey;
+};
+
+export type CreateStudyUiReaderRouteInput = {
+  bookId: string;
+  chapter: number;
+  panel?: StudyContextPanel;
+  verse?: number;
+  word?: string;
+};
+
 export type StudyUiNavigationEvent = {
   name: "study_navigation";
   source: StudyUiArea;
@@ -198,6 +219,102 @@ export function getStudyUiAreaForView(view: StudyUiWebViewKey): StudyUiArea {
 
 export function buildLegacyStudyAppUrl(view: StudyUiWebViewKey) {
   return view === "dashboard" ? "/app" : `/app?view=${encodeURIComponent(view)}`;
+}
+
+export function createStudyUiReaderRoute(input: CreateStudyUiReaderRouteInput): StudyUiReaderRoute {
+  const book = bibleBookByAppId.get(input.bookId as AppBookId);
+  if (!book) throw new Error("성경 권 ID를 확인하세요.");
+  if (!Number.isInteger(input.chapter) || input.chapter < 1 || input.chapter > book.chapterCount) {
+    throw new Error("성경 장 번호를 확인하세요.");
+  }
+  if (input.verse !== undefined && (!Number.isInteger(input.verse) || input.verse < 1 || input.verse > 999)) {
+    throw new Error("성경 절 번호를 확인하세요.");
+  }
+  if (input.word && !IDENTIFIER_PATTERN.test(input.word)) throw new Error("사전 항목 ID를 확인하세요.");
+
+  return {
+    bookId: book.appBookId,
+    chapter: input.chapter,
+    ...(input.verse !== undefined ? { primaryVerseKey: `${book.verseKeyCode}.${input.chapter}.${input.verse}` } : {}),
+    ...(input.panel ? { panel: input.panel } : {}),
+    ...(input.word ? { word: input.word } : {}),
+  };
+}
+
+export function getStudyUiReaderVerseNumber(route: StudyUiReaderRoute | undefined) {
+  if (!route?.primaryVerseKey) return undefined;
+  const segments = route.primaryVerseKey.split(".");
+  const verse = Number(segments[segments.length - 1]);
+  return Number.isInteger(verse) && verse > 0 ? verse : undefined;
+}
+
+export function buildStudyUiTargetUrl(view: StudyUiWebViewKey, reader?: StudyUiReaderRoute) {
+  if (view !== "reader" || !reader) return STUDY_UI_TARGET_ROUTES[view];
+
+  const validated = validateStudyContext({
+    source: "reader",
+    bookId: reader.bookId,
+    chapter: reader.chapter,
+    verseKeys: reader.primaryVerseKey ? [reader.primaryVerseKey] : [],
+    primaryVerseKey: reader.primaryVerseKey,
+    dictionaryEntryId: reader.word,
+    returnTarget: { route: `/app/read/${reader.bookId}/${reader.chapter}` },
+  });
+  if (!validated.valid) throw new Error(validated.message);
+
+  const path = `/app/read/${reader.bookId}/${reader.chapter}`;
+  const query = serializeStudyContextQuery(validated.context, { panel: reader.panel, word: reader.word });
+  return query.size ? `${path}?${query.toString()}` : path;
+}
+
+export function parseStudyUiRoute(pathname: string, params = new URLSearchParams()): StudyUiRouteState | null {
+  const segments = pathname.split("/").filter(Boolean);
+  if (segments[0] !== "app") return null;
+
+  if (segments.length === 1) return { view: parseStudyUiWebView(params.get("view")) };
+  if (segments.length === 2) {
+    if (segments[1] === "today") return { view: "dashboard" };
+    if (segments[1] === "read") return { view: "reader" };
+    if (segments[1] === "search") return { view: "search" };
+    if (segments[1] === "progress") return { view: "progress" };
+    if (segments[1] === "settings") return { view: "settings" };
+    if (segments[1] === "library") {
+      return { view: params.get("section") === "highlights" ? "highlights" : "favorites" };
+    }
+    if (segments[1] === "study") return { view: "notes" };
+    return null;
+  }
+
+  if (segments[1] === "study" && segments.length === 3) {
+    if (segments[2] === "notes") return { view: "notes" };
+    if (segments[2] === "dictionary") return { view: "dictionary" };
+    return null;
+  }
+
+  if (segments[1] === "read" && segments.length === 4) {
+    const chapter = Number(segments[3]);
+    const parsed = parseStudyContextQuery({
+      source: "reader",
+      bookId: segments[2],
+      chapter,
+      params,
+      returnTarget: { route: pathname },
+    });
+    if (!parsed.valid) return null;
+
+    return {
+      view: "reader",
+      reader: {
+        bookId: parsed.context.bookId,
+        chapter: parsed.context.chapter,
+        ...(parsed.context.primaryVerseKey ? { primaryVerseKey: parsed.context.primaryVerseKey } : {}),
+        ...(parseStudyContextPanel(params) ? { panel: parseStudyContextPanel(params) } : {}),
+        ...(parsed.context.dictionaryEntryId ? { word: parsed.context.dictionaryEntryId } : {}),
+      },
+    };
+  }
+
+  return null;
 }
 
 export function createStudyUiNavigationEvent(input: Omit<StudyUiNavigationEvent, "name">): StudyUiNavigationEvent {

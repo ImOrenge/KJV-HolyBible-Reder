@@ -32,8 +32,8 @@ component:
     tokens: [bg, surface, surface-2, text, muted, line, accent, shadow]
     inline_styles_allowed: false
   state:
-    local: [activeView, isSidebarCollapsed, isCommandOpen, commandQuery]
-    route: [view]
+    local: [activeView, readerRoute, isSidebarCollapsed, isCommandOpen, commandQuery]
+    route: [view, bookId, chapter, verse, panel, word]
   accessibility:
     keyboard: native-buttons-and-dialog
     aria: aria-current-navigation-and-labeled-icon-buttons
@@ -46,5 +46,7 @@ component:
       - browser_desktop_1440: pass
       - browser_mobile_320_390: pass
       - browser_back_and_deep_link: pass
+      - target_route_deep_link: pass
+      - reader_chapter_history: pass
       - command_dialog_alignment: pass
       - feature_flag_off_legacy_shell: pass

@@ -82,7 +82,8 @@
   - 상단 본문 검색, 명령 검색, profile account slot
   - 현재 화면의 `aria-current`와 좌측 indicator
   - 기존 `KjvMvpApp`의 controlled `activeView` adapter
-  - `/app?view=` URL과 browser history 연결
+  - `/app?view=` legacy URL과 `/app/...` 목표 URL을 동일 view state로 연결
+  - `/app/read/[bookId]/[chapter]?verse=` Reader deep link 연결
 - Expo 앱
   - 오늘/성경/공부/보관함/설정 5개 하단 탭
   - 기존 빠른 이동을 header 명령 검색으로 이동
@@ -97,10 +98,16 @@
   - `320`, `390`, `1440px`에서 horizontal overflow 없음
   - sidebar, mobile 5-tab, active indicator, account slot 렌더링 확인
   - 노트와 히브리어 사전 URL 전환 및 browser back 확인
+  - `/app/read/exo/2?verse=EXO.2.3`에서 출애굽기 2장 3절 선택 확인
+  - 다음 장 이동 시 `/app/read/exo/3?verse=EXO.3.1`, back 시 2장 3절 복원 확인
+  - browser forward 시 `/app/read/exo/3?verse=EXO.3.1`과 3장 1절 선택 복원 확인
+  - `/app/study/notes` 왕복 후 Reader 선택 절 복원 확인
+  - 잘못된 `/app/read/gen/999` 404 확인
   - 명령 검색 필터와 화면 이동 확인
   - desktop dialog 중앙 정렬, mobile command sheet 좌우/하단 12px 확인
 - 웹 feature flag off, `http://127.0.0.1:3005/app`
   - 새 Shell 미렌더링, 기존 header/tabbar 유지
+  - 목표 Reader deep link에서도 기존 UI와 선택 절 유지
   - console error 없음
 - Expo Web `EXPO_PUBLIC_UI_SHELL_V2=1`, `http://127.0.0.1:8084`
   - 비회원 진입 후 5개 탭 렌더링 확인
@@ -111,12 +118,13 @@
 - 캡처
   - `reports/ui-ux-redesign-screenshots/web-desktop-1440.png`
   - `reports/ui-ux-redesign-screenshots/web-mobile-390.png`
+  - `reports/ui-ux-redesign-screenshots/web-tablet-768.png`
+  - `reports/ui-ux-redesign-screenshots/web-desktop-1024.png`
   - `reports/ui-ux-redesign-screenshots/expo-mobile-390.png`
 
 ### 남은 작업
 
-- 웹 목표 `/app/...` route와 forward navigation
 - 모바일 tab/stack router, Android back, iOS swipe back
 - sync/TTS mini-player Shell slot과 safe-area/keyboard 책임 분리
-- `768`, `1024px` 캡처와 Android/iOS 실제 기기 검증
+- Android/iOS 실제 기기 검증
 - Reader, Notes, Dictionary를 legacy adapter에서 독립 screen/pane으로 분리
