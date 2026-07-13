@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 import {
   parseStudyContextQuery,
   parseStudyContextPanel,
+  parseStudyUiWebView,
+  buildLegacyStudyAppUrl,
+  createStudyUiNavigationEvent,
+  getStudyUiAreaForView,
   resolveStudyUiFeatureFlags,
   serializeStudyContextQuery,
   STUDY_UI_COLOR_TOKENS,
@@ -60,5 +64,15 @@ assert.deepEqual(
 assert.equal(STUDY_UI_LAYOUT_TOKENS.minTouchTarget, 44);
 assert.equal(STUDY_UI_LAYOUT_TOKENS.scriptureMaxWidth, 760);
 assert.notEqual(STUDY_UI_COLOR_TOKENS.light.actionPrimary, STUDY_UI_COLOR_TOKENS.light.actionStudy);
+assert.equal(parseStudyUiWebView("dictionary"), "dictionary");
+assert.equal(parseStudyUiWebView("unknown"), "dashboard");
+assert.equal(buildLegacyStudyAppUrl("dashboard"), "/app");
+assert.equal(buildLegacyStudyAppUrl("notes"), "/app?view=notes");
+assert.equal(getStudyUiAreaForView("highlights"), "library");
+assert.deepEqual(
+  createStudyUiNavigationEvent({ source: "read", destination: "study", bookId: "gen", chapter: 1, verseCount: 2 }),
+  { name: "study_navigation", source: "read", destination: "study", bookId: "gen", chapter: 1, verseCount: 2 },
+);
+assert.equal("selectedText" in createStudyUiNavigationEvent({ source: "read", destination: "study" }), false);
 
-console.log("study UI contract validation passed: context, query privacy, flags, semantic tokens");
+console.log("study UI contract validation passed: context, routes, event privacy, flags, semantic tokens");

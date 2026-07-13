@@ -8,7 +8,7 @@ const groups = [
   },
   {
     name: "mobile-bottom-nav",
-    labels: ["홈", "성경", "인용", "빠른이동", "설정"],
+    labels: ["오늘", "성경", "공부", "보관함", "설정", "명령 검색"],
   },
   {
     name: "home-tabs",

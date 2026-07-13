@@ -601,7 +601,7 @@ async function main() {
         await sleep(350);
         await tapVisibleText(currentSize, "선택 모드 종료", "favorites-exit-selection-mode", 1);
         await sleep(350);
-        await tap(currentSize, 0.5, 0.93);
+        await tap(currentSize, 0.7, 0.93);
       },
     },
     {
@@ -614,7 +614,7 @@ async function main() {
       assertText: ["빠른 이동", "이어 읽기", "홈 · 오늘"],
       expected: "Quick move tab opens the web-style command palette.",
       name: "16-quick-move",
-      run: (currentSize) => tap(currentSize, 0.7, 0.93),
+      run: (currentSize) => tapVisibleText(currentSize, "명령 검색", "header-command-search"),
     },
     {
       assertText: ["강조 구절", "전체 색상", "성경 권", "열기", "복사", "해제"],
@@ -634,7 +634,7 @@ async function main() {
       assertText: ["빠른 이동", "이어 읽기", "홈 · 오늘"],
       expected: "Quick move command palette reopens from the highlight list.",
       name: "18-quick-move-again",
-      run: (currentSize) => tap(currentSize, 0.7, 0.93),
+      run: (currentSize) => tapVisibleText(currentSize, "명령 검색", "header-command-search-again"),
     },
     {
       assertText: ["본문 검색", "키워드", "언어", "정렬", "범위", "성경 권"],

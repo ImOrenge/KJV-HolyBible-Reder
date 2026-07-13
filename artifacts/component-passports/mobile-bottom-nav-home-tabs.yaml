@@ -1,6 +1,6 @@
 component:
   id: mobile-bottom-nav-home-tabs
-  status: verified
+  status: candidate
   owner_scope: mobile-navigation-parity
   source:
     repo: apps/web
@@ -16,7 +16,7 @@ component:
       native_mode: native
   change_gate:
     type: style-contract
-    summary: Expo bottom navigation item width and label sizing now follow the web mobile grid gap and compact label contract.
+    summary: Expo bottom navigation now follows the five-area Today, Bible, Study, Library, Settings information architecture and moves command search to the header.
   dependencies:
     components:
       - TabButton
@@ -36,8 +36,8 @@ component:
     required:
       - home tab active
       - reader tab active
-      - favorites tab active
-      - quick move active
+      - study tab active
+      - library tab active
       - settings tab active
       - dashboard today tab
       - dashboard progress tab
@@ -45,11 +45,12 @@ component:
       - dashboard study tab
   parity_contract:
     visible_actions:
-      - 홈
+      - 오늘
       - 성경
-      - 인용
-      - 빠른이동
+      - 공부
+      - 보관함
       - 설정
+      - 명령 검색
       - 오늘
       - 통독
       - 활동
@@ -62,8 +63,8 @@ component:
       - target: expo-native
         reason: Expo Native keeps local text glyphs while Expo Web uses the SVG icon adapter; label order, hit targets, and active states match.
   evidence:
-    current_level: 5
-    updated_at: 2026-07-08T18:46:12+09:00
+    current_level: 3
+    updated_at: 2026-07-13T23:30:00+09:00
     items:
       - type: static
         command: npm run typecheck
@@ -115,5 +116,5 @@ component:
         reason: Expo Native uses local text glyphs while Expo Web uses the SVG icon adapter; labels, active states, and hit targets are preserved.
     unresolved: []
   next_action:
-    type: continue-loop
-    target: next unverified mobile component
+    type: verify-contract
+    target: run Android and iOS native navigation checks with EXPO_PUBLIC_UI_SHELL_V2 enabled

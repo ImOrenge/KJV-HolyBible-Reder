@@ -11,8 +11,34 @@ export const STUDY_CONTEXT_SOURCES = [
 
 export const STUDY_CONTEXT_PANELS = ["note", "dictionary", "links", "saved"] as const;
 
+export const STUDY_UI_WEB_VIEW_KEYS = [
+  "dashboard",
+  "reader",
+  "progress",
+  "highlights",
+  "favorites",
+  "notes",
+  "dictionary",
+  "search",
+  "settings",
+] as const;
+
+export const STUDY_UI_AREAS = ["today", "read", "study", "library", "settings"] as const;
+
 export type StudyContextSource = (typeof STUDY_CONTEXT_SOURCES)[number];
 export type StudyContextPanel = (typeof STUDY_CONTEXT_PANELS)[number];
+export type StudyUiWebViewKey = (typeof STUDY_UI_WEB_VIEW_KEYS)[number];
+export type StudyUiMobileViewKey = StudyUiWebViewKey | "quickMove";
+export type StudyUiArea = (typeof STUDY_UI_AREAS)[number];
+
+export type StudyUiNavigationEvent = {
+  name: "study_navigation";
+  source: StudyUiArea;
+  destination: StudyUiArea;
+  bookId?: AppBookId;
+  chapter?: number;
+  verseCount?: number;
+};
 
 export type StudyReturnTarget = {
   route: string;
@@ -125,6 +151,26 @@ export const STUDY_UI_LAYOUT_TOKENS = {
   scriptureLineHeightMax: 2,
 } as const;
 
+export const STUDY_UI_TARGET_ROUTES: Record<StudyUiWebViewKey, string> = {
+  dashboard: "/app/today",
+  reader: "/app/read",
+  progress: "/app/progress",
+  highlights: "/app/library?section=highlights",
+  favorites: "/app/library?section=saved",
+  notes: "/app/study/notes",
+  dictionary: "/app/study/dictionary",
+  search: "/app/search",
+  settings: "/app/settings",
+};
+
+export const STUDY_UI_AREA_DEFAULT_VIEW: Record<StudyUiArea, StudyUiWebViewKey> = {
+  today: "dashboard",
+  read: "reader",
+  study: "notes",
+  library: "favorites",
+  settings: "settings",
+};
+
 const VERSE_KEY_PATTERN = /^([1-3A-Z][A-Z]{2})\.([1-9]\d{0,2})\.([1-9]\d{0,2})$/;
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const SCROLL_ANCHOR_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
@@ -136,6 +182,42 @@ function isInternalRoute(route: string) {
 
 function normalizeVerseKeys(verseKeys: readonly string[]) {
   return [...new Set(verseKeys.map((key) => key.trim()).filter(Boolean))];
+}
+
+export function parseStudyUiWebView(value: string | null | undefined): StudyUiWebViewKey {
+  return STUDY_UI_WEB_VIEW_KEYS.find((candidate) => candidate === value) ?? "dashboard";
+}
+
+export function getStudyUiAreaForView(view: StudyUiWebViewKey): StudyUiArea {
+  if (view === "dashboard" || view === "progress") return "today";
+  if (view === "reader" || view === "search") return "read";
+  if (view === "notes" || view === "dictionary") return "study";
+  if (view === "highlights" || view === "favorites") return "library";
+  return "settings";
+}
+
+export function buildLegacyStudyAppUrl(view: StudyUiWebViewKey) {
+  return view === "dashboard" ? "/app" : `/app?view=${encodeURIComponent(view)}`;
+}
+
+export function createStudyUiNavigationEvent(input: Omit<StudyUiNavigationEvent, "name">): StudyUiNavigationEvent {
+  const book = input.bookId ? bibleBookByAppId.get(input.bookId) : undefined;
+  if (input.bookId && !book) throw new Error("성경 권 ID를 확인하세요.");
+  if (input.chapter !== undefined && (!book || !Number.isInteger(input.chapter) || input.chapter < 1 || input.chapter > book.chapterCount)) {
+    throw new Error("성경 장 번호를 확인하세요.");
+  }
+  if (input.verseCount !== undefined && (!Number.isInteger(input.verseCount) || input.verseCount < 0)) {
+    throw new Error("구절 수를 확인하세요.");
+  }
+
+  return {
+    name: "study_navigation",
+    source: input.source,
+    destination: input.destination,
+    ...(book ? { bookId: book.appBookId } : {}),
+    ...(input.chapter !== undefined ? { chapter: input.chapter } : {}),
+    ...(input.verseCount !== undefined ? { verseCount: input.verseCount } : {}),
+  };
 }
 
 export function validateStudyContext(input: StudyContextInput): StudyContextValidationResult {

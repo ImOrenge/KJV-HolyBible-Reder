@@ -107,7 +107,15 @@ import {
   type PersonalNoteDocument,
 } from "@kjv/shared";
 
-type ViewKey = "dashboard" | "reader" | "progress" | "highlights" | "favorites" | "notes" | "dictionary" | "search" | "settings";
+export type KjvMvpViewKey = "dashboard" | "reader" | "progress" | "highlights" | "favorites" | "notes" | "dictionary" | "search" | "settings";
+type ViewKey = KjvMvpViewKey;
+type KjvMvpAppProps = {
+  activeView?: ViewKey;
+  initialView?: ViewKey;
+  navigationMode?: "legacy" | "shell";
+  onViewChange?: (view: ViewKey) => void;
+  user: AppUser;
+};
 type MobileHomeTab = "today" | "progress" | "activity" | "study";
 type SettingsSectionKey = "account" | "tts" | "text" | "view";
 type LoadStatus = "idle" | "loading" | "ready" | "error";
@@ -515,13 +523,24 @@ function compareBibleLocation(left: { bookId: string; chapter: number; verse?: n
   return (left.verse ?? 0) - (right.verse ?? 0);
 }
 
-export function KjvMvpApp({ user }: { user: AppUser }) {
+export function KjvMvpApp({
+  activeView: controlledActiveView,
+  initialView = "dashboard",
+  navigationMode = "legacy",
+  onViewChange,
+  user,
+}: KjvMvpAppProps) {
   const router = useRouter();
   const books = useMemo(() => getBooks(), []);
   const oldBooks = useMemo(() => getBooks("old"), []);
   const newBooks = useMemo(() => getBooks("new"), []);
   const [mounted, setMounted] = useState(false);
-  const [activeView, setActiveView] = useState<ViewKey>("dashboard");
+  const [internalActiveView, setInternalActiveView] = useState<ViewKey>(initialView);
+  const activeView = controlledActiveView ?? internalActiveView;
+  const setActiveView = useCallback((view: ViewKey) => {
+    if (controlledActiveView === undefined) setInternalActiveView(view);
+    onViewChange?.(view);
+  }, [controlledActiveView, onViewChange]);
   const [mobileHomeTab, setMobileHomeTab] = useState<MobileHomeTab>("today");
   const [activeSettingsSection, setActiveSettingsSection] = useState<SettingsSectionKey>("account");
   const [userData, setUserData] = useState<UserDataState>(() => createInitialUserData(user.id));
@@ -1124,7 +1143,7 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
       setTargetVerseNumber(loaded.progress.verse);
     }
     setMounted(true);
-  }, [user.id, user.isAuthenticated]);
+  }, [setActiveView, user.id, user.isAuthenticated]);
 
   useEffect(() => {
     let cancelled = false;
@@ -3331,8 +3350,8 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
   }
 
   return (
-    <div className={`app-root theme-${userData.settings.theme}${shouldShowTtsOverlay ? " tts-overlay-open" : ""}`}>
-      <header className="app-header">
+    <div className={`app-root theme-${userData.settings.theme}${shouldShowTtsOverlay ? " tts-overlay-open" : ""}${navigationMode === "shell" ? " shell-navigation" : ""}`}>
+      {navigationMode === "legacy" ? <header className="app-header">
         <div>
           <div className="eyebrow">CrossWire KJV 기반</div>
           <h1>{APP_NAME}</h1>
@@ -3360,9 +3379,9 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
             </button>
           )}
         </div>
-      </header>
+      </header> : null}
 
-      <nav className="tabbar" aria-label="주요 화면">
+      {navigationMode === "legacy" ? <nav className="tabbar" aria-label="주요 화면">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           return (
@@ -3377,7 +3396,7 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
             </button>
           );
         })}
-      </nav>
+      </nav> : null}
 
       {showDemoImportPrompt ? (
         <section className="import-banner" aria-label="기존 로컬 데이터 가져오기">
@@ -4756,7 +4775,7 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
         ) : null}
       </main>
 
-      <nav className="mobile-bottom-nav" aria-label="모바일 주요 화면">
+      {navigationMode === "legacy" ? <nav className="mobile-bottom-nav" aria-label="모바일 주요 화면">
         <button
           className={activeView === "dashboard" ? "mobile-nav-item active" : "mobile-nav-item"}
           type="button"
@@ -4797,7 +4816,7 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
           <Settings size={18} />
           <span>설정</span>
         </button>
-      </nav>
+      </nav> : null}
 
       {isChapterPickerOpen ? (
         <div className="modal-backdrop chapter-picker-backdrop" role="presentation">

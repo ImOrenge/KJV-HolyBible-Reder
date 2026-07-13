@@ -16,6 +16,7 @@ import {
   getChapters,
   getLocalDateKey,
   getReadingPlanDay,
+  getStudyUiAreaForView,
   getTotalChapterCount,
   hasImportableUserData,
   hebrewDictionaryThemes,
@@ -55,6 +56,7 @@ import {
   type UserDataState,
   type UserOnboardingProfile,
   type Verse,
+  type StudyUiMobileViewKey,
 } from "@kjv/shared";
 import { createClient as createSupabaseClient, type Session, type User } from "@supabase/supabase-js";
 import * as Clipboard from "expo-clipboard";
@@ -83,8 +85,9 @@ import {
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { PersonalNoteRichTextEditor } from "./src/components/personal-note-rich-text-editor";
 import { OnboardingScreen } from "./src/onboarding-screen";
+import { studyUiFeatureFlags } from "./src/study-ui-feature-flags";
 
-type ViewKey = "dashboard" | "reader" | "quickMove" | "progress" | "highlights" | "favorites" | "search" | "notes" | "dictionary" | "settings";
+type ViewKey = StudyUiMobileViewKey;
 type HomeTab = "today" | "progress" | "activity" | "study";
 type SettingsSectionKey = "account" | "tts" | "text" | "view";
 type SearchSelectKey = "language" | "sort" | "testament" | "book";
@@ -637,8 +640,7 @@ function AppShell() {
         .filter((link) => link.noteId === selectedPersonalNote.id)
         .sort((left, right) => left.linkOrder - right.linkOrder)
     : [];
-  const quickMoveActive =
-    isQuickMoveOpen || activeView === "progress" || activeView === "highlights" || activeView === "search" || activeView === "notes" || activeView === "dictionary";
+  const activePrimaryArea = activeView === "quickMove" ? null : getStudyUiAreaForView(activeView);
   const filteredHighlights = useMemo(
     () =>
       userData.highlights
@@ -2714,6 +2716,11 @@ function AppShell() {
               <Text style={styles.title}>KJV 리더노트</Text>
             </View>
             <View style={styles.headerActions}>
+              {studyUiFeatureFlags.uiShellV2 ? (
+                <Pressable accessibilityLabel="명령 검색" onPress={() => setIsQuickMoveOpen(true)} style={styles.headerIconButton}>
+                  <Icon color={colors.text} name="command-outline" size={18} />
+                </Pressable>
+              ) : null}
               {onboardingProfile?.avatarUrl ? <Image source={{ uri: onboardingProfile.avatarUrl }} style={styles.headerAvatar} /> : null}
               <Text numberOfLines={1} style={styles.mockUser}>{authUser ? authenticatedDisplayName : "비로그인 리더"}</Text>
               {!authUser ? (
@@ -4369,13 +4376,23 @@ function AppShell() {
               {ttsPlaybackState === "playing" ? <Text style={styles.liveDot}>재생</Text> : null}
             </View>
           ) : null}
-          <View style={styles.tabBar}>
-            <TabButton active={activeView === "dashboard"} icon="home-outline" label="홈" onPress={() => setActiveView("dashboard")} styles={styles} />
-            <TabButton active={activeView === "reader"} icon="book-outline" label="성경" onPress={() => setActiveView("reader")} styles={styles} />
-            <TabButton active={activeView === "favorites"} icon="bookmark-outline" label="인용" onPress={() => setActiveView("favorites")} styles={styles} />
-            <TabButton active={quickMoveActive} icon="command-outline" label="빠른이동" onPress={() => setIsQuickMoveOpen(true)} styles={styles} />
-            <TabButton active={activeView === "settings"} icon="settings-outline" label="설정" onPress={() => setActiveView("settings")} styles={styles} />
-          </View>
+          {studyUiFeatureFlags.uiShellV2 ? (
+            <View style={styles.tabBar}>
+              <TabButton active={activePrimaryArea === "today"} icon="home-outline" label="오늘" onPress={() => setActiveView("dashboard")} styles={styles} />
+              <TabButton active={activePrimaryArea === "read"} icon="book-outline" label="성경" onPress={() => setActiveView("reader")} styles={styles} />
+              <TabButton active={activePrimaryArea === "study"} icon="reader-outline" label="공부" onPress={() => setActiveView("notes")} styles={styles} />
+              <TabButton active={activePrimaryArea === "library"} icon="bookmark-outline" label="보관함" onPress={() => setActiveView("favorites")} styles={styles} />
+              <TabButton active={activePrimaryArea === "settings"} icon="settings-outline" label="설정" onPress={() => setActiveView("settings")} styles={styles} />
+            </View>
+          ) : (
+            <View style={styles.tabBar}>
+              <TabButton active={activeView === "dashboard"} icon="home-outline" label="홈" onPress={() => setActiveView("dashboard")} styles={styles} />
+              <TabButton active={activeView === "reader"} icon="book-outline" label="성경" onPress={() => setActiveView("reader")} styles={styles} />
+              <TabButton active={activeView === "favorites"} icon="bookmark-outline" label="인용" onPress={() => setActiveView("favorites")} styles={styles} />
+              <TabButton active={isQuickMoveOpen || activeView === "quickMove"} icon="command-outline" label="빠른이동" onPress={() => setIsQuickMoveOpen(true)} styles={styles} />
+              <TabButton active={activeView === "settings"} icon="settings-outline" label="설정" onPress={() => setActiveView("settings")} styles={styles} />
+            </View>
+          )}
         </KeyboardAvoidingView>
       </SafeAreaView>
     </SafeAreaProvider>
@@ -5136,6 +5153,15 @@ function createStyles(colors: typeof lightColors, viewportHeight = 844) {
         flexDirection: "row",
         flexShrink: 1,
         gap: 7,
+      },
+      headerIconButton: {
+        alignItems: "center",
+        borderColor: colors.border,
+        borderRadius: 6,
+        borderWidth: 1,
+        height: 44,
+        justifyContent: "center",
+        width: 44,
       },
       headerAvatar: {
         backgroundColor: colors.surfaceStrong,
