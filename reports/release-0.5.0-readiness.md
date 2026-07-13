@@ -4,9 +4,9 @@
 
 ## 현재 판정
 
-**RC READY - 릴리즈 범위, 버전, 원격 DB 이력과 로컬 회귀 검증이 완료됐다.**
+**RELEASE CANDIDATE READY - 릴리즈 범위, 버전, 원격 DB, 회귀 검증과 Android AAB 검증이 완료됐다.**
 
-개인 성경노트 고도화와 히브리어 사전은 릴리즈 게이트를 통과했다. 번역·QT UI·스토어 이미지는 제외했고, 원격 Supabase에 이미 적용된 QT 마이그레이션 6건의 이력만 릴리즈 소스에 동기화했다. `release/0.5.0`에서 Android production AAB 생성과 package/signing 검증을 진행한다.
+개인 성경노트 고도화와 히브리어 사전은 릴리즈 게이트를 통과했다. 번역·QT UI·스토어 이미지는 제외했고, 원격 Supabase에 이미 적용된 QT 마이그레이션 6건의 이력만 릴리즈 소스에 동기화했다. `release/0.5.0`의 Android production AAB도 package와 signing 기준을 모두 통과했다.
 
 ## 제안 버전
 
@@ -51,6 +51,23 @@
 | 구절 자동완성 브라우저 | PASS - `#창`, `#창 1:10`, 링크 선택 |
 | EAS 인증 | PASS - `nicholas0913` Owner |
 
+## Android Production AAB
+
+| 항목 | 값 |
+| --- | --- |
+| EAS build ID | `a72b8416-a236-4a45-8638-fadaccb14a1f` |
+| EAS status | `FINISHED` |
+| Git commit | `bf7815264410ac758c3c2c6389f948f75f14b56c` |
+| Package | `com.kjvreader` |
+| Version | `0.5.0` |
+| Version code | `5` |
+| Signing SHA-1 | `9F:51:A8:96:1B:EA:0A:35:53:8A:A8:CF:64:D6:3F:23:19:4F:6A:5F` |
+| Signing SHA-256 | `E8:45:72:72:39:60:D4:A4:B4:A8:91:C8:ED:74:6A:9B:46:27:F9:1C:51:0B:8F:E3:E2:C0:EE:3C:2B:37:E9:D0` |
+| AAB SHA-256 | `6B00B645ACBC4E695137990517CD288C4B62A1B94C7D6C4D4AD9A9B3FF7F3409` |
+| Artifact | `https://expo.dev/artifacts/eas/FDLKzemQv5lY4TkCzIEtYsAi4lRICN6BLkoX-i9djWM.aab` |
+
+`bundletool-all-1.18.3.jar dump manifest`와 `keytool -printcert -jarfile`로 동일 AAB를 검사했다. Package와 upload signing SHA-1이 기존 Play Store 승인 기준과 모두 일치한다.
+
 ## 원격 DB 상태
 
 개인노트 마이그레이션은 로컬과 원격이 일치한다.
@@ -85,7 +102,6 @@
 - 이 Windows 환경의 전역 npm `os` 설정은 `linux`다. 깨끗한 설치에서 네이티브 선택 패키지를 설치할 때 `npm install --os=win32 --cpu=x64`를 사용해야 한다.
 - 실제 Android/iOS 기기에서 TenTap 편집기의 한글 IME, 키보드 높이, 선택 영역 동작을 최종 확인해야 한다.
 - 현재 사전 seed는 6개 단어이므로 기능 릴리즈에는 충분하지만 콘텐츠 릴리즈 범위로는 작다.
-- EAS의 마지막 성공 production AAB는 `0.4.0`, build `4`다. `0.5.0` AAB는 범위 확정과 버전 커밋 후 생성해야 한다.
 
 ## 릴리즈 체크리스트
 
@@ -103,7 +119,7 @@
 - [x] `release/0.5.0` 생성
 - [x] 모든 workspace와 Expo 버전을 `0.5.0`, Android `versionCode`를 `5`로 변경
 - [x] 최종 회귀 검증
-- [ ] EAS production AAB 생성 및 package/signing 검증
+- [x] EAS production AAB 생성 및 package/signing 검증
 - [ ] `main` 병합, `v0.5.0` 태그, 원격 push
 
 ## 확정된 릴리즈 범위
