@@ -13,6 +13,7 @@
     "./brand": "./src/brand.ts",
     "./hebrew-dictionary": "./src/hebrew-dictionary.ts",
     "./korean-search": "./src/korean-search.ts",
+    "./onboarding": "./src/onboarding.ts",
     "./personal-note-document": "./src/personal-note-document.ts",
     "./privacy-policy": "./src/privacy-policy.ts",
     "./reading-plan": "./src/reading-plan.ts",

@@ -147,6 +147,153 @@ button:disabled {
   text-decoration: underline;
 }
 
+.f-onboarding {
+  align-items: center;
+  background: var(--bg);
+  display: flex;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 24px;
+}
+
+.f-onboarding__panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 24px;
+  max-width: 540px;
+  padding: 32px;
+  width: 100%;
+}
+
+.f-onboarding__heading {
+  display: grid;
+  gap: 8px;
+}
+
+.f-onboarding__heading h1,
+.f-onboarding__heading p {
+  margin: 0;
+}
+
+.f-onboarding__heading p:not(.eyebrow) {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.f-onboarding__form {
+  display: grid;
+  gap: 16px;
+}
+
+.f-onboarding__form > label {
+  color: var(--muted);
+  display: grid;
+  font-size: 0.9rem;
+  font-weight: 700;
+  gap: 8px;
+}
+
+.f-onboarding__form input:not([type="file"]),
+.f-onboarding__form select {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  min-height: 44px;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.f-onboarding__form input:focus-visible,
+.f-onboarding__form select:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 26%, transparent);
+  outline-offset: 1px;
+}
+
+.f-onboarding__form small,
+.f-onboarding__avatar-field small {
+  color: var(--muted);
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.45;
+  margin-top: 6px;
+}
+
+.f-onboarding__avatar-field {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+}
+
+.f-onboarding__avatar-preview {
+  align-items: center;
+  aspect-ratio: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--muted);
+  display: flex;
+  flex: 0 0 76px;
+  justify-content: center;
+  overflow: hidden;
+  width: 76px;
+}
+
+.f-onboarding__avatar-preview img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.f-onboarding__avatar-button {
+  display: inline-flex;
+  min-height: 42px;
+}
+
+.f-onboarding__avatar-button input {
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  width: 1px;
+  clip-path: inset(50%);
+}
+
+.f-onboarding__submit {
+  margin-top: 4px;
+  width: 100%;
+}
+
+.f-onboarding__privacy-link {
+  color: var(--accent);
+  font-size: 0.86rem;
+  font-weight: 700;
+  justify-self: start;
+  text-decoration: none;
+}
+
+.f-onboarding__privacy-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 600px) {
+  .f-onboarding {
+    align-items: stretch;
+    padding: 0;
+  }
+
+  .f-onboarding__panel {
+    border: 0;
+    box-shadow: none;
+    min-height: 100dvh;
+    padding: 24px 18px calc(24px + env(safe-area-inset-bottom));
+  }
+}
+
 .privacy-page {
   background: var(--bg);
   min-height: 100vh;
@@ -296,6 +443,33 @@ button:disabled {
 .mock-user {
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+.user-identity {
+  align-items: center;
+  display: flex;
+  gap: 7px;
+  min-width: 0;
+}
+
+.user-avatar {
+  align-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--muted);
+  display: inline-flex;
+  flex: 0 0 34px;
+  height: 34px;
+  justify-content: center;
+  overflow: hidden;
+  width: 34px;
+}
+
+.user-avatar img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
 }
 
 .tabbar {
@@ -2101,7 +2275,20 @@ kbd {
   padding: 14px;
 }
 
-.settings-account-summary div {
+.settings-account-identity {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+}
+
+.settings-account-identity .user-avatar {
+  flex-basis: 48px;
+  height: 48px;
+  width: 48px;
+}
+
+.settings-account-copy {
   display: grid;
   gap: 4px;
   min-width: 0;
@@ -2582,8 +2769,17 @@ kbd {
   }
 
   .mock-user {
+    max-width: 92px;
+    overflow: hidden;
+    text-overflow: ellipsis;
     font-size: 0.82rem;
     white-space: nowrap;
+  }
+
+  .user-identity .user-avatar {
+    flex-basis: 30px;
+    height: 30px;
+    width: 30px;
   }
 
   .tabbar {

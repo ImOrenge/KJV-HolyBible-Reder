@@ -26,6 +26,16 @@ const config: ExpoConfig = {
   web: {
     bundler: "metro",
   },
+  plugins: [
+    [
+      "expo-image-picker",
+      {
+        cameraPermission: false,
+        microphonePermission: false,
+        photosPermission: "프로필 사진을 선택할 수 있도록 사진 접근을 허용합니다.",
+      },
+    ],
+  ],
 };
 
 export default config;

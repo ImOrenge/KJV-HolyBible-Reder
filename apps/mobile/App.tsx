@@ -9,6 +9,7 @@ import {
   createInitialUserData,
   defaultFavoriteListId,
   formatPlanChapters,
+  getUserOnboarding,
   getAdjacentChapter,
   getBook,
   getBooks,
@@ -52,6 +53,7 @@ import {
   type TranslationLanguage,
   type TranslationFeedbackIssueType,
   type UserDataState,
+  type UserOnboardingProfile,
   type Verse,
 } from "@kjv/shared";
 import { createClient as createSupabaseClient, type Session, type User } from "@supabase/supabase-js";
@@ -68,6 +70,7 @@ import {
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -79,6 +82,7 @@ import {
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { PersonalNoteRichTextEditor } from "./src/components/personal-note-rich-text-editor";
+import { OnboardingScreen } from "./src/onboarding-screen";
 
 type ViewKey = "dashboard" | "reader" | "quickMove" | "progress" | "highlights" | "favorites" | "search" | "notes" | "dictionary" | "settings";
 type HomeTab = "today" | "progress" | "activity" | "study";
@@ -89,6 +93,7 @@ type AuthCredentialMode = "login" | "sign-up";
 type LoadStatus = "idle" | "loading" | "ready" | "error";
 type SubmitStatus = "idle" | "submitting" | "success" | "error";
 type SyncStatus = "idle" | "loading" | "ready" | "saving" | "error";
+type OnboardingStatus = "idle" | "checking" | "required" | "complete" | "error";
 type TtsPlaybackState = "idle" | "playing" | "paused";
 type SpeechQueueItem = {
   id?: string;
@@ -413,6 +418,10 @@ function AppShell() {
   const [entryMode, setEntryMode] = useState<EntryMode>("welcome");
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [authSession, setAuthSession] = useState<Session | null>(null);
+  const [onboardingStatus, setOnboardingStatus] = useState<OnboardingStatus>("idle");
+  const [onboardingProfile, setOnboardingProfile] = useState<UserOnboardingProfile | null>(null);
+  const [onboardingMessage, setOnboardingMessage] = useState("");
+  const [onboardingRetryToken, setOnboardingRetryToken] = useState(0);
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authStatus, setAuthStatus] = useState<SubmitStatus>("idle");
@@ -516,6 +525,9 @@ function AppShell() {
   );
   const selectedVerse = selectedVerseId ? knownVerses.get(selectedVerseId) ?? null : null;
   const currentReadingVerse = currentReadingVerseId ? knownVerses.get(currentReadingVerseId) ?? null : null;
+  const authenticatedDisplayName = onboardingProfile
+    ? `${onboardingProfile.nickname} ${onboardingProfile.honorific}`
+    : authUser?.email ?? "로그인 리더";
   const readingLanguage = userData.settings.defaultTranslation;
   const isDark = userData.settings.theme === "dark";
   const colors = isDark ? darkColors : lightColors;
@@ -800,6 +812,44 @@ function AppShell() {
       subscription.unsubscribe();
     };
   }, [supabase]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const accessToken = authSession?.access_token;
+
+    if (!authUser) {
+      setOnboardingStatus("idle");
+      setOnboardingProfile(null);
+      setOnboardingMessage("");
+      return;
+    }
+
+    if (!accessToken) {
+      setOnboardingStatus("error");
+      setOnboardingProfile(null);
+      setOnboardingMessage("로그인 세션을 확인하지 못했습니다.");
+      return;
+    }
+
+    setOnboardingStatus("checking");
+    setOnboardingMessage("");
+    void getUserOnboarding({ accessToken, baseUrl: apiBaseUrl })
+      .then((result) => {
+        if (cancelled) return;
+        setOnboardingProfile(result.profile);
+        setOnboardingStatus(result.completed && result.profile ? "complete" : "required");
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setOnboardingProfile(null);
+        setOnboardingStatus("error");
+        setOnboardingMessage(error instanceof Error ? error.message : "프로필 상태를 확인하지 못했습니다.");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [apiBaseUrl, authSession?.access_token, authUser, onboardingRetryToken]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2202,6 +2252,9 @@ function AppShell() {
     }
     setAuthSession(null);
     setAuthUser(null);
+    setOnboardingStatus("idle");
+    setOnboardingProfile(null);
+    setOnboardingMessage("");
     setAuthStatus("idle");
     setAuthMessage("");
     setAuthPassword("");
@@ -2596,6 +2649,61 @@ function AppShell() {
     );
   }
 
+  if (authUser && onboardingStatus !== "complete") {
+    if (onboardingStatus === "required" && authSession?.access_token) {
+      return (
+        <SafeAreaProvider>
+          <SafeAreaView style={styles.safeArea}>
+            <StatusBar style={isDark ? "light" : "dark"} />
+            <OnboardingScreen
+              accessToken={authSession.access_token}
+              apiBaseUrl={apiBaseUrl}
+              email={authUser.email ?? ""}
+              onComplete={(profile) => {
+                setOnboardingProfile(profile);
+                setOnboardingStatus("complete");
+              }}
+              onSignOut={() => { void signOut(); }}
+              theme={colors}
+            />
+          </SafeAreaView>
+        </SafeAreaProvider>
+      );
+    }
+
+    if (onboardingStatus === "error") {
+      return (
+        <SafeAreaProvider>
+          <SafeAreaView style={styles.safeArea}>
+            <StatusBar style={isDark ? "light" : "dark"} />
+            <View style={styles.authLoadingScreen}>
+              <Text style={styles.authEntryTitle}>프로필 확인 오류</Text>
+              <Text style={styles.errorText}>{onboardingMessage}</Text>
+              <Pressable onPress={() => setOnboardingRetryToken((value) => value + 1)} style={styles.authGuestButton}>
+                <Text style={styles.authGuestButtonText}>다시 시도</Text>
+              </Pressable>
+              <Pressable onPress={() => { void signOut(); }} style={styles.authEntryTextButton}>
+                <Text style={styles.authEntryTextButtonLabel}>다른 계정으로 로그인</Text>
+              </Pressable>
+            </View>
+          </SafeAreaView>
+        </SafeAreaProvider>
+      );
+    }
+
+    return (
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.safeArea}>
+          <StatusBar style={isDark ? "light" : "dark"} />
+          <View style={styles.authLoadingScreen}>
+            <Text style={styles.authEntryTitle}>프로필 확인 중</Text>
+            <ActivityIndicator color={colors.accent} />
+          </View>
+        </SafeAreaView>
+      </SafeAreaProvider>
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.safeArea}>
@@ -2606,7 +2714,8 @@ function AppShell() {
               <Text style={styles.title}>KJV 리더노트</Text>
             </View>
             <View style={styles.headerActions}>
-              <Text style={styles.mockUser}>{authUser ? authUser.email ?? "로그인 리더" : "비로그인 리더"}</Text>
+              {onboardingProfile?.avatarUrl ? <Image source={{ uri: onboardingProfile.avatarUrl }} style={styles.headerAvatar} /> : null}
+              <Text numberOfLines={1} style={styles.mockUser}>{authUser ? authenticatedDisplayName : "비로그인 리더"}</Text>
               {!authUser ? (
                 <Pill
                   active={false}
@@ -3625,9 +3734,10 @@ function AppShell() {
                         <Icon color={colors.text} name={authUser ? "log-out-outline" : "log-in-outline"} size={18} />
                       </View>
                       <View style={styles.accountSummary}>
+                        {onboardingProfile?.avatarUrl ? <Image source={{ uri: onboardingProfile.avatarUrl }} style={styles.accountAvatar} /> : null}
                         <View style={styles.accountTextBlock}>
                           <Text style={styles.eyebrow}>현재 계정</Text>
-                          <Text style={styles.accountName}>{authUser?.email ?? "비로그인 리더"}</Text>
+                          <Text style={styles.accountName}>{authUser ? authenticatedDisplayName : "비로그인 리더"}</Text>
                           <Text style={styles.metaText}>{authUser ? authUser.email ?? "로그인 상태" : "비로그인 리더"}</Text>
                         </View>
                         <Text style={[styles.statusBadge, authUser ? styles.statusBadgeActive : null]}>{authUser ? "로그인" : "비로그인"}</Text>
@@ -5027,6 +5137,14 @@ function createStyles(colors: typeof lightColors, viewportHeight = 844) {
         flexShrink: 1,
         gap: 7,
       },
+      headerAvatar: {
+        backgroundColor: colors.surfaceStrong,
+        borderColor: colors.border,
+        borderRadius: 6,
+        borderWidth: 1,
+        height: 30,
+        width: 30,
+      },
       eyebrow: {
         color: colors.accentSecondary,
         fontSize: 10,
@@ -5708,6 +5826,14 @@ function createStyles(colors: typeof lightColors, viewportHeight = 844) {
         justifyContent: "space-between",
         minHeight: 72,
         padding: 12,
+      },
+      accountAvatar: {
+        backgroundColor: colors.surface,
+        borderColor: colors.border,
+        borderRadius: 8,
+        borderWidth: 1,
+        height: 52,
+        width: 52,
       },
       accountTextBlock: {
         flex: 1,

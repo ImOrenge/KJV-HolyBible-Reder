@@ -30,6 +30,7 @@ import {
   Sun,
   Tags,
   Type,
+  UserRound,
   Volume2,
   X,
 } from "lucide-react";
@@ -147,6 +148,20 @@ const settingsSections: Array<{ key: SettingsSectionKey; label: string; icon: Re
 const mobileQuickMoveViews = new Set<ViewKey>(["progress", "highlights", "favorites", "notes", "dictionary", "search"]);
 const viewKeys = new Set<ViewKey>(tabs.map((tab) => tab.key));
 const mobileHomeTabKeys = new Set<MobileHomeTab>(mobileHomeTabs.map((tab) => tab.key));
+
+function UserAvatar({ user }: { user: AppUser }) {
+  return (
+    <span className="user-avatar" aria-hidden="true">
+      {user.avatarUrl ? (
+        // Supabase public Storage URLs are dynamic and intentionally bypass Next image optimization.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img alt="" src={user.avatarUrl} />
+      ) : (
+        <UserRound size={18} />
+      )}
+    </span>
+  );
+}
 
 const highlightOptions: Array<{ color: HighlightColor; label: string }> = [
   { color: "yellow", label: "중요" },
@@ -3323,7 +3338,10 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
           <h1>{APP_NAME}</h1>
         </div>
         <div className="header-actions">
-          <span className="mock-user">{user.displayName}</span>
+          <div className="user-identity">
+            <UserAvatar user={user} />
+            <span className="mock-user">{user.displayName}</span>
+          </div>
           <button className="icon-button header-utility-action" type="button" onClick={openCommandPalette} aria-label="명령 팔레트">
             <Command size={16} />
           </button>
@@ -4586,10 +4604,13 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
                       {isAuthenticated ? <LogOut size={18} /> : <LogIn size={18} />}
                     </div>
                     <div className="settings-account-summary">
-                      <div>
-                        <span className="eyebrow">현재 계정</span>
-                        <strong>{user.displayName}</strong>
-                        <small>{isAuthenticated ? user.email || "로그인 상태" : "비로그인 리더"}</small>
+                      <div className="settings-account-identity">
+                        <UserAvatar user={user} />
+                        <div className="settings-account-copy">
+                          <span className="eyebrow">현재 계정</span>
+                          <strong>{user.displayName}</strong>
+                          <small>{isAuthenticated ? user.email || "로그인 상태" : "비로그인 리더"}</small>
+                        </div>
                       </div>
                       <span className={isAuthenticated ? "settings-status active" : "settings-status"}>
                         {isAuthenticated ? "로그인" : "비로그인"}

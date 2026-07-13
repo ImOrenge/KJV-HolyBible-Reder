@@ -5,6 +5,7 @@ export * from "./bible-repository";
 export * from "./brand";
 export * from "./hebrew-dictionary";
 export * from "./korean-search";
+export * from "./onboarding";
 export * from "./personal-note-document";
 export * from "./privacy-policy";
 export * from "./reading-plan";

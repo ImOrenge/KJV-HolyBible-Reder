@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { deleteUserAvatar } from "@/lib/onboarding-server";
 import { createBearerClient, createServiceRoleClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,7 @@ export async function DELETE(request: Request) {
 
   try {
     const serviceClient = createServiceRoleClient();
+    await deleteUserAvatar(serviceClient, user.id);
     const { error: deleteError } = await serviceClient.auth.admin.deleteUser(user.id, false);
     if (deleteError) {
       return NextResponse.json({ error: "삭제 실패" }, { status: 500 });

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { deleteUserAvatar } from "@/lib/onboarding-server";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -40,6 +41,7 @@ async function deleteAccountAction(formData: FormData) {
 
   try {
     const serviceClient = createServiceRoleClient();
+    await deleteUserAvatar(serviceClient, user.id);
     const { error: deleteError } = await serviceClient.auth.admin.deleteUser(user.id, false);
 
     if (deleteError) {
@@ -132,8 +134,9 @@ export default async function AccountDeletePage({ searchParams }: AccountDeleteP
           <section className="privacy-section">
             <h2>삭제되는 데이터</h2>
             <p>
-              이메일 로그인 계정, 인증 식별자, 읽기 위치, 완료 장, 하이라이트, 즐겨찾기 구절과 목록, 태그, 학습 노트,
-              읽기 계획, 앱 설정 등 KJV 리더노트가 계정에 연결해 관리하는 사용자 데이터가 삭제됩니다.
+              이메일 로그인 계정, 인증 식별자, 프로필 사진, 닉네임, 이름, 호칭, 읽기 위치, 완료 장, 하이라이트,
+              즐겨찾기 구절과 목록, 태그, 학습 노트, 읽기 계획, 앱 설정 등 KJV 리더노트가 계정에 연결해 관리하는
+              사용자 데이터가 삭제됩니다.
             </p>
             <p>
               공개 성경 본문, 성경 출처 정보, 법령 준수와 보안 목적의 제한적 로그 또는 백업 데이터는 계정 삭제와 별도로
