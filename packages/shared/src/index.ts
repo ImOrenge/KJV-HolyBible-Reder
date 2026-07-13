@@ -10,6 +10,7 @@ export * from "./personal-note-document";
 export * from "./privacy-policy";
 export * from "./reading-plan";
 export * from "./search-highlight";
+export * from "./study-ui";
 export * from "./supabase-user-data-repository";
 export * from "./translation-feedback-client";
 export * from "./translation-feedback/feedback-types";

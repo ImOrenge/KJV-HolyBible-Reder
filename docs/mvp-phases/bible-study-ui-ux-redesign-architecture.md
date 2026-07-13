@@ -726,10 +726,10 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 ### Phase UX-00: 기준선과 계약
 
 - [ ] 현재 주요 흐름의 click 수와 scroll 위치를 기록한다.
-- [ ] `StudyContext`, route parameter, semantic token 타입을 정의한다.
+- [x] `StudyContext`, route parameter, semantic token 타입을 정의한다.
 - [ ] 기존 component passport를 새 taxonomy로 분류한다.
 - [ ] `/app`과 모바일 `activeView` 호환 adapter를 설계한다.
-- [ ] UI 개편 feature flag를 추가한다.
+- [x] UI 개편 feature flag를 추가한다.
 
 ### Phase UX-00A: 첫 로그인 온보딩 통합
 
@@ -739,7 +739,7 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 - [x] 사용자별 avatar 경로, 파일 형식/크기/signature 검증을 구현한다. (`d7646ffb`)
 - [x] `user_profiles`, public profile 동기화 RPC, Storage RLS migration을 작성한다. (`d7646ffb`)
 - [x] 기능 브랜치를 관련 `develop/*`에 통합한다. (`45a99d7d`)
-- [ ] 원격 Supabase migration 적용과 authenticated RLS smoke evidence를 남긴다.
+- [x] 원격 Supabase migration 적용과 authenticated RLS smoke evidence를 남긴다.
 - [ ] 웹 재로그인, 완료 사용자 우회, nickname 충돌, 계정 삭제를 검증한다.
 - [ ] Android/iOS 권한 거부, 이미지 선택, 키보드, 저장 재시도를 실제 기기에서 검증한다.
 - [ ] 프로필 편집 화면과 공개/private 필드 표시 정책을 계정 설정에 연결한다.

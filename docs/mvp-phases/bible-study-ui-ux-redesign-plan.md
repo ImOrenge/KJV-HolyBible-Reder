@@ -89,10 +89,11 @@ flowchart LR
 - [x] 모바일 auth-entry profile 조회와 전용 screen을 구현한다. (`d7646ffb`)
 - [x] `user_profiles`, public profile 동기화 RPC, avatar Storage migration을 작성한다. (`d7646ffb`)
 - [x] 온보딩 기능 `d7646ffb`를 관련 `develop/*`에 통합한다. (`45a99d7d`)
-- [ ] migration local/remote 이력을 대조한다.
-- [ ] 원격 Supabase에 migration을 적용한다.
-- [ ] authenticated 사용자 자기 profile CRUD와 타 계정 차단을 smoke test한다.
-- [ ] nickname 중복 `409`, avatar MIME/signature/2MB 제한을 검증한다.
+- [x] migration local/remote 이력을 대조한다. (`20260713100929` 일치)
+- [x] 원격 Supabase에 migration을 적용한다. (`20260713100929`)
+- [x] authenticated 사용자 자기 profile CRUD와 타 계정 차단을 smoke test한다.
+- [x] 원격 nickname unique constraint와 avatar bucket/RLS policy를 smoke test한다.
+- [ ] API route의 nickname 중복 `409`, avatar MIME/signature/2MB 제한을 검증한다.
 - [ ] 계정 삭제 시 private/public profile과 avatar 정리를 검증한다.
 - [ ] 완료 사용자의 재로그인 시 온보딩이 다시 열리지 않는지 확인한다.
 - [ ] 모바일 권한 거부, 이미지 선택, keyboard, 재시도를 실제 기기에서 확인한다.
@@ -120,16 +121,18 @@ flowchart LR
 
 ### 태스크
 
-- [ ] `StudyContext`와 `StudyContextSource`를 `packages/shared`에 추가한다.
-- [ ] `bookId`, `chapter`, `verseKeys`, `primaryVerseKey`, `returnTarget` validation을 추가한다.
+- [x] `StudyContext`와 `StudyContextSource`를 `packages/shared`에 추가한다.
+- [x] `bookId`, `chapter`, `verseKeys`, `primaryVerseKey`, `returnTarget` validation을 추가한다.
 - [ ] 웹 URL query와 모바일 route params adapter를 정의한다.
-- [ ] `uiShellV2`, `readerV2`, `notesV2` feature flag를 추가한다.
-- [ ] semantic color, spacing, typography, elevation token을 정의한다.
-- [ ] touch target, panel width, scripture width, safe area 기준을 token화한다.
+- [x] `uiShellV2`, `readerV2`, `notesV2` feature flag를 추가한다.
+- [x] semantic color와 spacing token을 정의한다.
+- [x] touch target, panel width, scripture width, radius, line-height 기준을 token화한다.
+- [ ] typography, elevation, safe area token을 정의한다.
 - [ ] 현재 주요 흐름의 action 수와 첫 본문 위치를 기록한다.
 - [ ] `320`, `390`, `768`, `1024`, `1440px` 기준 screenshot을 남긴다.
 - [ ] 기존 UI 컴포넌트를 primitive/composite/section/screen/shell로 분류한다.
 - [ ] legacy 화면 adapter의 입력/출력 계약을 작성한다.
+- [x] route query serializer에서 `selectedText`를 제외한다.
 - [ ] 이벤트 측정 시 note body, 선택 본문, 검색 원문을 수집하지 않는 정책을 확정한다.
 
 ### 산출물

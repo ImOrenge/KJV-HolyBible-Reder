@@ -18,6 +18,7 @@
     "./privacy-policy": "./src/privacy-policy.ts",
     "./reading-plan": "./src/reading-plan.ts",
     "./search-highlight": "./src/search-highlight.ts",
+    "./study-ui": "./src/study-ui.ts",
     "./supabase-user-data-repository": "./src/supabase-user-data-repository.ts",
     "./translation-feedback-client": "./src/translation-feedback-client.ts",
     "./translation-feedback/feedback-types": "./src/translation-feedback/feedback-types.ts",
