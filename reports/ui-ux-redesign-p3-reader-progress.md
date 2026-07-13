@@ -18,6 +18,24 @@
 - 모바일에서 약 `520ms` long press로 다중 선택 mode에 진입한다.
 - 기존 좌우 swipe 장 이동과 long press timer를 분리했다.
 
+## Expo Reader V2
+
+- `EXPO_PUBLIC_READER_V2`로 기존 Expo Reader와 새 native 표시 계층을 독립 전환한다.
+- `ReaderHeader`, `ReaderVerseRow`, `ReaderVerseActionsSheet`를 `apps/mobile/src/components/reader`로 분리했다.
+- `EN / KR / 동시` segmented control과 한영 동시 본문을 추가했다.
+- 절을 약 `520ms` long press하면 다중 선택 mode로 진입한다.
+- 단일 구절 action sheet에서 복사, 읽기, 강조, 구절 노트, 번역 의견, 인용 저장, 성경노트를 시작한다.
+- 다중 선택 sheet는 복사, 인용 저장, 새 노트, 읽기, 선택 해제를 제공한다.
+- action sheet는 TTS player bottom offset, iOS/Android keyboard 회피, 펼침/compact 2단계 drag snap을 적용한다.
+
+Expo Web `390x844` 검증:
+
+- 창세기 1장 31절과 `EN / KR / 동시` control이 수평 overflow 없이 표시된다.
+- 동시 보기에서 한국어 본문과 KJV 영어 본문이 같은 구절 행에 표시된다.
+- 단일 구절 action sheet의 7개 동작과 compact snap state가 노출된다.
+- 약 `620ms` long press 후 1개 구절 다중 선택 sheet가 열린다.
+- 증거: `reports/ui-ux-redesign-screenshots/expo-reader-v2-mobile-390.png`
+
 ## 브라우저 검증
 
 - `1440x1000`
@@ -54,3 +72,4 @@
 - TTS 자동 scroll, 복사, 저장, 다중 선택을 자동 interaction test로 고정한다.
 - tablet/mobile sheet의 drag snap과 keyboard 회피를 구현한다.
 - Expo Reader에 동일한 route params와 새 context surface 계약을 적용한다.
+- Expo Reader V2의 drag snap과 keyboard 회피를 Android/iOS 실제 기기에서 검증한다.

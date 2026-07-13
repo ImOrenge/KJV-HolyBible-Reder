@@ -84,6 +84,10 @@ import {
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { PersonalNoteRichTextEditor } from "./src/components/personal-note-rich-text-editor";
+import { ReaderHeader } from "./src/components/reader/reader-header";
+import type { MobileReaderTranslationMode } from "./src/components/reader/reader-types";
+import { ReaderVerseActionsSheet } from "./src/components/reader/reader-verse-actions-sheet";
+import { ReaderVerseRow } from "./src/components/reader/reader-verse-row";
 import { OnboardingScreen } from "./src/onboarding-screen";
 import { studyUiFeatureFlags } from "./src/study-ui-feature-flags";
 
@@ -532,6 +536,7 @@ function AppShell() {
     ? `${onboardingProfile.nickname} ${onboardingProfile.honorific}`
     : authUser?.email ?? "로그인 리더";
   const readingLanguage = userData.settings.defaultTranslation;
+  const readerTranslationMode: MobileReaderTranslationMode = userData.settings.showParallelTranslation ? "parallel" : readingLanguage;
   const isDark = userData.settings.theme === "dark";
   const colors = isDark ? darkColors : lightColors;
   const { height: viewportHeight } = useWindowDimensions();
@@ -1127,7 +1132,15 @@ function AppShell() {
   }, [selectedPersonalNote?.id, selectedPersonalNote?.title, selectedPersonalNote?.bodyDocument, selectedPersonalNote?.bodyMarkdown, userData.personalNoteTags, userData.tags]);
 
   const setReadingLanguage = (language: TranslationLanguage) => {
-    updateSettings({ defaultTranslation: language });
+    updateSettings({ defaultTranslation: language, showParallelTranslation: false });
+  };
+
+  const setReaderTranslationMode = (mode: MobileReaderTranslationMode) => {
+    if (mode === "parallel") {
+      updateSettings({ showParallelTranslation: true });
+      return;
+    }
+    setReadingLanguage(mode);
   };
 
   const updateSettings = (settings: Partial<UserDataState["settings"]>) => {
@@ -1759,6 +1772,39 @@ function AppShell() {
   const clearVerseSelection = () => {
     setSelectedVerseIds([]);
     setSelectionAnchorVerseId(null);
+  };
+
+  const toggleSelectedVerseHighlight = () => {
+    if (!selectedVerse) {
+      return;
+    }
+
+    setUserData((current) => {
+      const existing = current.highlights.find((highlight) => highlight.verseId === selectedVerse.id);
+      if (existing) {
+        return {
+          ...current,
+          highlights: current.highlights.filter((highlight) => highlight.id !== existing.id),
+        };
+      }
+
+      const now = new Date().toISOString();
+      const highlight: Highlight = {
+        id: createId("highlight"),
+        userId: activeUserId,
+        verseId: selectedVerse.id,
+        bookId: selectedVerse.bookId,
+        chapter: selectedVerse.chapter,
+        verse: selectedVerse.verse,
+        color: "yellow",
+        note: "",
+        createdAt: now,
+        updatedAt: now,
+      };
+      return { ...current, highlights: [...current.highlights, highlight] };
+    });
+    setCopyStatus(userData.highlights.some((highlight) => highlight.verseId === selectedVerse.id) ? "강조 해제됨" : "노란색 강조됨");
+    setTimeout(() => setCopyStatus(""), 1600);
   };
 
   const setReaderSelectionMode = (nextMode: boolean) => {
@@ -2933,63 +2979,79 @@ function AppShell() {
 
             {activeView === "reader" ? (
               <View style={[styles.section, styles.readerPanel]}>
-                <View style={[styles.readerToolbar, styles.readerPanelToolbar]}>
-                  <Pressable onPress={() => navigateChapter(-1)} style={styles.iconButton}>
-                    <Icon color={colors.text} name="chevron-back" size={20} />
-                  </Pressable>
-                  <Pressable onPress={openChapterPicker} style={styles.readerTitleBlock}>
-                    <Text style={styles.readerChapterTitle}>{currentBook.nameKo} {chapter}장</Text>
-                    <Text style={styles.readerToolbarMeta}>{currentBook.nameEn} · {verses.length} {readingLanguage === "ko" ? "KR" : "EN"} 구절 · {chapterSource}</Text>
-                    <Text style={styles.readerToolbarMeta}>{currentReadingVerse ? `현재 위치 ${formatReference(currentReadingVerse)}` : "현재 위치 자동 추적 대기"}</Text>
-                  </Pressable>
-                  <Pressable onPress={() => navigateChapter(1)} style={styles.iconButton}>
-                    <Icon color={colors.text} name="chevron-forward" size={20} />
-                  </Pressable>
-                </View>
+                {studyUiFeatureFlags.readerV2 ? (
+                  <ReaderHeader
+                    chapterComplete={currentChapterCompleted}
+                    colors={colors}
+                    currentLocation={currentReadingVerse ? `현재 위치 ${formatReference(currentReadingVerse)}` : "현재 위치 자동 추적 대기"}
+                    hasChapterNote={Boolean(chapterNote)}
+                    onMarkChapterComplete={markChapterComplete}
+                    onNextChapter={() => navigateChapter(1)}
+                    onOpenChapterNote={() => setShowChapterNote((current) => !current)}
+                    onOpenChapterPicker={openChapterPicker}
+                    onPlayChapter={speakChapter}
+                    onPreviousChapter={() => navigateChapter(-1)}
+                    onSetTranslationMode={setReaderTranslationMode}
+                    onToggleSelectionMode={() => setReaderSelectionMode(!isSelectionMode)}
+                    selectionCount={selectedVerses.length}
+                    selectionMode={isSelectionMode}
+                    subtitle={`${currentBook.nameEn} · ${verses.length} ${readerTranslationMode === "parallel" ? "EN/KR" : readerTranslationMode === "ko" ? "KR" : "EN"} 구절 · ${chapterSource}`}
+                    title={`${currentBook.nameKo} ${chapter}장`}
+                    translationMode={readerTranslationMode}
+                  />
+                ) : (
+                  <>
+                    <View style={[styles.readerToolbar, styles.readerPanelToolbar]}>
+                      <Pressable onPress={() => navigateChapter(-1)} style={styles.iconButton}>
+                        <Icon color={colors.text} name="chevron-back" size={20} />
+                      </Pressable>
+                      <Pressable onPress={openChapterPicker} style={styles.readerTitleBlock}>
+                        <Text style={styles.readerChapterTitle}>{currentBook.nameKo} {chapter}장</Text>
+                        <Text style={styles.readerToolbarMeta}>{currentBook.nameEn} · {verses.length} {readingLanguage === "ko" ? "KR" : "EN"} 구절 · {chapterSource}</Text>
+                        <Text style={styles.readerToolbarMeta}>{currentReadingVerse ? `현재 위치 ${formatReference(currentReadingVerse)}` : "현재 위치 자동 추적 대기"}</Text>
+                      </Pressable>
+                      <Pressable onPress={() => navigateChapter(1)} style={styles.iconButton}>
+                        <Icon color={colors.text} name="chevron-forward" size={20} />
+                      </Pressable>
+                    </View>
 
-                <View style={styles.readerActionRow}>
-                  <ActionButton
-                    active={currentChapterCompleted}
-                    icon="checkmark-circle-outline"
-                    label={currentChapterCompleted ? "읽음 취소" : "읽음 완료"}
-                    onPress={markChapterComplete}
-                    styles={styles}
-                    variant="reader"
-                  />
-                  <ActionButton active={readingLanguage === "en"} label="EN" onPress={() => setReadingLanguage("en")} styles={styles} variant="reader" />
-                  <ActionButton active={readingLanguage === "ko"} label="KR" onPress={() => setReadingLanguage("ko")} styles={styles} variant="reader" />
-                  <ActionButton icon="volume-medium-outline" label="읽기" onPress={speakChapter} styles={styles} variant="reader" />
-                  <ActionButton
-                    active={isSelectionMode}
-                    icon="list-checks"
-                    label={isSelectionMode ? `${selectedVerses.length}개 선택` : "다중 선택"}
-                    onPress={() => setReaderSelectionMode(!isSelectionMode)}
-                    styles={styles}
-                    variant="reader"
-                  />
-                  <ActionButton
-                    active={Boolean(chapterNote)}
-                    icon="reader-outline"
-                    label="장 노트"
-                    onPress={() => setShowChapterNote((current) => !current)}
-                    styles={styles}
-                    variant="reader"
-                  />
-                  {readingPlanDay ? (
-                    <ActionButton icon="calendar-outline" label="오늘 분량" onPress={openReadingPlanTarget} styles={styles} variant="reader" />
-                  ) : null}
-                  {readingPlanDay ? (
-                    <ActionButton
-                      icon="volume-medium-outline"
-                      label="오늘 읽기"
-                      onPress={() => {
-                        void speakTodayPlan();
-                      }}
-                      styles={styles}
-                      variant="reader"
-                    />
-                  ) : null}
-                </View>
+                    <View style={styles.readerActionRow}>
+                      <ActionButton
+                        active={currentChapterCompleted}
+                        icon="checkmark-circle-outline"
+                        label={currentChapterCompleted ? "읽음 취소" : "읽음 완료"}
+                        onPress={markChapterComplete}
+                        styles={styles}
+                        variant="reader"
+                      />
+                      <ActionButton active={readingLanguage === "en"} label="EN" onPress={() => setReadingLanguage("en")} styles={styles} variant="reader" />
+                      <ActionButton active={readingLanguage === "ko"} label="KR" onPress={() => setReadingLanguage("ko")} styles={styles} variant="reader" />
+                      <ActionButton icon="volume-medium-outline" label="읽기" onPress={speakChapter} styles={styles} variant="reader" />
+                      <ActionButton
+                        active={isSelectionMode}
+                        icon="list-checks"
+                        label={isSelectionMode ? `${selectedVerses.length}개 선택` : "다중 선택"}
+                        onPress={() => setReaderSelectionMode(!isSelectionMode)}
+                        styles={styles}
+                        variant="reader"
+                      />
+                      <ActionButton
+                        active={Boolean(chapterNote)}
+                        icon="reader-outline"
+                        label="장 노트"
+                        onPress={() => setShowChapterNote((current) => !current)}
+                        styles={styles}
+                        variant="reader"
+                      />
+                      {readingPlanDay ? (
+                        <ActionButton icon="calendar-outline" label="오늘 분량" onPress={openReadingPlanTarget} styles={styles} variant="reader" />
+                      ) : null}
+                      {readingPlanDay ? (
+                        <ActionButton icon="volume-medium-outline" label="오늘 읽기" onPress={() => { void speakTodayPlan(); }} styles={styles} variant="reader" />
+                      ) : null}
+                    </View>
+                  </>
+                )}
                 {copyStatus ? <Text style={styles.successText}>{copyStatus}</Text> : null}
 
                 {chapterStatus === "loading" ? <ActivityIndicator color={colors.accent} style={styles.loader} /> : null}
@@ -3007,6 +3069,41 @@ function AppShell() {
                   const highlighted = userData.highlights.some((highlight) => highlight.verseId === verse.id);
                   const favorited = favoriteIds.has(verse.id);
                   const hasNote = userData.studyNotes.some((note) => note.scope === "verse" && note.verseId === verse.id);
+                  if (studyUiFeatureFlags.readerV2) {
+                    const primaryText = readerTranslationMode === "parallel"
+                      ? getVerseDisplayText(verse, verse.textKo ? "ko" : "en")
+                      : getVerseDisplayText(verse, readingLanguage);
+                    return (
+                      <ReaderVerseRow
+                        batchSelected={selectedVerseIdSet.has(verse.id)}
+                        colors={colors}
+                        currentReading={currentReading}
+                        englishText={getVerseDisplayText(verse, "en")}
+                        favorited={favorited}
+                        fontSize={userData.settings.fontSize}
+                        hasNote={hasNote}
+                        highlighted={highlighted}
+                        key={verse.id}
+                        lineHeight={userData.settings.fontSize * userData.settings.lineHeight}
+                        numberEmphasized={userData.settings.readingMode === "verse-numbers"}
+                        onLayout={(event) => recordVerseLayout(verse.id, event)}
+                        onLongPress={() => {
+                          if (!isSelectionMode) {
+                            setReaderSelectionMode(true);
+                          }
+                          selectVerseForBatch(verse);
+                        }}
+                        onPress={() => selectReaderVerse(verse)}
+                        parallel={readerTranslationMode === "parallel"}
+                        primaryText={primaryText}
+                        readingMode={userData.settings.readingMode}
+                        selected={selected}
+                        selectionMode={isSelectionMode}
+                        speaking={speakingVerseId === verse.id}
+                        verse={verse}
+                      />
+                    );
+                  }
                   return (
                     <Pressable
                       key={verse.id}
@@ -3048,7 +3145,7 @@ function AppShell() {
                   );
                 })}
 
-                {selectedVerse ? (
+                {selectedVerse && !studyUiFeatureFlags.readerV2 ? (
                   <View style={styles.verseActionPanel}>
                     <View style={styles.selectedReference}>
                       <Text style={styles.panelTitle}>{formatReference(selectedVerse)}</Text>
@@ -3988,7 +4085,7 @@ function AppShell() {
                     <Text style={styles.groupLabel}>성경 이동</Text>
                     <Text style={styles.modalTitleText}>{chapterPickerBook.nameKo}</Text>
                   </View>
-                  <Pressable onPress={() => setIsChapterPickerOpen(false)} style={styles.iconButton}>
+                  <Pressable accessibilityLabel="장 선택 닫기" onPress={() => setIsChapterPickerOpen(false)} style={styles.iconButton}>
                     <Icon color={colors.text} name="close-outline" size={18} />
                   </Pressable>
                 </View>
@@ -4028,6 +4125,7 @@ function AppShell() {
                     const completedChapter = completedKeys.has(chapterKey(chapterPickerBook.id, chapterNumber));
                     return (
                       <Pressable
+                        accessibilityLabel={`${chapterNumber}장으로 이동`}
                         key={chapterNumber}
                         onPress={() => selectChapterFromPicker(chapterNumber)}
                         style={[styles.chapterPickerButton, activeChapter ? styles.chipActive : null]}
@@ -4323,7 +4421,7 @@ function AppShell() {
               </View>
             </View>
           ) : null}
-          {activeView === "reader" && isSelectionMode ? (
+          {activeView === "reader" && isSelectionMode && !studyUiFeatureFlags.readerV2 ? (
             <View style={[styles.selectionActionSheet, selectedVerses.length ? null : styles.selectionActionSheetEmpty]}>
               <View style={styles.selectionSummary}>
                 <Text style={styles.panelTitle}>{selectedVerses.length}개 선택</Text>
@@ -4349,6 +4447,46 @@ function AppShell() {
                 />
               )}
             </View>
+          ) : null}
+          {activeView === "reader" && studyUiFeatureFlags.readerV2 && (isSelectionMode || selectedVerse) ? (
+            <ReaderVerseActionsSheet
+              actions={isSelectionMode
+                ? selectedVerses.length
+                  ? [
+                      { icon: "⧉", label: "복사", onPress: copySelectedVerses },
+                      { icon: "▯", label: "인용 저장", onPress: saveSelectedFavorites },
+                      { icon: "▤", label: "새 노트", onPress: () => openNewPersonalNote(selectedVerses) },
+                      { icon: "▶", label: "읽기", onPress: speakSelectedVerses },
+                      { icon: "↻", label: "선택 해제", onPress: clearVerseSelection },
+                    ]
+                  : [{ icon: "×", label: "선택 종료", onPress: () => setReaderSelectionMode(false) }]
+                : [
+                    { icon: "⧉", label: "복사", onPress: copySelectedVerse },
+                    { icon: "▶", label: "읽기", onPress: speakSelectedVerse },
+                    {
+                      icon: "◆",
+                      label: userData.highlights.some((highlight) => highlight.verseId === selectedVerse?.id) ? "강조 해제" : "강조",
+                      onPress: toggleSelectedVerseHighlight,
+                    },
+                    { icon: "▤", label: "구절 노트", onPress: () => setShowVerseNote(true) },
+                    { disabled: !selectedVerse?.textKo, icon: "⚑", label: "번역 의견", onPress: openFeedbackModal },
+                    { icon: "▯", label: favoriteIds.has(selectedVerse?.id ?? "") ? "인용 수정" : "인용 저장", onPress: () => selectedVerse && openFavoriteModal([selectedVerse]) },
+                    { icon: "▣", label: "성경노트", onPress: () => selectedVerse && openNewPersonalNote([selectedVerse]) },
+                  ]}
+              bottomOffset={shouldShowTtsOverlay ? 142 : 76}
+              colors={colors}
+              guidance={isSelectionMode ? (selectionAnchorVerseId ? "다음 절을 누르면 범위가 선택됩니다." : "첫 절을 선택하세요.") : undefined}
+              onClose={() => {
+                if (isSelectionMode) {
+                  setReaderSelectionMode(false);
+                } else {
+                  setSelectedVerseId(null);
+                }
+              }}
+              source={!isSelectionMode && selectedVerse ? getVerseDisplaySource(selectedVerse, readingLanguage) : undefined}
+              status={copyStatus || undefined}
+              title={isSelectionMode ? `${selectedVerses.length}개 선택` : selectedVerse ? formatReference(selectedVerse) : "선택 구절"}
+            />
           ) : null}
           {shouldShowTtsOverlay ? (
             <View style={styles.playerBar}>

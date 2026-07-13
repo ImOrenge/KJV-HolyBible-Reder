@@ -32,8 +32,12 @@ const groups = [
     },
     {
       name: "selected-verse-detail-panel",
-      labels: ["구절 복사", "선택 구절 읽기", "구절 노트", "번역 의견", "인용 구절 저장"],
-      absentLabels: ["강조 메모", "강조 해제"],
+      labels: ["구절 복사", "선택 구절 읽기", "구절 노트", "번역 의견", "인용 구절 저장", "강조 해제"],
+      absentLabels: ["강조 메모"],
+    },
+    {
+      name: "reader-v2-native-components",
+      labels: ["동시", "이전 장", "다음 장", "장 선택 열기", "선택 구절 작업 접기", "선택 구절 작업 펼치기", "선택 구절 작업 닫기"],
     },
     {
       name: "reader-selection-action-sheet",
@@ -41,7 +45,7 @@ const groups = [
     },
     {
       name: "reader-chapter-picker-sheet",
-      labels: ["성경 이동", "성경 권"],
+      labels: ["성경 이동", "성경 권", "장 선택 닫기"],
     },
     {
       name: "search-controls",
@@ -83,7 +87,13 @@ function hasLabel(source, label) {
 }
 
 async function main() {
-  const source = await readFile("apps/mobile/App.tsx", "utf8");
+  const sources = await Promise.all([
+    "apps/mobile/App.tsx",
+    "apps/mobile/src/components/reader/reader-header.tsx",
+    "apps/mobile/src/components/reader/reader-verse-row.tsx",
+    "apps/mobile/src/components/reader/reader-verse-actions-sheet.tsx",
+  ].map((file) => readFile(file, "utf8")));
+  const source = sources.join("\n");
   const missing = [];
 
   for (const group of groups) {

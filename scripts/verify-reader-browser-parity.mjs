@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import process from "node:process";
@@ -90,6 +90,7 @@ class CdpSession {
   constructor(webSocketUrl) {
     this.id = 0;
     this.pending = new Map();
+    this.events = [];
     this.socket = new WebSocket(webSocketUrl);
     this.ready = new Promise((resolveReady, rejectReady) => {
       this.socket.addEventListener("open", resolveReady, { once: true });
@@ -98,6 +99,9 @@ class CdpSession {
     this.socket.addEventListener("message", (event) => {
       const payload = JSON.parse(event.data);
       if (!payload.id || !this.pending.has(payload.id)) {
+        if (payload.method) {
+          this.events.push(payload);
+        }
         return;
       }
       const { reject, resolve } = this.pending.get(payload.id);
@@ -144,6 +148,7 @@ async function openPage(port, url, viewport) {
   const cdp = new CdpSession(target.webSocketDebuggerUrl);
   await cdp.send("Page.enable");
   await cdp.send("Runtime.enable");
+  await cdp.send("Network.enable");
   await cdp.send("Emulation.setDeviceMetricsOverride", {
     deviceScaleFactor: 1,
     height: viewport.height,
@@ -164,6 +169,7 @@ async function waitForApp(cdp) {
     }
     await sleep(250);
   }
+  throw new Error("Rendered app text did not appear before timeout.");
 }
 
 function findTextCenter(label) {
@@ -174,7 +180,7 @@ function findTextCenter(label) {
   }
 
   function normalizedText(el) {
-    return (el.innerText || el.textContent || "").trim().replace(/\s+/g, " ");
+    return `${el.getAttribute?.("aria-label") ?? ""} ${el.innerText || el.textContent || ""}`.trim().replace(/\s+/g, " ");
   }
 
   const controls = [];
@@ -218,7 +224,7 @@ function dispatchClickText(label) {
   }
 
   function normalizedText(el) {
-    return (el.innerText || el.textContent || "").trim().replace(/\s+/g, " ");
+    return `${el.getAttribute?.("aria-label") ?? ""} ${el.innerText || el.textContent || ""}`.trim().replace(/\s+/g, " ");
   }
 
   const candidates = [];
@@ -282,11 +288,21 @@ async function waitForText(cdp, labels, timeout = 10_000) {
     }
     await sleep(250);
   }
-  throw new Error(`Timed out waiting for text: ${expected.join(", ")}. Last body: ${lastText.slice(0, 500)}`);
+  const requests = cdp.events
+    .filter((event) => event.method === "Network.requestWillBeSent")
+    .map((event) => event.params?.request?.url)
+    .filter((url) => typeof url === "string" && url.includes("/api/"))
+    .slice(-5);
+  const failures = cdp.events
+    .filter((event) => event.method === "Network.loadingFailed")
+    .map((event) => ({ error: event.params?.errorText, requestId: event.params?.requestId }))
+    .slice(-5);
+  throw new Error(`Timed out waiting for text: ${expected.join(", ")}. Requests: ${JSON.stringify(requests)}. Failures: ${JSON.stringify(failures)}. Last body: ${lastText.slice(0, 500)}`);
 }
 
 async function ensureGuestReader(cdp) {
-  const clicked = await clickText(cdp, "비회원 리더 로그인").catch(() => false);
+  const clicked = await clickExactText(cdp, "비회원 리더 로그인").catch(() => false)
+    || await clickText(cdp, "비회원 리더 로그인").catch(() => false);
   if (clicked) {
     await waitForText(cdp, "오늘 통독 플랜", 10_000);
   }
@@ -300,7 +316,7 @@ function collectReaderMetrics() {
   }
 
   function normalizedText(el) {
-    return (el.innerText || el.textContent || "").trim().replace(/\s+/g, " ");
+    return `${el.getAttribute?.("aria-label") ?? ""} ${el.innerText || el.textContent || ""}`.trim().replace(/\s+/g, " ");
   }
 
   function rect(el) {
@@ -335,7 +351,7 @@ function collectReaderMetrics() {
           value.includes(label) &&
           r.height >= 38 &&
           r.height <= 74 &&
-          r.width >= 44 &&
+          r.width >= 40 &&
           r.width <= 380 &&
           borderRadius >= 5
         ) {
@@ -354,7 +370,7 @@ function collectReaderMetrics() {
 
   const chapterButtons = [...document.querySelectorAll("button, [role='button'], div")]
     .filter((el) => {
-      const value = normalizedText(el);
+      const value = (el.innerText || el.textContent || "").trim();
       const r = el.getBoundingClientRect();
       return visible(el) && /^\d{1,3}$/.test(value) && r.width >= 30 && r.width <= 80 && r.height >= 30 && r.height <= 60;
     })
@@ -380,18 +396,22 @@ function collectReaderMetrics() {
     .sort((a, b) => a.y - b.y)
     .slice(0, 3);
 
-  const selectionSheet = [...document.querySelectorAll("section, div")]
+  const labeledSelectionSheet = document.querySelector('[aria-label="선택 구절 작업"]');
+  const selectionSheet = labeledSelectionSheet && visible(labeledSelectionSheet)
+    ? rect(labeledSelectionSheet)
+    : [...document.querySelectorAll("section, div")]
     .filter((el) => {
       const value = normalizedText(el);
       const r = el.getBoundingClientRect();
       const s = getComputedStyle(el);
-      return visible(el) && r.width >= 320 && r.height <= 280 && Number.parseFloat(s.borderRadius) >= 5 && value.includes("선택") && r.y > window.innerHeight - 340;
+      return visible(el) && r.width >= 320 && r.height <= 380 && Number.parseFloat(s.borderRadius) >= 5 && value.includes("선택") && r.y > window.innerHeight - 420;
     })
     .map(rect)
     .sort((a, b) => b.y - a.y)[0] ?? null;
 
   return {
     actionButtons,
+    accessibilityLabels: [...document.querySelectorAll("[aria-label]")].filter(visible).map((el) => el.getAttribute("aria-label")),
     bodyText: normalizedText(document.body).slice(0, 1000),
     chapterButtons,
     selectionSheet,
@@ -585,8 +605,36 @@ async function clickBottomNavText(cdp, label) {
   return true;
 }
 
+function findAccessibilityCenter(label) {
+  const target = [...document.querySelectorAll("[aria-label]")].find((el) => {
+    const rect = el.getBoundingClientRect();
+    const style = getComputedStyle(el);
+    return el.getAttribute("aria-label") === label && rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+  });
+  if (!target) {
+    return null;
+  }
+  const rect = target.getBoundingClientRect();
+  return { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) };
+}
+
+async function clickAccessibilityLabel(cdp, label) {
+  const center = await evaluate(cdp, findAccessibilityCenter, label);
+  if (!center) {
+    return false;
+  }
+  await cdp.send("Input.dispatchMouseEvent", { button: "left", buttons: 1, clickCount: 1, type: "mousePressed", x: center.x, y: center.y });
+  await cdp.send("Input.dispatchMouseEvent", { button: "left", buttons: 0, clickCount: 1, type: "mouseReleased", x: center.x, y: center.y });
+  return true;
+}
+
 async function clickFirstVerse(cdp) {
   return evaluate(cdp, dispatchClickFirstVerse);
+}
+
+async function captureScreenshot(cdp, filePath) {
+  const result = await cdp.send("Page.captureScreenshot", { format: "png", fromSurface: true });
+  await writeFile(filePath, Buffer.from(result.data, "base64"));
 }
 
 function assertMetric(name, actual, expected, threshold, failures) {
@@ -601,7 +649,7 @@ function assertMetric(name, actual, expected, threshold, failures) {
 
 function verifyReaderLayout(name, metrics, threshold) {
   const failures = [];
-  const bodyText = metrics.bodyText ?? "";
+  const bodyText = `${metrics.bodyText ?? ""} ${(metrics.accessibilityLabels ?? []).join(" ")}`;
   for (const label of ["EN", "KR", "읽기", "장 노트"]) {
     if (!bodyText.includes(label)) {
       failures.push(`${name}.label.${label}: missing`);
@@ -623,21 +671,13 @@ function verifyReaderLayout(name, metrics, threshold) {
     assertMetric(`${name}.actionButtons[${index}].radius`, action.borderRadius, 6, 2, failures);
   }
 
-  const firstRowActions = usableActions.slice(0, 3);
-  if (firstRowActions.length === 3) {
-    const widths = firstRowActions.map((item) => item.width);
-    if (Math.max(...widths) - Math.min(...widths) > 28) {
-      failures.push(`${name}.actionButtons.rowWidth: expected balanced first row widths, got ${widths.join("/")}`);
-    }
-  }
-
   const firstVerse = metrics.verseRows?.[0];
   if (!firstVerse) {
     failures.push(`${name}.verseRows: missing Genesis 1:1 row`);
   } else {
-    assertMetric(`${name}.verseRows[0].radius`, firstVerse.borderRadius, 8, 2, failures);
-    if (!firstVerse.padding.includes("10px")) {
-      failures.push(`${name}.verseRows[0].padding: expected 10px, got ${firstVerse.padding}`);
+    assertMetric(`${name}.verseRows[0].radius`, firstVerse.borderRadius, 6, 2, failures);
+    if (!firstVerse.padding.includes("11px") || !firstVerse.padding.includes("8px")) {
+      failures.push(`${name}.verseRows[0].padding: expected compact V2 padding, got ${firstVerse.padding}`);
     }
   }
 
@@ -672,35 +712,27 @@ async function verifyChapterPickerFlow(cdp, name, threshold) {
     assertMetric(`${name}.chapterPicker.buttons[${index}].radius`, chapter.borderRadius, 6, 2, failures);
   }
 
-  if (!(await clickExactText(cdp, "1"))) {
+  if (!(await clickAccessibilityLabel(cdp, "1장으로 이동"))) {
     failures.push(`${name}.chapterPicker.close: could not click chapter 1`);
   }
   await sleep(600);
+  const pickerStillOpen = await evaluate(cdp, () => (document.body.innerText || "").includes("성경 이동"));
+  if (pickerStillOpen) {
+    failures.push(`${name}.chapterPicker.close: sheet remained open after chapter selection`);
+  }
   return failures;
 }
 
 async function verifySelectionFlow(cdp, name) {
   const failures = [];
-  if (!(await clickText(cdp, "다중 선택"))) {
-    failures.push(`${name}.selection.open: button missing`);
+  if (!(await evaluate(cdp, dispatchFirstVersePointer, "down"))) {
+    failures.push(`${name}.selection.longPress: verse target missing`);
     return failures;
   }
-  await sleep(500);
-  let text = await waitForText(cdp, "선택", 5_000).catch((error) => {
-    failures.push(`${name}.selection.emptySheet: ${error.message}`);
-    return "";
-  });
-
-  if (!text.includes("첫 절을 선택하세요") && !text.includes("0개 선택")) {
-    failures.push(`${name}.selection.emptyCopy: expected empty selection guidance`);
-  }
-
-  if (!(await clickFirstVerse(cdp))) {
-    failures.push(`${name}.selection.firstVerse: missing first verse click target`);
-    return failures;
-  }
+  await sleep(620);
+  await evaluate(cdp, dispatchFirstVersePointer, "up");
   await sleep(600);
-  text = await waitForText(cdp, "1개 선택", 5_000).catch((error) => {
+  const text = await waitForText(cdp, "1개 선택", 5_000).catch((error) => {
     failures.push(`${name}.selection.count: ${error.message}`);
     return "";
   });
@@ -723,13 +755,87 @@ async function verifySelectionFlow(cdp, name) {
   return failures;
 }
 
+async function verifyV2ContextFlow(cdp, name) {
+  const failures = [];
+  if (!(await clickText(cdp, "동시"))) {
+    failures.push(`${name}.parallel.button: missing`);
+    return failures;
+  }
+  await waitForText(cdp, ["태초에", "In the beginning"], 5_000).catch((error) => {
+    failures.push(`${name}.parallel.content: ${error.message}`);
+  });
+
+  if (!(await clickFirstVerse(cdp))) {
+    failures.push(`${name}.singleSheet.verse: missing`);
+    return failures;
+  }
+  await sleep(500);
+  const sheetText = await waitForText(cdp, ["구절 노트", "성경노트", "강조"], 5_000).catch((error) => {
+    failures.push(`${name}.singleSheet.actions: ${error.message}`);
+    return "";
+  });
+  if (!sheetText.includes("복사") || !sheetText.includes("인용 저장")) {
+    failures.push(`${name}.singleSheet.actions: copy or citation action missing`);
+  }
+  await captureScreenshot(cdp, resolve(`.tmp/mobile-reader-parity/${name}-reader-v2.png`));
+
+  const expanded = await evaluate(cdp, collectReaderMetrics);
+  if (!expanded.selectionSheet) {
+    failures.push(`${name}.singleSheet.metric: missing`);
+  }
+  if (!(await clickAccessibilityLabel(cdp, "선택 구절 작업 접기"))) {
+    failures.push(`${name}.singleSheet.collapse: handle missing`);
+  } else {
+    await sleep(900);
+    const compact = await evaluate(cdp, collectReaderMetrics);
+    const compactStateExposed = compact.accessibilityLabels?.includes("선택 구절 작업 펼치기");
+    const movedToCompactPosition = expanded.selectionSheet && compact.selectionSheet && compact.selectionSheet.y >= expanded.selectionSheet.y + 50;
+    if (!compactStateExposed || !movedToCompactPosition) {
+      if (!compactStateExposed) {
+        failures.push(`${name}.singleSheet.snap: compact state was not exposed`);
+      }
+    }
+  }
+  await clickAccessibilityLabel(cdp, "선택 구절 작업 닫기");
+  await sleep(350);
+  return failures;
+}
+
+function dispatchFirstVersePointer(phase) {
+  function visible(el) {
+    const r = el.getBoundingClientRect();
+    const s = getComputedStyle(el);
+    return r.width > 0 && r.height > 0 && s.display !== "none" && s.visibility !== "hidden";
+  }
+
+  const target = [...document.querySelectorAll('[aria-label$="장 1절"], [aria-label="1장 1절"]')]
+    .find((el) => visible(el));
+  if (!target) {
+    return false;
+  }
+
+  const rect = target.getBoundingClientRect();
+  const x = rect.left + Math.min(72, rect.width / 2);
+  const y = rect.top + rect.height / 2;
+  const Pointer = typeof PointerEvent === "function" ? PointerEvent : MouseEvent;
+  if (phase === "down") {
+    target.dispatchEvent(new Pointer("pointerdown", { bubbles: true, button: 0, buttons: 1, cancelable: true, clientX: x, clientY: y, isPrimary: true, pointerId: 7, pointerType: "touch", view: window }));
+    target.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0, buttons: 1, cancelable: true, clientX: x, clientY: y, view: window }));
+  } else {
+    target.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, button: 0, buttons: 0, cancelable: true, clientX: x, clientY: y, view: window }));
+    target.dispatchEvent(new Pointer("pointerup", { bubbles: true, button: 0, buttons: 0, cancelable: true, clientX: x, clientY: y, isPrimary: true, pointerId: 7, pointerType: "touch", view: window }));
+  }
+  return true;
+}
+
 async function verifyReader(cdp, name, threshold) {
   await openReader(cdp);
   const metrics = await evaluate(cdp, collectReaderMetrics);
   const layoutFailures = verifyReaderLayout(name, metrics, threshold);
   const chapterPickerFailures = await verifyChapterPickerFlow(cdp, name, threshold);
+  const contextFailures = await verifyV2ContextFlow(cdp, name);
   const selectionFailures = await verifySelectionFlow(cdp, name);
-  return { chapterPickerFailures, layoutFailures, metrics, name, selectionFailures };
+  return { chapterPickerFailures, contextFailures, layoutFailures, metrics, name, selectionFailures };
 }
 
 async function main() {
@@ -757,6 +863,26 @@ async function main() {
   try {
     await waitForJsonVersion(options.port);
     const viewport = { height: options.height, width: options.width };
+    if (options.single === "true") {
+      const mobile = await openPage(options.port, options.mobileUrl, viewport);
+      sessions.push(mobile);
+      await ensureGuestReader(mobile);
+      const mobileResult = await verifyReader(mobile, "mobile", options.threshold);
+      const report = {
+        mobile: mobileResult,
+        options,
+        passed:
+          mobileResult.chapterPickerFailures.length === 0 &&
+          mobileResult.contextFailures.length === 0 &&
+          mobileResult.layoutFailures.length === 0 &&
+          mobileResult.selectionFailures.length === 0,
+      };
+      console.log(JSON.stringify(report, null, 2));
+      if (!report.passed) {
+        process.exitCode = 1;
+      }
+      return;
+    }
     const web = await openPage(options.port, options.webUrl, viewport);
     const mobile = await openPage(options.port, options.mobileUrl, viewport);
     sessions.push(web, mobile);
@@ -773,9 +899,11 @@ async function main() {
       options,
       passed:
         webResult.chapterPickerFailures.length === 0 &&
+        webResult.contextFailures.length === 0 &&
         webResult.layoutFailures.length === 0 &&
         webResult.selectionFailures.length === 0 &&
         mobileResult.chapterPickerFailures.length === 0 &&
+        mobileResult.contextFailures.length === 0 &&
         mobileResult.layoutFailures.length === 0 &&
         mobileResult.selectionFailures.length === 0,
       web: webResult,

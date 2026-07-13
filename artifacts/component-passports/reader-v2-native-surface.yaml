@@ -1,0 +1,80 @@
+component:
+  id: reader-v2-native-surface
+  name: Reader V2 Native Surface
+  kind: feature-composite
+  status: candidate
+  owner_scope: mobile-reader
+  source:
+    components:
+      - apps/mobile/src/components/reader/reader-header.tsx
+      - apps/mobile/src/components/reader/reader-verse-row.tsx
+      - apps/mobile/src/components/reader/reader-verse-actions-sheet.tsx
+      - apps/mobile/src/components/reader/reader-types.ts
+    integration: apps/mobile/App.tsx
+  public_api:
+    components: [ReaderHeader, ReaderVerseRow, ReaderVerseActionsSheet]
+    state_types: [MobileReaderTranslationMode, MobileReaderAction]
+    events:
+      - chapter navigation
+      - translation mode change
+      - verse tap and long press
+      - single and range selection actions
+      - action sheet close and snap
+    feature_flag: EXPO_PUBLIC_READER_V2
+  change_gate:
+    type: compatible-and-style-contract
+    summary: Existing Reader orchestration remains in App while native display responsibilities move behind the Reader V2 flag.
+  dependencies:
+    internal: [Verse, App reader handlers, semantic mobile colors]
+    external: [react, react-native]
+  styling:
+    namespace: native-reader-local-styles
+    tokens: [surface, surfaceStrong, text, muted, border, accent, accentSecondary, warning]
+    inline_styles_allowed: dynamic font size, line height, animated translateY
+  state:
+    local_owner: apps/mobile/App.tsx
+    component_local:
+      - action sheet expanded state
+      - action sheet animated snap offset
+    persisted: existing reader settings and user data repository
+  accessibility:
+    controls:
+      - every icon control has an accessibility label
+      - translation segments expose selected state
+      - verse rows expose selection state
+      - action sheet exposes close, expand, and collapse controls
+    touch:
+      - verse long press delay is 520ms
+      - action sheet snaps between expanded and compact positions
+  responsive_contract:
+    phone: compact chapter header, three-way translation segment, bottom action sheet
+    tablet: centered action sheet limited to 94 percent width and 360px height
+    keyboard: KeyboardAvoidingView uses iOS padding and Android height behavior
+    overlays: bottom offset increases while the TTS player is visible
+  test_surface:
+    static: [mobile typecheck, lint]
+    contract: [structure:mobile, style:mobile, study-ui:validate]
+    runtime: [Expo Web browser smoke, Android and iOS device smoke]
+  evidence:
+    current_level: 4
+    items:
+      - type: static
+        command: npm run typecheck
+        result: pass
+      - type: contract
+        command: npm run structure:mobile && npm run style:mobile && npm run study-ui:validate
+        result: pass
+      - type: browser-interaction
+        command: npm run browser:reader -- --single=true --mobile-url=http://127.0.0.1:8082 --port=9342 --width=390 --height=844
+        result: pass
+        findings:
+          - chapter picker opens and returns to the reader
+          - EN KR parallel content renders in one verse row
+          - single verse action sheet exposes copy, read, highlight, notes, feedback, and citation actions
+          - compact snap state is exposed after the sheet handle is activated
+          - 620ms long press enters multi-select with one selected verse
+        artifact: reports/ui-ux-redesign-screenshots/expo-reader-v2-mobile-390.png
+  residual_risk:
+    - Reader data, persistence, and TTS orchestration still live in App.tsx.
+    - Drag snap and keyboard avoidance require Android and iOS device verification.
+    - Automated copy, TTS, save, and multi-select interaction tests remain pending.

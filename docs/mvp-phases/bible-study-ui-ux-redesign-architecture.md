@@ -23,7 +23,7 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 
 ### 1.1 구현 상태
 
-2026-07-13 기준 P0, P1 일부와 P2 AppShell 전환의 첫 묶음이 개발 브랜치에 구현되어 있다.
+2026-07-13 기준 P0, P1 일부, P2 AppShell 전환과 P3 Reader 표시 계층의 첫 묶음이 개발 브랜치에 구현되어 있다.
 
 | 영역 | 현재 구현 | 다음 경계 |
 | --- | --- | --- |
@@ -32,7 +32,8 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 | 웹 legacy adapter | 기존 `KjvMvpApp`을 controlled `activeView`로 열고 `/app/...` history 및 Reader 권·장·절 deep link와 연결 | 화면별 feature component 교체 |
 | 웹 Reader V2 | `readerV2` flag 아래 ReaderHeader/VerseRow/VerseActions, 3-pane, 태블릿 sheet, 모바일 action sheet | ReaderScreen data orchestration과 자동 회귀 테스트 |
 | 모바일 Shell | `uiShellV2` flag 아래 `오늘/성경/공부/보관함/설정` 5탭과 header 명령 검색 | tab/stack router와 Android/iOS 복귀 계약 |
-| 검증 | typecheck, lint, build, Expo Doctor, 구조/스타일 검사, 320/390/768/1024/1440px 브라우저 smoke | 실제 Android/iOS 검증 |
+| 모바일 Reader V2 | `readerV2` flag 아래 native ReaderHeader/VerseRow/VerseActionsSheet, EN/KR/동시 보기, long press 다중 선택, keyboard 회피와 2단계 snap | ReaderScreen orchestration, route/context 복귀, Android/iOS 실기기 검증 |
+| 검증 | typecheck, lint, build, Expo Doctor, 구조/스타일 검사, 320/390/768/1024/1440px 웹 smoke, Expo Reader V2 390px interaction smoke | 실제 Android/iOS 검증 |
 
 이 상태는 P2 완료를 뜻하지 않는다. Reader, Notes, Dictionary Detail을 독립 screen/pane으로 분리하기 전까지 기존 대형 컴포넌트는 legacy adapter 안에서 유지한다.
 
@@ -43,6 +44,8 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 - [개인 성경공부 워크스페이스 아키텍처](./personal-note-study-workspace-architecture.md)
 - [히브리어 성경단어 사전 아키텍처](./hebrew-bible-dictionary-architecture.md)
 - [첫 로그인 온보딩 컴포넌트 패스포트](../../artifacts/component-passports/first-login-onboarding.yaml)
+- [웹 Reader V2 컴포넌트 패스포트](../../artifacts/component-passports/reader-v2-surface.yaml)
+- [모바일 Reader V2 컴포넌트 패스포트](../../artifacts/component-passports/reader-v2-native-surface.yaml)
 
 ## 2. 현재 구조 진단
 

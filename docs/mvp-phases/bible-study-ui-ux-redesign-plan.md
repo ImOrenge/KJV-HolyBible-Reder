@@ -231,7 +231,8 @@ flowchart LR
 - [x] sheet max-height와 safe area offset을 적용한다.
 - [x] 본문이 viewport 상단 `140px` 이내에서 시작하도록 한다.
 - [x] bottom tab과 TTS player offset을 sheet에 적용한다.
-- [ ] keyboard 회피와 drag snap point를 구현하고 실제 기기에서 검증한다.
+- [x] keyboard 회피와 2단계 drag snap point를 구현한다.
+- [ ] keyboard 회피와 drag snap point를 Android/iOS 실제 기기에서 검증한다.
 
 ### 산출물
 
