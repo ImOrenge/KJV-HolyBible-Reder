@@ -28,6 +28,8 @@
 - [word-annotation-interpretation-guide-architecture.md](./word-annotation-interpretation-guide-architecture.md): 성경 단어 주석, 문맥 해석, 리더 내 해석 가이드 레이어 구현 아키텍처.
 - [hebrew-bible-dictionary-architecture.md](./hebrew-bible-dictionary-architecture.md): 구약 히브리어 성경단어 사전, 테마 탐색, 리더 원어 패널 구현 아키텍처.
 - [hebrew-bible-dictionary-phase-tasks.md](./hebrew-bible-dictionary-phase-tasks.md): 성경 사전 구현을 페이즈별 체크박스 태스크로 분리한 실행 체크리스트.
+- [bible-study-ui-ux-redesign-architecture.md](./bible-study-ui-ux-redesign-architecture.md): 첫 로그인부터 읽기, 공부, 기록, 재탐색까지의 웹·모바일 UI/UX 개편 아키텍처.
+- [bible-study-ui-ux-redesign-plan.md](./bible-study-ui-ux-redesign-plan.md): UI/UX 개편을 온보딩, Shell, Reader, Notes, Dictionary/Search/Library, 안정화 단계로 나눈 실행 플랜.
 - [bible-discussion-community-implementation-plan.md](./bible-discussion-community-implementation-plan.md): MVP 이후 구절 연결 토론 커뮤니티, 신고 큐, 모더레이션 RBAC 구현 계획.
 
 ## 전체 구현 원칙

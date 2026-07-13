@@ -71,7 +71,7 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 | 원격 저장 | `user_profiles`, `complete_user_onboarding`, `profile-avatars` bucket | RLS와 RPC를 우회하는 client-side 직접 쓰기를 금지한다 |
 | 완료 후 표시 | 닉네임 + 호칭, 선택 아바타를 header와 계정 설정에 표시 | 이메일은 계정 식별용, 이름은 private profile로 유지한다 |
 
-이 기준선은 기능 브랜치의 구현 완료를 뜻하며, `develop/*` 및 `main` 통합과 원격 migration 적용 완료를 뜻하지 않는다.
+이 기준선은 `develop/2026-07-13-first-login-onboarding@45a99d7d`에 통합되었다. `main` 통합과 원격 migration 적용 완료를 뜻하지는 않는다.
 
 ## 3. 제품 경험 원칙
 
@@ -738,7 +738,7 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 - [x] 모바일 auth-entry profile 조회와 전용 screen을 구현한다. (`d7646ffb`)
 - [x] 사용자별 avatar 경로, 파일 형식/크기/signature 검증을 구현한다. (`d7646ffb`)
 - [x] `user_profiles`, public profile 동기화 RPC, Storage RLS migration을 작성한다. (`d7646ffb`)
-- [ ] 기능 브랜치를 관련 `develop/*`에 통합한다.
+- [x] 기능 브랜치를 관련 `develop/*`에 통합한다. (`45a99d7d`)
 - [ ] 원격 Supabase migration 적용과 authenticated RLS smoke evidence를 남긴다.
 - [ ] 웹 재로그인, 완료 사용자 우회, nickname 충돌, 계정 삭제를 검증한다.
 - [ ] Android/iOS 권한 거부, 이미지 선택, 키보드, 저장 재시도를 실제 기기에서 검증한다.
@@ -846,7 +846,7 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 
 ## 20. 첫 구현 묶음 권고
 
-온보딩 기능 브랜치를 통합하고 원격 migration/RLS gate를 통과한 뒤, 가장 먼저 구현할 묶음은 다음 네 항목이다.
+온보딩 원격 migration/RLS gate를 통과한 뒤, 가장 먼저 구현할 묶음은 다음 네 항목이다.
 
 1. 웹 sidebar와 모바일 5-tab shell
 2. 모바일 Verse Action Sheet
@@ -861,5 +861,5 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 
 - 첫 로그인 온보딩을 AppShell 이전의 auth-entry gate로 추가했다.
 - `d7646ffb`의 웹/모바일 화면, shared 계약, Supabase profile/RPC/Storage 구현을 기준선으로 기록했다.
-- 완료된 기능 브랜치 작업과 남은 develop 통합, 원격 migration, RLS 및 실제 기기 검증을 분리했다.
+- 완료된 기능 브랜치와 develop 통합, 남은 원격 migration, RLS 및 실제 기기 검증을 분리했다.
 - profile 공개 범위, 오류 복구, 계정 삭제, 정량 수용 기준과 출시 게이트를 보강했다.
