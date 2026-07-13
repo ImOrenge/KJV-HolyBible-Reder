@@ -103,16 +103,22 @@ export default async function AccountDeletePage({ searchParams }: AccountDeleteP
           <section className="privacy-section">
             <h2>웹에서 삭제 요청하기</h2>
             {user ? (
-              <form action={deleteAccountAction} className="auth-form">
-                <p>현재 로그인 계정: {user.email ?? "로그인 상태"}</p>
-                <label>
-                  확인 문구
-                  <input autoComplete="off" name="confirmText" placeholder="회원탈퇴" required type="text" />
-                </label>
-                <button className="secondary-button danger" type="submit">
-                  계정 삭제 요청
-                </button>
-              </form>
+              <>
+                <form action="/api/me/notes/export" className="auth-form" method="post">
+                  <p>삭제 전에 개인 성경노트를 JSON으로 백업할 수 있습니다.</p>
+                  <button className="secondary-button" type="submit">성경노트 JSON 백업</button>
+                </form>
+                <form action={deleteAccountAction} className="auth-form">
+                  <p>현재 로그인 계정: {user.email ?? "로그인 상태"}</p>
+                  <label>
+                    확인 문구
+                    <input autoComplete="off" name="confirmText" placeholder="회원탈퇴" required type="text" />
+                  </label>
+                  <button className="secondary-button danger" type="submit">
+                    계정 삭제 요청
+                  </button>
+                </form>
+              </>
             ) : (
               <>
                 <p>웹에서 삭제하려면 먼저 삭제할 계정으로 로그인하세요.</p>

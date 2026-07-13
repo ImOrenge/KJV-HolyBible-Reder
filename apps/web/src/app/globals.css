@@ -1590,6 +1590,404 @@ kbd {
   margin-right: auto;
 }
 
+.note-link-chip {
+  gap: 2px;
+  padding-right: 3px;
+}
+
+.note-link-chip button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  display: inline-flex;
+  min-height: 24px;
+  padding: 0 4px;
+}
+
+.note-list-actions,
+.note-export-actions,
+.note-template-create,
+.note-conflict-banner > div {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.note-list-actions .primary-button {
+  flex: 1;
+}
+
+.note-export-actions {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 10px;
+}
+
+.verse-note-backlinks,
+.note-workspace-tools,
+.note-workspace-tools section,
+.note-conflict-banner {
+  display: grid;
+  gap: 8px;
+}
+
+.verse-note-backlinks {
+  border-top: 1px solid var(--line);
+  margin-top: 8px;
+  padding-top: 10px;
+}
+
+.verse-note-backlinks button {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  display: grid;
+  gap: 3px;
+  padding: 9px;
+  text-align: left;
+}
+
+.verse-note-backlinks small,
+.note-workspace-tools small,
+.note-conflict-banner span {
+  color: var(--muted);
+}
+
+.note-workspace-tools {
+  border-top: 1px solid var(--line);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding-top: 12px;
+}
+
+.note-workspace-tools section {
+  align-content: start;
+  min-width: 0;
+}
+
+.note-template-create input {
+  flex: 1;
+  min-width: 130px;
+}
+
+.note-conflict-banner {
+  background: color-mix(in srgb, var(--accent-3) 13%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent-3) 55%, var(--line));
+  padding: 12px;
+}
+
+.f-personal-note-editor {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  position: relative;
+}
+
+.f-personal-note-editor__toolbar {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 7px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.f-personal-note-editor__tool-group {
+  align-items: center;
+  border-right: 1px solid var(--line);
+  display: flex;
+  gap: 3px;
+  padding-right: 6px;
+}
+
+.f-personal-note-editor__tool,
+.f-personal-note-editor__palette > summary {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  height: 36px;
+  justify-content: center;
+  list-style: none;
+  padding: 0;
+  width: 36px;
+}
+
+.f-personal-note-editor__tool:hover,
+.f-personal-note-editor__tool[data-active],
+.f-personal-note-editor__palette[open] > summary {
+  background: var(--surface-2);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.f-personal-note-editor__tool:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.f-personal-note-editor__select {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  height: 36px;
+  min-width: 92px;
+  padding-inline: 8px;
+}
+
+.f-personal-note-editor__palette {
+  position: relative;
+}
+
+.f-personal-note-editor__swatches {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(3, 28px);
+  left: 0;
+  padding: 8px;
+  position: absolute;
+  top: calc(100% + 5px);
+  z-index: 20;
+}
+
+.f-personal-note-editor__swatches button {
+  border: 1px solid var(--line);
+  height: 28px;
+  padding: 0;
+  width: 28px;
+}
+
+.f-personal-note-editor__swatches button[data-color="ink"] { background: #1e2522; }
+.f-personal-note-editor__swatches button[data-color="slate"] { background: #667069; }
+.f-personal-note-editor__swatches button[data-color="crimson"] { background: #a6374b; }
+.f-personal-note-editor__swatches button[data-color="emerald"] { background: #176f63; }
+.f-personal-note-editor__swatches button[data-color="blue"] { background: #2d5ea8; }
+.f-personal-note-editor__swatches button[data-color="violet"] { background: #7652a6; }
+.f-personal-note-editor__swatches button[data-highlight="yellow"] { background: #fff0a6; }
+.f-personal-note-editor__swatches button[data-highlight="mint"] { background: #c9f1dc; }
+.f-personal-note-editor__swatches button[data-highlight="sky"] { background: #cce9fb; }
+.f-personal-note-editor__swatches button[data-highlight="rose"] { background: #f8ccd4; }
+.f-personal-note-editor__swatches button[data-highlight="lavender"] { background: #e2d6f5; }
+
+.f-personal-note-editor__template-row {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+  gap: 6px;
+}
+
+.f-personal-note-editor__template-row button {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  min-height: 30px;
+  padding: 0 9px;
+}
+
+.f-personal-note-editor__content {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text);
+  line-height: 1.72;
+  min-height: 320px;
+  outline: none;
+  padding: 16px;
+  white-space: pre-wrap;
+}
+
+.f-personal-note-editor__content:focus {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.f-personal-note-editor__content p,
+.f-personal-note-editor__content blockquote,
+.f-personal-note-editor__content h1,
+.f-personal-note-editor__content h2,
+.f-personal-note-editor__content h3 {
+  margin: 0 0 0.78em;
+}
+
+.f-personal-note-editor__content blockquote {
+  border-left: 3px solid var(--accent);
+  color: var(--muted);
+  padding-left: 12px;
+}
+
+.f-personal-note-editor__content [data-note-size="sm"] { font-size: 0.86rem; }
+.f-personal-note-editor__content [data-note-size="md"] { font-size: 1rem; }
+.f-personal-note-editor__content [data-note-size="lg"] { font-size: 1.15rem; }
+.f-personal-note-editor__content [data-note-size="xl"] { font-size: 1.35rem; }
+.f-personal-note-editor__content [data-note-size="2xl"] { font-size: 1.65rem; }
+.f-personal-note-editor__content [data-note-color="ink"] { color: var(--text); }
+.f-personal-note-editor__content [data-note-color="slate"] { color: var(--muted); }
+.f-personal-note-editor__content [data-note-color="crimson"] { color: #a6374b; }
+.f-personal-note-editor__content [data-note-color="emerald"] { color: #176f63; }
+.f-personal-note-editor__content [data-note-color="blue"] { color: #2d5ea8; }
+.f-personal-note-editor__content [data-note-color="violet"] { color: #7652a6; }
+
+.f-personal-note-editor__reference {
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  border-bottom: 1px solid var(--accent);
+  color: var(--accent);
+  cursor: pointer;
+  font-weight: 800;
+  padding-inline: 2px;
+}
+
+.f-personal-note-editor__reference--note {
+  background: color-mix(in srgb, var(--accent-2) 12%, var(--surface));
+  border-color: var(--accent-2);
+  color: var(--accent-2);
+}
+
+.f-personal-note-editor__suggestions {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  display: grid;
+  left: 12px;
+  max-height: 280px;
+  max-width: min(520px, calc(100% - 24px));
+  overflow-y: auto;
+  position: absolute;
+  top: 102px;
+  width: 100%;
+  z-index: 30;
+}
+
+.f-personal-note-editor__suggestions button {
+  background: var(--surface);
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  display: grid;
+  gap: 3px;
+  padding: 9px 11px;
+  text-align: left;
+}
+
+.f-personal-note-editor__suggestions button:hover,
+.f-personal-note-editor__suggestions button[aria-selected="true"] {
+  background: var(--surface-2);
+}
+
+.f-personal-note-editor__suggestions span,
+.f-personal-note-editor__loading {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.note-workspace.focus-mode {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.note-workspace.focus-mode .note-list-pane,
+.note-workspace.focus-mode .note-editor-head {
+  display: none;
+}
+
+.note-workspace.focus-mode .note-editor-pane {
+  border: 0;
+  margin-inline: auto;
+  max-width: 980px;
+  width: 100%;
+}
+
+.note-focus-verses {
+  display: grid;
+  gap: 8px;
+  padding: 10px 0;
+}
+
+.note-focus-verses details {
+  border-block: 1px solid var(--line);
+  padding: 10px 0;
+}
+
+.note-focus-verses summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.note-focus-verses p {
+  margin: 8px 0;
+  line-height: 1.65;
+}
+
+@media (max-width: 720px) {
+  .f-personal-note-editor__toolbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    position: static;
+  }
+
+  .f-personal-note-editor__tool-group {
+    flex: 0 0 auto;
+  }
+
+  .f-personal-note-editor__template-row {
+    align-items: stretch;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .f-personal-note-editor__template-row button:first-of-type {
+    grid-column: 1 / -1;
+  }
+
+  .f-personal-note-editor__template-row svg,
+  .f-personal-note-editor__template-row span {
+    display: none;
+  }
+
+  .f-personal-note-editor__content {
+    min-height: 46vh;
+  }
+
+  .note-workspace-tools {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media print {
+  .app-shell > header,
+  .desktop-nav,
+  .mobile-bottom-nav,
+  .note-list-pane,
+  .f-personal-note-editor__toolbar,
+  .f-personal-note-editor__template-row,
+  .note-workspace-tools,
+  .modal-actions,
+  .linked-verse-strip,
+  .panel-heading {
+    display: none !important;
+  }
+
+  .note-workspace,
+  .note-editor-pane {
+    border: 0 !important;
+    display: block !important;
+    padding: 0 !important;
+  }
+
+  .f-personal-note-editor__content {
+    border: 0;
+    min-height: 0;
+  }
+}
+
 .dictionary-layout {
   grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.8fr);
 }
@@ -2450,6 +2848,28 @@ kbd {
   .plan-option-grid,
   .filter-row {
     grid-template-columns: 1fr;
+  }
+
+  .note-workspace,
+  .dictionary-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .note-list-pane,
+  .note-editor-pane,
+  .dictionary-list-pane,
+  .dictionary-detail-pane,
+  .dictionary-card {
+    min-width: 0;
+  }
+
+  .note-editor-head {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dictionary-card,
+  .dictionary-detail-pane {
+    overflow-wrap: anywhere;
   }
 
   .modal-backdrop {

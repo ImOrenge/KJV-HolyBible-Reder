@@ -13,6 +13,7 @@
     "./brand": "./src/brand.ts",
     "./hebrew-dictionary": "./src/hebrew-dictionary.ts",
     "./korean-search": "./src/korean-search.ts",
+    "./personal-note-document": "./src/personal-note-document.ts",
     "./privacy-policy": "./src/privacy-policy.ts",
     "./reading-plan": "./src/reading-plan.ts",
     "./search-highlight": "./src/search-highlight.ts",
@@ -21,7 +22,8 @@
     "./translation-feedback/feedback-types": "./src/translation-feedback/feedback-types.ts",
     "./translation-feedback/feedback-validation": "./src/translation-feedback/feedback-validation.ts",
     "./types": "./src/types.ts",
-    "./user-data-repository": "./src/user-data-repository.ts"
+    "./user-data-repository": "./src/user-data-repository.ts",
+    "./verse-reference-autocomplete": "./src/verse-reference-autocomplete.ts"
   },
   "types": "./src/index.ts",
   "scripts": {

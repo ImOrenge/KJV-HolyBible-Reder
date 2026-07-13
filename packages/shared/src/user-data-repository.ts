@@ -36,6 +36,9 @@ export function createInitialUserData(userId = "demo-user"): UserDataState {
     personalNoteVerseLinks: [],
     personalNoteTags: [],
     verseTags: [],
+    personalNoteRevisions: [],
+    personalNoteLinks: [],
+    personalNoteTemplates: [],
     favoriteVerses: [],
     favoriteLists: [
       {
@@ -74,10 +77,13 @@ export function normalizeUserData(parsed: Partial<UserDataState>, userId: string
     completedChapters: (parsed.completedChapters ?? []).map((chapter) => withCurrentUser(chapter, userId)),
     highlights: (parsed.highlights ?? []).map((highlight) => withCurrentUser(highlight, userId)),
     studyNotes: (parsed.studyNotes ?? []).map((note) => withCurrentUser(note, userId)),
-    personalNotes: (parsed.personalNotes ?? []).map((note) => withCurrentUser(note, userId)),
-    personalNoteVerseLinks: (parsed.personalNoteVerseLinks ?? []).map((link) => withCurrentUser(link, userId)),
+    personalNotes: (parsed.personalNotes ?? []).map((note) => withCurrentUser({ ...note, revision: note.revision ?? 1 }, userId)),
+    personalNoteVerseLinks: (parsed.personalNoteVerseLinks ?? []).map((link) => withCurrentUser({ ...link, source: link.source ?? "reader" }, userId)),
     personalNoteTags: (parsed.personalNoteTags ?? []).map((tag) => withCurrentUser(tag, userId)),
     verseTags: (parsed.verseTags ?? []).map((tag) => withCurrentUser(tag, userId)),
+    personalNoteRevisions: (parsed.personalNoteRevisions ?? []).map((revision) => withCurrentUser(revision, userId)),
+    personalNoteLinks: (parsed.personalNoteLinks ?? []).map((link) => withCurrentUser(link, userId)),
+    personalNoteTemplates: (parsed.personalNoteTemplates ?? []).map((template) => withCurrentUser(template, userId)),
     favoriteLists,
     favoriteVerses: (parsed.favoriteVerses ?? []).map((favorite) => ({
       ...withCurrentUser(favorite, userId),

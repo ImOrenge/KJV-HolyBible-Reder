@@ -13,6 +13,14 @@
 - 노트에 태그 지정
 - 리더, 노트 목록, 검색, 사전/주석 패널에서 노트로 가져오기
 
+## 1.1 Rich Text 확장
+
+초기 Markdown-lite 결정은 구현 출발점으로 유지하되, 개인 노트의 현재 편집기 기준은 구조화된 rich-text 문서 모델이다. 굵게, 기울임, 밑줄, 글자 크기, 글자색, 정렬, 형광과 inline 구절 태그는 JSON 문서로 저장한다. 상세 계약과 마이그레이션은 [personal-note-rich-text-editor-architecture.md](./personal-note-rich-text-editor-architecture.md)를 우선한다.
+
+## 1.2 성경공부 워크스페이스 확장
+
+rich-text 편집기 이후에는 revision 복구, 구절 역참조, 원격 검색, template, 노트 링크, export, 집중 모드를 하나의 private study workspace로 확장한다. 상세 데이터 계약과 개별 Phase는 [personal-note-study-workspace-architecture.md](./personal-note-study-workspace-architecture.md)를 우선한다.
+
 이 기능은 공개 주석이나 번역 피드백이 아니라 사용자의 private study data다. localStorage 검증은 가능하지만 공개 출시에서는 Supabase Auth 사용자별 DB 저장과 RLS가 필수다.
 
 ## 2. 현재 코드/문서 기준
@@ -33,7 +41,7 @@
 
 - 노트 전용 화면 또는 패널
 - 제목, 본문, 태그, 연결 구절을 가진 개별 노트 저장
-- Markdown-lite 텍스트 편집기와 미리보기
+- 구조화된 rich-text 텍스트 편집기와 미리보기
 - 리더에서 선택 구절을 새 노트에 연결
 - 리더에서 선택 구절을 기존 노트에 추가
 - 성경 구절 자체에 태그 지정
@@ -48,9 +56,9 @@
 - 공개 공유 노트
 - 실시간 동기화 presence
 - 이미지/파일 첨부
-- 완전한 WYSIWYG rich text editor
+- 공동 편집과 실시간 cursor
 - AI 노트 자동 생성
-- 노트 export/import
+- 노트 import와 외부 서비스 동기화
 - 커뮤니티 게시글 전환
 
 ## 4. 사용자 경험
@@ -90,27 +98,26 @@
 
 ### 4.3 노트 편집기
 
-1차 편집기는 `textarea + toolbar + preview` 구조로 둔다. 복잡한 `contenteditable` 기반 WYSIWYG는 모바일 IME, selection, undo, hydration 리스크가 커서 후속으로 둔다.
+편집기는 공통 JSON 문서 모델을 기준으로 웹 rich-text adapter와 Expo rich-text adapter를 사용한다. HTML 기반 저장과 앱 전체 WebView 전환은 하지 않는다. 모바일 IME, selection, undo 리스크는 adapter 검증과 단계적 도입으로 관리한다.
 
 Toolbar:
 
 | 도구 | 동작 |
 | --- | --- |
-| 제목 | 선택 줄에 `## ` 삽입 |
-| 굵게 | 선택 텍스트를 `**text**`로 감쌈 |
-| 기울임 | 선택 텍스트를 `*text*`로 감쌈 |
-| 인용 | 선택 줄에 `> ` 삽입 |
-| 목록 | 선택 줄에 `- ` 삽입 |
-| 체크 | 선택 줄에 `- [ ] ` 삽입 |
-| 구절 삽입 | 연결 구절의 본문/참조를 본문에 삽입 |
-| 미리보기 | Markdown-lite preview 전환 |
+| 실행 취소/다시 실행 | 문서 transaction을 되돌리거나 재적용 |
+| 굵게/기울임/밑줄 | 선택 영역 또는 이후 입력에 문자 mark 적용 |
+| 크기/글자색/형광 | 허용된 design token을 선택해 적용 |
+| 정렬 | 현재 문단 또는 제목 block의 논리 정렬 변경 |
+| 제목/인용/목록/체크 | 현재 block을 구조적으로 변환 |
+| 구절 삽입 | 연결 구절 또는 자동완성 결과를 inline verse node로 삽입 |
+| 미리보기 | 동일 JSON renderer의 read-only 전환 |
 
 편집기 필드:
 
 - 제목
 - 연결 구절 칩
 - 태그 입력
-- 본문 textarea
+- 구조화된 rich-text 본문 편집 영역
 - 저장 상태: 저장됨, 저장 중, 저장 실패, 로컬 임시저장
 - 저장 버튼
 
@@ -131,13 +138,14 @@ Toolbar:
 
 ```ts
 export type PersonalNoteStatus = "active" | "archived";
-export type PersonalNoteEditorFormat = "markdown-lite";
+export type PersonalNoteEditorFormat = "markdown-lite" | "rich-text-v1";
 
 export type PersonalNote = {
   id: string;
   userId: string;
   title: string;
   bodyMarkdown: string;
+  bodyDocument?: PersonalNoteDocument;
   bodyText: string;
   editorFormat: PersonalNoteEditorFormat;
   status: PersonalNoteStatus;
@@ -406,7 +414,7 @@ PATCH /api/me/notes/{noteId}
 - verseLinks
 - tagIds
 
-서버는 `bodyText`를 Markdown-lite에서 plain text로 추출해 저장한다.
+서버는 rich-text 문서에서 `bodyText`를 추출해 저장한다. `bodyMarkdown`은 구버전 호환용 fallback이며 새 rich-text renderer의 원본이 아니다.
 
 ### 8.4 노트 삭제
 
@@ -485,19 +493,9 @@ type PersonalNoteDraft = {
 5. 성공하면 `lastSavedAt` 갱신
 6. 실패하면 draft와 오류 상태 유지
 
-### 9.4 Markdown-lite 렌더링
+### 9.4 Rich Text 렌더링
 
-허용 문법:
-
-- headings: `#`, `##`, `###`
-- bold: `**text**`
-- italic: `*text*`
-- unordered list: `- item`
-- checklist: `- [ ] item`, `- [x] item`
-- quote: `> text`
-- inline code: `` `text` ``
-
-HTML 입력은 렌더링하지 않는다. preview는 Markdown parser를 쓰더라도 raw HTML은 escape한다.
+허용 node와 mark는 `PersonalNoteDocument` schema에 정의된 항목으로 제한한다. HTML 입력은 저장하거나 렌더링하지 않으며, preview는 같은 schema의 read-only renderer를 쓴다. 구버전 Markdown-lite는 importer로 읽되, 기존 본문을 자동 삭제하거나 변형하지 않는다.
 
 ## 10. 검색과 필터
 
@@ -553,7 +551,7 @@ HTML 입력은 렌더링하지 않는다. preview는 Markdown parser를 쓰더�
 
 - [ ] `notes` view를 추가한다.
 - [ ] 노트 목록과 편집기 layout을 만든다.
-- [ ] toolbar가 textarea selection에 Markdown-lite 문법을 삽입한다.
+- [ ] toolbar가 rich-text selection에 구조화된 mark와 block을 적용한다.
 - [ ] 노트별 개별 저장을 구현한다.
 - [ ] local draft와 저장 실패 상태를 구현한다.
 
@@ -610,7 +608,7 @@ HTML 입력은 렌더링하지 않는다. preview는 Markdown parser를 쓰더�
 
 - [ ] `npm run lint`
 - [ ] `npm run build`
-- [ ] Markdown-lite helper unit test
+- [ ] rich-text document validator와 Markdown-lite importer unit test
 - [ ] localStorage migration unit test
 
 수동 검증:
@@ -636,7 +634,7 @@ Supabase 검증:
 
 | 리스크 | 대응 |
 | --- | --- |
-| 텍스트 편집기가 복잡해져 리더 UX를 압도함 | 1차는 Markdown-lite textarea와 toolbar로 제한한다. |
+| 텍스트 편집기가 복잡해져 리더 UX를 압도함 | 자주 쓰는 문자 도구만 고정하고, 크기·색상·정렬은 추가 메뉴로 분리한다. |
 | 기존 StudyNote와 새 노트가 중복 표시됨 | legacy read-only 표시와 migration 완료 플래그를 둔다. |
 | 구절 태그와 노트 태그가 혼동됨 | UI에서 `구절 태그`와 `노트 태그`를 별도 섹션으로 표시한다. |
 | 다대다 membership RLS가 누락됨 | 부모 note/tag 소유권 `exists` 정책을 필수화한다. |
@@ -649,7 +647,7 @@ Supabase 검증:
 - [ ] 노트는 제목, 본문, 연결 구절, 태그를 가진다.
 - [ ] 하나의 노트에 여러 성경 구절을 연결할 수 있다.
 - [ ] 성경 구절 자체에 태그를 지정할 수 있다.
-- [ ] 노트 편집기는 Markdown-lite toolbar와 preview를 제공한다.
+- [ ] 노트 편집기는 rich-text toolbar와 동일 schema preview를 제공한다.
 - [ ] 기존 장/절 StudyNote 데이터가 유실되지 않는다.
 - [ ] 검색/태그/권별 필터로 노트를 다시 찾을 수 있다.
 - [ ] 공개 출시 DB 전환 시 RLS가 사용자별 노트 소유권을 보장한다.

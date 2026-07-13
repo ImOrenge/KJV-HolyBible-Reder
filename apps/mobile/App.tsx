@@ -22,6 +22,10 @@ import {
   loadRemoteUserData,
   loadUserDataFromStorage,
   mergeUserDataForImport,
+  markdownLiteToPersonalNoteDocument,
+  normalizePersonalNoteDocument,
+  personalNoteDocumentToMarkdown,
+  personalNoteDocumentToText,
   normalizeVerseId,
   percent,
   privacyPolicyIntro,
@@ -41,6 +45,7 @@ import {
   type Highlight,
   type HighlightColor,
   type PersonalNote,
+  type PersonalNoteDocument,
   type ReadingMode,
   type ReadingPlanTemplate,
   type Tag,
@@ -73,6 +78,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { PersonalNoteRichTextEditor } from "./src/components/personal-note-rich-text-editor";
 
 type ViewKey = "dashboard" | "reader" | "quickMove" | "progress" | "highlights" | "favorites" | "search" | "notes" | "dictionary" | "settings";
 type HomeTab = "today" | "progress" | "activity" | "study";
@@ -452,7 +458,7 @@ function AppShell() {
   const [noteSearchQuery, setNoteSearchQuery] = useState("");
   const [selectedPersonalNoteId, setSelectedPersonalNoteId] = useState<string | null>(null);
   const [personalNoteTitle, setPersonalNoteTitle] = useState("");
-  const [personalNoteBody, setPersonalNoteBody] = useState("");
+  const [personalNoteDocument, setPersonalNoteDocument] = useState<PersonalNoteDocument>(() => markdownLiteToPersonalNoteDocument(""));
   const [personalNoteTagInput, setPersonalNoteTagInput] = useState("");
   const [highlightColorFilter, setHighlightColorFilter] = useState<"all" | HighlightColor>("all");
   const [highlightBookFilter, setHighlightBookFilter] = useState("all");
@@ -1051,14 +1057,14 @@ function AppShell() {
     if (!selectedPersonalNote) {
       setSelectedPersonalNoteId(null);
       setPersonalNoteTitle("");
-      setPersonalNoteBody("");
+      setPersonalNoteDocument(markdownLiteToPersonalNoteDocument(""));
       setPersonalNoteTagInput("");
       return;
     }
 
     setSelectedPersonalNoteId(selectedPersonalNote.id);
     setPersonalNoteTitle(selectedPersonalNote.title);
-    setPersonalNoteBody(selectedPersonalNote.bodyMarkdown);
+    setPersonalNoteDocument(normalizePersonalNoteDocument(selectedPersonalNote.bodyDocument, selectedPersonalNote.bodyMarkdown));
     setPersonalNoteTagInput(
       userData.personalNoteTags
         .filter((tagLink) => tagLink.noteId === selectedPersonalNote.id)
@@ -1066,7 +1072,7 @@ function AppShell() {
         .filter(Boolean)
         .join(", "),
     );
-  }, [selectedPersonalNote?.id, selectedPersonalNote?.title, selectedPersonalNote?.bodyMarkdown, userData.personalNoteTags, userData.tags]);
+  }, [selectedPersonalNote?.id, selectedPersonalNote?.title, selectedPersonalNote?.bodyDocument, selectedPersonalNote?.bodyMarkdown, userData.personalNoteTags, userData.tags]);
 
   const setReadingLanguage = (language: TranslationLanguage) => {
     updateSettings({ defaultTranslation: language });
@@ -1546,9 +1552,11 @@ function AppShell() {
       title,
       bodyMarkdown,
       bodyText: bodyMarkdown.replace(/[#*_>`-]/g, " ").replace(/\s+/g, " ").trim(),
-      editorFormat: "markdown-lite",
+      bodyDocument: markdownLiteToPersonalNoteDocument(bodyMarkdown),
+      editorFormat: "rich-text-v1",
       status: "active",
       pinned: false,
+      revision: 1,
       createdAt: now,
       updatedAt: now,
       lastSavedAt: now,
@@ -1567,6 +1575,7 @@ function AppShell() {
           chapter: verse.chapter,
           verse: verse.verse,
           selectedText: getVerseDisplayText(verse, readingLanguage),
+          source: "reader" as const,
           linkOrder: index,
           createdAt: now,
         })),
@@ -1575,7 +1584,7 @@ function AppShell() {
     }));
     setSelectedPersonalNoteId(noteId);
     setPersonalNoteTitle(title);
-    setPersonalNoteBody(bodyMarkdown);
+    setPersonalNoteDocument(markdownLiteToPersonalNoteDocument(bodyMarkdown));
     setPersonalNoteTagInput(initial?.tagInput ?? "");
     setActiveView("notes");
     setReaderSelectionMode(false);
@@ -1585,8 +1594,8 @@ function AppShell() {
     const now = new Date().toISOString();
     const existingId = selectedPersonalNote?.id ?? selectedPersonalNoteId ?? createId("personal-note");
     const title = personalNoteTitle.trim() || "제목 없는 성경노트";
-    const bodyMarkdown = personalNoteBody.trim();
-    const bodyText = bodyMarkdown.replace(/[#*_>`-]/g, " ").replace(/\s+/g, " ").trim();
+    const bodyMarkdown = personalNoteDocumentToMarkdown(personalNoteDocument);
+    const bodyText = personalNoteDocumentToText(personalNoteDocument);
     const tagNames = personalNoteTagInput
       .split(",")
       .map((tag) => tag.trim())
@@ -1616,9 +1625,11 @@ function AppShell() {
         title,
         bodyMarkdown,
         bodyText,
-        editorFormat: "markdown-lite",
+        bodyDocument: personalNoteDocument,
+        editorFormat: "rich-text-v1",
         status: "active",
         pinned: existingNote?.pinned ?? false,
+        revision: existingNote?.revision ?? 1,
         createdAt: existingNote?.createdAt ?? now,
         updatedAt: now,
         lastSavedAt: now,
@@ -1644,6 +1655,34 @@ function AppShell() {
     setTimeout(() => setCopyStatus(""), 1600);
   };
 
+  const addPersonalNoteVerseReference = (suggestion: { bookId: string; chapter: number; verse: number; verseKey: string }) => {
+    const noteId = selectedPersonalNote?.id;
+    if (!noteId) return;
+    setUserData((current) => {
+      if (current.personalNoteVerseLinks.some((link) => link.noteId === noteId && link.verseKey === suggestion.verseKey)) return current;
+      const now = new Date().toISOString();
+      return {
+        ...current,
+        personalNoteVerseLinks: [
+          ...current.personalNoteVerseLinks,
+          {
+            id: createId("note-link"),
+            userId: activeUserId,
+            noteId,
+            verseKey: suggestion.verseKey,
+            bookId: suggestion.bookId,
+            chapter: suggestion.chapter,
+            verse: suggestion.verse,
+            source: "inline-tag" as const,
+            linkOrder: current.personalNoteVerseLinks.filter((link) => link.noteId === noteId).length * 10 + 10,
+            createdAt: now,
+          },
+        ],
+      };
+    });
+    setCopyStatus("구절 태그 추가됨 · 저장 필요");
+  };
+
   const deletePersonalNote = () => {
     const noteId = selectedPersonalNote?.id;
     if (!noteId) {
@@ -1659,7 +1698,7 @@ function AppShell() {
     }));
     setSelectedPersonalNoteId(null);
     setPersonalNoteTitle("");
-    setPersonalNoteBody("");
+    setPersonalNoteDocument(markdownLiteToPersonalNoteDocument(""));
     setPersonalNoteTagInput("");
     setCopyStatus("성경노트 삭제됨");
     setTimeout(() => setCopyStatus(""), 1600);
@@ -3232,13 +3271,11 @@ function AppShell() {
                       value={personalNoteTitle}
                     />
                     <Text style={styles.groupLabel}>본문</Text>
-                    <TextInput
-                      multiline
-                      onChangeText={setPersonalNoteBody}
-                      placeholder="묵상, 단어 관찰, 적용점을 기록"
-                      placeholderTextColor={colors.muted}
-                      style={styles.noteInput}
-                      value={personalNoteBody}
+                    <PersonalNoteRichTextEditor
+                      key={selectedPersonalNote.id}
+                      document={personalNoteDocument}
+                      onAddVerseReference={addPersonalNoteVerseReference}
+                      onChange={setPersonalNoteDocument}
                     />
                     <Text style={styles.groupLabel}>태그</Text>
                     <TextInput

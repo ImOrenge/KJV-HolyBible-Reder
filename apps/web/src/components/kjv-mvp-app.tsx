@@ -59,6 +59,7 @@ import {
   shouldOfferDemoDataImport,
 } from "@/lib/auth/local-user-data-migration";
 import { TranslationFeedbackForm } from "@/components/feedback/translation-feedback-form";
+import { PersonalNoteRichTextEditor } from "@/components/personal-note-rich-text-editor";
 import { createClient as createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { ContinueReadingPanel, ProgressMetricPanel } from "@/components/app-preview-panels";
 import {
@@ -97,6 +98,13 @@ import type {
   ReadingPlan,
   ReadingPlanTemplate,
 } from "@/lib/types";
+import {
+  markdownLiteToPersonalNoteDocument,
+  normalizePersonalNoteDocument,
+  personalNoteDocumentToMarkdown,
+  personalNoteDocumentToText,
+  type PersonalNoteDocument,
+} from "@kjv/shared";
 
 type ViewKey = "dashboard" | "reader" | "progress" | "highlights" | "favorites" | "notes" | "dictionary" | "search" | "settings";
 type MobileHomeTab = "today" | "progress" | "activity" | "study";
@@ -108,6 +116,7 @@ type FavoriteSortKey = "recent" | "bible" | "usage";
 type NoteTarget =
   | { scope: "chapter"; bookId: string; chapter: number }
   | { scope: "verse"; bookId: string; chapter: number; verse: number; verseId: string };
+type VerseNoteSummary = { id: string; title: string; excerpt: string; source: string; updatedAt: string };
 
 const tabs: Array<{ key: ViewKey; label: string; icon: React.ComponentType<{ size?: number }> }> = [
   { key: "dashboard", label: "홈", icon: Home },
@@ -527,12 +536,18 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
   const [noteDraft, setNoteDraft] = useState("");
   const [selectedPersonalNoteId, setSelectedPersonalNoteId] = useState<string | null>(null);
   const [personalNoteTitleDraft, setPersonalNoteTitleDraft] = useState("");
-  const [personalNoteBodyDraft, setPersonalNoteBodyDraft] = useState("");
+  const [personalNoteDocumentDraft, setPersonalNoteDocumentDraft] = useState<PersonalNoteDocument>(() => markdownLiteToPersonalNoteDocument(""));
   const [personalNoteTagDraft, setPersonalNoteTagDraft] = useState("");
   const [personalNoteSearchQuery, setPersonalNoteSearchQuery] = useState("");
   const [personalNoteBookFilter, setPersonalNoteBookFilter] = useState("all");
   const [personalNoteSaveStatus, setPersonalNoteSaveStatus] = useState("");
   const [personalNoteRemoteStatus, setPersonalNoteRemoteStatus] = useState("");
+  const [personalNoteFocusMode, setPersonalNoteFocusMode] = useState(false);
+  const [showArchivedPersonalNotes, setShowArchivedPersonalNotes] = useState(false);
+  const [remotePersonalNoteMatches, setRemotePersonalNoteMatches] = useState<string[] | null>(null);
+  const [personalNoteConflict, setPersonalNoteConflict] = useState<PersonalNote | null>(null);
+  const [selectedVerseNoteReferences, setSelectedVerseNoteReferences] = useState<VerseNoteSummary[]>([]);
+  const [personalTemplateName, setPersonalTemplateName] = useState("");
   const [dictionaryQuery, setDictionaryQuery] = useState("");
   const [dictionaryAlphabet, setDictionaryAlphabet] = useState("all");
   const [dictionaryTheme, setDictionaryTheme] = useState("all");
@@ -747,8 +762,8 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
     [userData.studyNotes],
   );
   const selectedPersonalNote = useMemo(
-    () => userData.personalNotes.find((note) => note.id === selectedPersonalNoteId) ?? userData.personalNotes[0] ?? null,
-    [selectedPersonalNoteId, userData.personalNotes],
+    () => userData.personalNotes.find((note) => note.id === selectedPersonalNoteId) ?? userData.personalNotes.find((note) => note.status === (showArchivedPersonalNotes ? "archived" : "active")) ?? null,
+    [selectedPersonalNoteId, showArchivedPersonalNotes, userData.personalNotes],
   );
   const personalNoteLinksByNote = useMemo(() => {
     const links = new Map<string, PersonalNoteVerseLink[]>();
@@ -764,10 +779,19 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
     }
     return tags;
   }, [userData.personalNoteTags]);
+  const selectedPersonalNoteRevisions = useMemo(
+    () => userData.personalNoteRevisions.filter((revision) => revision.noteId === selectedPersonalNote?.id).sort((left, right) => right.revision - left.revision).slice(0, 12),
+    [selectedPersonalNote?.id, userData.personalNoteRevisions],
+  );
+  const selectedPersonalNoteBacklinks = useMemo(
+    () => userData.personalNoteLinks.filter((link) => link.targetNoteId === selectedPersonalNote?.id).map((link) => userData.personalNotes.find((note) => note.id === link.sourceNoteId)).filter((note): note is PersonalNote => Boolean(note)).slice(0, 20),
+    [selectedPersonalNote?.id, userData.personalNoteLinks, userData.personalNotes],
+  );
   const visiblePersonalNotes = useMemo(() => {
     const query = personalNoteSearchQuery.trim().toLocaleLowerCase("ko-KR");
     return userData.personalNotes
-      .filter((note) => note.status === "active")
+      .filter((note) => note.status === (showArchivedPersonalNotes ? "archived" : "active"))
+      .filter((note) => remotePersonalNoteMatches === null || remotePersonalNoteMatches.includes(note.id))
       .filter((note) => {
         if (personalNoteBookFilter === "all") {
           return true;
@@ -787,7 +811,7 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
         return `${note.title} ${note.bodyText} ${noteTags} ${links}`.toLocaleLowerCase("ko-KR").includes(query);
       })
       .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime());
-  }, [personalNoteBookFilter, personalNoteLinksByNote, personalNoteSearchQuery, personalNoteTagsByNote, userData.personalNotes, userData.tags]);
+  }, [personalNoteBookFilter, personalNoteLinksByNote, personalNoteSearchQuery, personalNoteTagsByNote, remotePersonalNoteMatches, showArchivedPersonalNotes, userData.personalNotes, userData.tags]);
   const chapterHebrewOccurrences = useMemo(() => getHebrewOccurrencesForVerses(chapterVerses), [chapterVerses]);
   const hebrewOccurrencesByVerse = useMemo(() => {
     const grouped = new Map<string, ReturnType<typeof getHebrewOccurrencesForVerses>>();
@@ -1416,13 +1440,13 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
   useEffect(() => {
     if (!selectedPersonalNote) {
       setPersonalNoteTitleDraft("");
-      setPersonalNoteBodyDraft("");
+      setPersonalNoteDocumentDraft(markdownLiteToPersonalNoteDocument(""));
       setPersonalNoteTagDraft("");
       return;
     }
 
     setPersonalNoteTitleDraft(selectedPersonalNote.title);
-    setPersonalNoteBodyDraft(selectedPersonalNote.bodyMarkdown);
+    setPersonalNoteDocumentDraft(normalizePersonalNoteDocument(selectedPersonalNote.bodyDocument, selectedPersonalNote.bodyMarkdown));
     setPersonalNoteTagDraft(
       (personalNoteTagsByNote.get(selectedPersonalNote.id) ?? [])
         .map((link) => userData.tags.find((tag) => tag.id === link.tagId)?.name)
@@ -1430,6 +1454,42 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
         .join(", "),
     );
   }, [personalNoteTagsByNote, selectedPersonalNote, userData.tags]);
+
+  useEffect(() => {
+    if (!user.isAuthenticated) {
+      setRemotePersonalNoteMatches(null);
+      return;
+    }
+    const query = personalNoteSearchQuery.trim();
+    if (!query && personalNoteBookFilter === "all") {
+      setRemotePersonalNoteMatches(null);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      const params = new URLSearchParams({ status: showArchivedPersonalNotes ? "archived" : "active", limit: "50" });
+      if (query) params.set("q", query);
+      if (personalNoteBookFilter !== "all") params.set("bookId", personalNoteBookFilter);
+      fetch(`/api/me/notes/search?${params}`, { signal: controller.signal })
+        .then((response) => response.ok ? response.json() : Promise.reject(new Error("노트 검색 실패")))
+        .then((payload) => setRemotePersonalNoteMatches(Array.isArray(payload.notes) ? payload.notes.map((note: PersonalNote) => note.id) : []))
+        .catch((error) => { if (error instanceof Error && error.name !== "AbortError") setRemotePersonalNoteMatches(null); });
+    }, 180);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [personalNoteBookFilter, personalNoteSearchQuery, showArchivedPersonalNotes, user.isAuthenticated]);
+
+  useEffect(() => {
+    if (!user.isAuthenticated || !selectedVerse) {
+      setSelectedVerseNoteReferences([]);
+      return;
+    }
+    const controller = new AbortController();
+    fetch(`/api/me/verse-notes?verseKey=${encodeURIComponent(getVerseKey(selectedVerse))}&limit=10`, { signal: controller.signal })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("역참조 조회 실패")))
+      .then((payload) => setSelectedVerseNoteReferences(Array.isArray(payload.notes) ? payload.notes : []))
+      .catch((error) => { if (error instanceof Error && error.name !== "AbortError") setSelectedVerseNoteReferences([]); });
+    return () => controller.abort();
+  }, [selectedVerse, user.isAuthenticated]);
 
   useEffect(() => {
     if (!mounted || typeof window === "undefined" || !("speechSynthesis" in window)) {
@@ -2071,6 +2131,8 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
         title: note.title,
         bodyMarkdown: note.bodyMarkdown,
         bodyText: note.bodyText,
+        bodyDocument: note.bodyDocument,
+        revision: note.revision,
         tagNames,
         verseLinks: links.map((link) => ({
           id: link.id,
@@ -2079,14 +2141,18 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
           chapter: link.chapter,
           verse: link.verse,
           selectedText: link.selectedText,
+          source: link.source,
         })),
+        noteLinks: userData.personalNoteLinks.filter((link) => link.sourceNoteId === note.id),
       }),
     });
 
     if (!response.ok) {
       const payload = await response.json().catch(() => null);
+      if (response.status === 409 && payload?.current) setPersonalNoteConflict(payload.current as PersonalNote);
       throw new Error(payload?.error ?? "노트를 서버에 저장하지 못했습니다.");
     }
+    return response.json();
   }
 
   async function patchPersonalNoteToServer(note: PersonalNote, links: PersonalNoteVerseLink[] = [], tagNames: string[] = []) {
@@ -2101,6 +2167,8 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
         title: note.title,
         bodyMarkdown: note.bodyMarkdown,
         bodyText: note.bodyText,
+        bodyDocument: note.bodyDocument,
+        revision: note.revision,
         pinned: note.pinned,
         status: note.status,
         tagNames,
@@ -2111,8 +2179,10 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
           chapter: link.chapter,
           verse: link.verse,
           selectedText: link.selectedText,
+          source: link.source,
           linkOrder: link.linkOrder,
         })),
+        noteLinks: userData.personalNoteLinks.filter((link) => link.sourceNoteId === note.id),
       }),
     });
 
@@ -2120,6 +2190,7 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
       const payload = await response.json().catch(() => null);
       throw new Error(payload?.error ?? "노트를 서버에 저장하지 못했습니다.");
     }
+    return response.json();
   }
 
   async function deletePersonalNoteFromServer(noteId: string) {
@@ -2171,6 +2242,7 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
       chapter: verse.chapter,
       verse: verse.verse,
       linkOrder: (index + 1) * 10,
+      source: "reader",
       createdAt: now,
     };
   }
@@ -2179,15 +2251,18 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
     const now = new Date().toISOString();
     const firstVerse = verses[0];
     const title = firstVerse ? `${formatReference(firstVerse)} 노트` : "새 성경노트";
+    const bodyDocument = markdownLiteToPersonalNoteDocument(body);
     const note: PersonalNote = {
       id: createId("personal-note"),
       userId: user.id,
       title,
       bodyMarkdown: body,
       bodyText: markdownLiteToText(body),
-      editorFormat: "markdown-lite",
+      bodyDocument,
+      editorFormat: "rich-text-v1",
       status: "active",
       pinned: false,
+      revision: 1,
       createdAt: now,
       updatedAt: now,
       lastSavedAt: now,
@@ -2203,7 +2278,11 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
     setActiveView("notes");
     setPersonalNoteSaveStatus("새 노트 생성됨");
     void postPersonalNoteToServer(note, links)
-      .then(() => setPersonalNoteRemoteStatus("서버 저장됨"))
+      .then((payload) => {
+        const savedNote = payload?.note as PersonalNote | undefined;
+        if (savedNote) setUserData((current) => ({ ...current, personalNotes: current.personalNotes.map((item) => item.id === savedNote.id ? { ...item, ...savedNote } : item) }));
+        setPersonalNoteRemoteStatus("서버 저장됨");
+      })
       .catch((error) => setPersonalNoteRemoteStatus(error instanceof Error ? error.message : "서버 저장 실패"));
   }
 
@@ -2218,8 +2297,9 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
     }
 
     const title = personalNoteTitleDraft.trim() || "제목 없는 성경노트";
-    const bodyMarkdown = personalNoteBodyDraft;
-    const bodyText = markdownLiteToText(bodyMarkdown);
+    const bodyDocument = personalNoteDocumentDraft;
+    const bodyMarkdown = personalNoteDocumentToMarkdown(bodyDocument);
+    const bodyText = personalNoteDocumentToText(bodyDocument);
     const tagNames = personalNoteTagDraft.split(",").map((name) => name.trim()).filter(Boolean);
     const now = new Date().toISOString();
 
@@ -2228,6 +2308,8 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
       title,
       bodyMarkdown,
       bodyText,
+      bodyDocument,
+      editorFormat: "rich-text-v1",
       updatedAt: now,
       lastSavedAt: now,
     };
@@ -2257,22 +2339,30 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
     });
     setPersonalNoteSaveStatus("저장됨");
     void patchPersonalNoteToServer(updatedNote, personalNoteLinksByNote.get(updatedNote.id) ?? [], tagNames)
-      .then(() => setPersonalNoteRemoteStatus("서버 저장됨"))
+      .then((payload) => {
+        const savedNote = payload?.note as PersonalNote | undefined;
+        if (savedNote) {
+          setUserData((current) => ({
+            ...current,
+            personalNotes: current.personalNotes.map((note) => note.id === savedNote.id ? { ...note, ...savedNote } : note),
+            personalNoteRevisions: [{ id: createId("revision"), userId: user.id, noteId: savedNote.id, revision: savedNote.revision, title: savedNote.title, bodyDocument: savedNote.bodyDocument, bodyText: savedNote.bodyText, snapshotReason: "save", createdAt: savedNote.updatedAt }, ...current.personalNoteRevisions.filter((revision) => !(revision.noteId === savedNote.id && revision.revision === savedNote.revision))],
+          }));
+        }
+        setPersonalNoteConflict(null);
+        setPersonalNoteRemoteStatus("서버 저장됨");
+      })
       .catch((error) => setPersonalNoteRemoteStatus(error instanceof Error ? error.message : "서버 저장 실패"));
   }
 
   function deletePersonalNote(noteId: string) {
     setUserData((current) => ({
       ...current,
-      personalNotes: current.personalNotes.filter((note) => note.id !== noteId),
-      personalNoteVerseLinks: current.personalNoteVerseLinks.filter((link) => link.noteId !== noteId),
-      personalNoteTags: current.personalNoteTags.filter((link) => link.noteId !== noteId),
-      verseTags: current.verseTags.filter((tag) => tag.sourceNoteId !== noteId),
+      personalNotes: current.personalNotes.map((note) => note.id === noteId ? { ...note, status: "archived", archivedAt: new Date().toISOString() } : note),
     }));
     setSelectedPersonalNoteId((current) => (current === noteId ? null : current));
-    setPersonalNoteSaveStatus("삭제됨");
+    setPersonalNoteSaveStatus("보관함으로 이동됨");
     void deletePersonalNoteFromServer(noteId)
-      .then(() => setPersonalNoteRemoteStatus("서버 삭제됨"))
+      .then(() => setPersonalNoteRemoteStatus("서버 보관됨"))
       .catch((error) => setPersonalNoteRemoteStatus(error instanceof Error ? error.message : "서버 삭제 실패"));
   }
 
@@ -2314,6 +2404,121 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
         .then(() => setPersonalNoteRemoteStatus("서버 연결됨"))
         .catch((error) => setPersonalNoteRemoteStatus(error instanceof Error ? error.message : "서버 연결 실패"));
     }
+  }
+
+  function addInlineVerseReference(suggestion: { bookId: string; chapter: number; verse: number; verseKey: string; displayReference: string }) {
+    if (!selectedPersonalNote) return;
+    const now = new Date().toISOString();
+    setUserData((current) => {
+      if (current.personalNoteVerseLinks.some((link) => link.noteId === selectedPersonalNote.id && link.verseKey === suggestion.verseKey)) return current;
+      const link: PersonalNoteVerseLink = {
+        id: createId("note-link"),
+        userId: user.id,
+        noteId: selectedPersonalNote.id,
+        verseKey: suggestion.verseKey,
+        bookId: suggestion.bookId,
+        chapter: suggestion.chapter,
+        verse: suggestion.verse,
+        source: "inline-tag",
+        linkOrder: current.personalNoteVerseLinks.filter((item) => item.noteId === selectedPersonalNote.id).length * 10 + 10,
+        createdAt: now,
+      };
+      return { ...current, personalNoteVerseLinks: [...current.personalNoteVerseLinks, link] };
+    });
+    setPersonalNoteSaveStatus("구절 태그 추가됨 · 저장 필요");
+  }
+
+  function addPersonalNoteReference(targetNoteId: string) {
+    if (!selectedPersonalNote || targetNoteId === selectedPersonalNote.id) return;
+    setUserData((current) => {
+      if (current.personalNoteLinks.some((link) => link.sourceNoteId === selectedPersonalNote.id && link.targetNoteId === targetNoteId)) return current;
+      return {
+        ...current,
+        personalNoteLinks: [{ userId: user.id, sourceNoteId: selectedPersonalNote.id, targetNoteId, createdAt: new Date().toISOString() }, ...current.personalNoteLinks],
+      };
+    });
+    setPersonalNoteSaveStatus("노트 링크 추가됨 · 저장 필요");
+  }
+
+  function removePersonalNoteVerseLink(linkId: string) {
+    setUserData((current) => ({ ...current, personalNoteVerseLinks: current.personalNoteVerseLinks.filter((link) => link.id !== linkId) }));
+    setPersonalNoteSaveStatus("연결 구절 제거됨 · 저장 필요");
+  }
+
+  function useRemoteConflictVersion() {
+    if (!personalNoteConflict) return;
+    setUserData((current) => ({ ...current, personalNotes: current.personalNotes.map((note) => note.id === personalNoteConflict.id ? personalNoteConflict : note) }));
+    setPersonalNoteDocumentDraft(normalizePersonalNoteDocument(personalNoteConflict.bodyDocument, personalNoteConflict.bodyMarkdown));
+    setPersonalNoteTitleDraft(personalNoteConflict.title);
+    setPersonalNoteConflict(null);
+    setPersonalNoteRemoteStatus("최신 서버 버전을 불러왔습니다.");
+  }
+
+  function duplicateConflictDraft() {
+    const body = personalNoteDocumentToMarkdown(personalNoteDocumentDraft);
+    createPersonalNoteFromVerses([], body);
+    setPersonalNoteTitleDraft(`${personalNoteTitleDraft || "성경노트"} (충돌 복사본)`);
+    setPersonalNoteConflict(null);
+  }
+
+  async function restorePersonalNoteRevision(revision: number) {
+    if (!selectedPersonalNote || !user.isAuthenticated) return;
+    const response = await fetch(`/api/me/notes/${encodeURIComponent(selectedPersonalNote.id)}/revisions`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ revision }),
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload?.note) {
+      setPersonalNoteRemoteStatus(payload?.error ?? "버전을 복원하지 못했습니다.");
+      return;
+    }
+    const restored = payload.note as PersonalNote;
+    setUserData((current) => ({ ...current, personalNotes: current.personalNotes.map((note) => note.id === restored.id ? { ...note, ...restored } : note) }));
+    setPersonalNoteDocumentDraft(normalizePersonalNoteDocument(restored.bodyDocument, restored.bodyMarkdown));
+    setPersonalNoteTitleDraft(restored.title);
+    setPersonalNoteRemoteStatus(`버전 ${revision}을 새 버전으로 복원했습니다.`);
+  }
+
+  async function restoreArchivedPersonalNote(note: PersonalNote) {
+    const activeNote = { ...note, status: "active" as const, archivedAt: undefined };
+    setUserData((current) => ({ ...current, personalNotes: current.personalNotes.map((item) => item.id === note.id ? activeNote : item) }));
+    await patchPersonalNoteToServer(activeNote, personalNoteLinksByNote.get(note.id) ?? []);
+    setPersonalNoteRemoteStatus("노트를 복원했습니다.");
+  }
+
+  async function saveCurrentNoteAsTemplate() {
+    if (!selectedPersonalNote || !user.isAuthenticated) return;
+    const name = personalTemplateName.trim() || `${selectedPersonalNote.title} 템플릿`;
+    const response = await fetch("/api/me/note-templates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, description: "내 성경노트에서 만든 템플릿", bodyDocument: personalNoteDocumentDraft }) });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      setPersonalNoteRemoteStatus(payload?.error ?? "템플릿을 저장하지 못했습니다.");
+      return;
+    }
+    const row = payload.template;
+    setUserData((current) => ({ ...current, personalNoteTemplates: [{ id: row.client_id, userId: user.id, name: row.name, description: row.description, bodyDocument: row.body_document, status: row.status, createdAt: row.created_at, updatedAt: row.updated_at }, ...current.personalNoteTemplates] }));
+    setPersonalTemplateName("");
+    setPersonalNoteRemoteStatus("템플릿을 저장했습니다.");
+  }
+
+  async function exportPersonalNotes(format: "json" | "markdown") {
+    if (!user.isAuthenticated) {
+      setPersonalNoteRemoteStatus("내보내기는 로그인 후 사용할 수 있습니다.");
+      return;
+    }
+    const response = await fetch("/api/me/notes/export", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ format }) });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      setPersonalNoteRemoteStatus(payload?.error ?? "노트를 내보내지 못했습니다.");
+      return;
+    }
+    const blob = await response.blob();
+    const href = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = href;
+    anchor.download = format === "json" ? "kjv-reader-notes.json" : "kjv-reader-notes.zip";
+    anchor.click();
+    URL.revokeObjectURL(href);
+    setPersonalNoteRemoteStatus("노트 내보내기가 완료되었습니다.");
   }
 
   function tagSelectedVerse() {
@@ -2369,41 +2574,6 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
     }
   }
 
-  function wrapPersonalNoteSelection(before: string, after = before) {
-    const textarea = document.getElementById("personal-note-body") as HTMLTextAreaElement | null;
-    if (!textarea) {
-      setPersonalNoteBodyDraft((current) => `${current}${before}${after}`);
-      return;
-    }
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selected = personalNoteBodyDraft.slice(start, end);
-    const next = `${personalNoteBodyDraft.slice(0, start)}${before}${selected || "text"}${after}${personalNoteBodyDraft.slice(end)}`;
-    setPersonalNoteBodyDraft(next);
-  }
-
-  function prefixPersonalNoteLine(prefix: string) {
-    setPersonalNoteBodyDraft((current) => `${current}${current.endsWith("\n") || !current ? "" : "\n"}${prefix}`);
-  }
-
-  function insertLinkedVerseQuote() {
-    if (!selectedPersonalNote) {
-      return;
-    }
-
-    const link = personalNoteLinksByNote.get(selectedPersonalNote.id)?.[0];
-    if (!link) {
-      return;
-    }
-
-    const verse = resolveVerseById(link.verseKey);
-    const quote = verse
-      ? `> ${formatReference(verse)} ${getVerseDisplayText(verse, readingLanguage)}`
-      : `> ${getChapterLabel(link.bookId, link.chapter)} ${link.verse}절`;
-    prefixPersonalNoteLine(`${quote}\n`);
-  }
-
   function addHebrewEntryToPersonalNote(entry: HebrewDictionaryEntrySummary) {
     const sample = entry.sampleVerses[0];
     const body = [
@@ -2417,7 +2587,9 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
       .join("\n");
 
     if (selectedPersonalNote) {
-      setPersonalNoteBodyDraft((current) => `${current}${current.trim() ? "\n\n" : ""}${body}`);
+      const current = personalNoteDocumentToMarkdown(personalNoteDocumentDraft);
+      const next = `${current}${current.trim() ? "\n\n" : ""}${body}`;
+      setPersonalNoteDocumentDraft(markdownLiteToPersonalNoteDocument(next));
       setActiveView("notes");
       return;
     }
@@ -3696,6 +3868,17 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
                     <Bookmark size={16} />
                     {selectedFavorite ? "인용 구절 수정" : "인용 구절 저장"}
                   </button>
+                  {selectedVerseNoteReferences.length ? (
+                    <div className="verse-note-backlinks">
+                      <strong>이 구절이 포함된 내 노트</strong>
+                      {selectedVerseNoteReferences.map((note) => (
+                        <button key={note.id} onClick={() => { setSelectedPersonalNoteId(note.id); setActiveView("notes"); }} type="button">
+                          <span>{note.title}</span>
+                          <small>{note.excerpt || "본문 없음"}</small>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 </section>
               ) : null}
 
@@ -3991,7 +4174,7 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
               <span>성경노트</span>
               <StickyNote size={18} />
             </div>
-            <div className="note-workspace">
+            <div className={personalNoteFocusMode ? "note-workspace focus-mode" : "note-workspace"}>
               <aside className="note-list-pane">
                 <div className="filter-row">
                   <label>
@@ -4014,10 +4197,20 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
                   </label>
                 </div>
                 {personalNoteRemoteStatus ? <p className="empty-text">{personalNoteRemoteStatus}</p> : null}
-                <button className="primary-button modal-primary" type="button" onClick={createBlankPersonalNote}>
-                  <StickyNote size={16} />
-                  새 노트
-                </button>
+                <div className="note-list-actions">
+                  <button className="primary-button modal-primary" type="button" onClick={createBlankPersonalNote}>
+                    <StickyNote size={16} />
+                    새 노트
+                  </button>
+                  <button className="small-button" data-active={showArchivedPersonalNotes || undefined} type="button" onClick={() => { setShowArchivedPersonalNotes((current) => !current); setSelectedPersonalNoteId(null); }}>
+                    {showArchivedPersonalNotes ? "활성 노트" : "보관함"}
+                  </button>
+                </div>
+                <div className="note-export-actions">
+                  <button className="small-button" onClick={() => void exportPersonalNotes("json")} type="button">JSON</button>
+                  <button className="small-button" onClick={() => void exportPersonalNotes("markdown")} type="button">Markdown ZIP</button>
+                  <button className="small-button" onClick={() => window.print()} type="button">PDF/인쇄</button>
+                </div>
                 <div className="compact-list note-list">
                   {visiblePersonalNotes.map((note) => {
                     const links = personalNoteLinksByNote.get(note.id) ?? [];
@@ -4057,14 +4250,12 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
                     </div>
                     <div className="linked-verse-strip">
                       {(personalNoteLinksByNote.get(selectedPersonalNote.id) ?? []).map((link) => (
-                        <button
-                          className="chip chip-ink"
-                          key={link.id}
-                          type="button"
-                          onClick={() => openChapter(link.bookId, link.chapter, link.verse)}
-                        >
-                          {formatHebrewDictionaryReference({ appBookId: link.bookId, chapter: link.chapter, verse: link.verse })}
-                        </button>
+                        <span className="chip chip-ink note-link-chip" key={link.id}>
+                          <button type="button" onClick={() => openChapter(link.bookId, link.chapter, link.verse)}>
+                            {formatHebrewDictionaryReference({ appBookId: link.bookId, chapter: link.chapter, verse: link.verse })}
+                          </button>
+                          <button aria-label="연결 구절 제거" onClick={() => removePersonalNoteVerseLink(link.id)} title="연결 구절 제거" type="button"><X size={13} /></button>
+                        </span>
                       ))}
                       {selectedVerse ? (
                         <button className="small-button" type="button" onClick={() => appendSelectedVersesToPersonalNote(selectedPersonalNote.id)}>
@@ -4072,32 +4263,81 @@ export function KjvMvpApp({ user }: { user: AppUser }) {
                         </button>
                       ) : null}
                     </div>
-                    <div className="note-editor-toolbar" aria-label="노트 편집 도구">
-                      <button className="small-button" type="button" onClick={() => prefixPersonalNoteLine("## ")}>H2</button>
-                      <button className="small-button" type="button" onClick={() => wrapPersonalNoteSelection("**")}>B</button>
-                      <button className="small-button" type="button" onClick={() => wrapPersonalNoteSelection("*")}>I</button>
-                      <button className="small-button" type="button" onClick={() => prefixPersonalNoteLine("> ")}>인용</button>
-                      <button className="small-button" type="button" onClick={() => prefixPersonalNoteLine("- ")}>목록</button>
-                      <button className="small-button" type="button" onClick={() => prefixPersonalNoteLine("- [ ] ")}>체크</button>
-                      <button className="small-button" type="button" onClick={insertLinkedVerseQuote}>구절 삽입</button>
-                    </div>
-                    <textarea
-                      className="note-textarea personal-note-body"
-                      id="personal-note-body"
-                      value={personalNoteBodyDraft}
-                      onChange={(event) => setPersonalNoteBodyDraft(event.target.value)}
-                      placeholder="묵상, 관찰, 적용점을 기록"
-                      rows={14}
+                    <PersonalNoteRichTextEditor
+                      focusMode={personalNoteFocusMode}
+                      key={selectedPersonalNote.id}
+                      linkedVerses={personalNoteLinksByNote.get(selectedPersonalNote.id) ?? []}
+                      noteId={selectedPersonalNote.id}
+                      noteOptions={userData.personalNotes.filter((note) => note.status === "active").map((note) => ({ id: note.id, title: note.title }))}
+                      value={personalNoteDocumentDraft}
+                      onAddNoteLink={addPersonalNoteReference}
+                      onAddVerseLink={addInlineVerseReference}
+                      onChange={(document) => {
+                        setPersonalNoteDocumentDraft(document);
+                        setPersonalNoteSaveStatus("저장되지 않은 변경");
+                      }}
+                      onFocusModeChange={setPersonalNoteFocusMode}
                     />
-                    <div className="note-preview">
-                      <strong>미리보기</strong>
-                      <p>{markdownLiteToText(personalNoteBodyDraft) || "미리볼 내용이 없습니다."}</p>
+                    {personalNoteFocusMode && (personalNoteLinksByNote.get(selectedPersonalNote.id) ?? []).length ? (
+                      <div className="note-focus-verses">
+                        {(personalNoteLinksByNote.get(selectedPersonalNote.id) ?? []).map((link) => {
+                          const verse = resolveVerseById(link.verseKey);
+                          return (
+                            <details key={link.id}>
+                              <summary>{formatHebrewDictionaryReference({ appBookId: link.bookId, chapter: link.chapter, verse: link.verse })}</summary>
+                              <p>{verse?.textKo || "한국어 본문을 리더에서 불러오세요."}</p>
+                              <p lang="en">{verse?.textEn || "Open this verse in the reader to load the English text."}</p>
+                              <button className="small-button" onClick={() => openChapter(link.bookId, link.chapter, link.verse)} type="button">리더에서 열기</button>
+                            </details>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                    {personalNoteConflict ? (
+                      <div className="note-conflict-banner" role="alert">
+                        <strong>다른 기기에서 수정된 버전이 있습니다.</strong>
+                        <span>서버 버전 {personalNoteConflict.revision} · {formatDate(personalNoteConflict.updatedAt)}</span>
+                        <div>
+                          <button className="secondary-button" onClick={useRemoteConflictVersion} type="button">최신 버전 사용</button>
+                          <button className="secondary-button" onClick={duplicateConflictDraft} type="button">내 변경 복제</button>
+                        </div>
+                      </div>
+                    ) : null}
+                    <div className="note-workspace-tools">
+                      <section>
+                        <strong>내 템플릿</strong>
+                        <div className="note-template-create">
+                          <input onChange={(event) => setPersonalTemplateName(event.target.value)} placeholder="템플릿 이름" value={personalTemplateName} />
+                          <button className="small-button" onClick={() => void saveCurrentNoteAsTemplate()} type="button">현재 노트 저장</button>
+                        </div>
+                        {userData.personalNoteTemplates.slice(0, 6).map((template) => (
+                          <button className="plain-list-button" key={template.id} onClick={() => setPersonalNoteDocumentDraft(template.bodyDocument)} type="button">
+                            <span>{template.name}</span><small>{template.description}</small>
+                          </button>
+                        ))}
+                      </section>
+                      <section>
+                        <strong>버전 기록</strong>
+                        {selectedPersonalNoteRevisions.length ? selectedPersonalNoteRevisions.map((revision) => (
+                          <button className="plain-list-button" key={revision.id} onClick={() => void restorePersonalNoteRevision(revision.revision)} type="button">
+                            <span>버전 {revision.revision}</span><small>{formatDate(revision.createdAt)} · {revision.snapshotReason}</small>
+                          </button>
+                        )) : <small>저장된 이전 버전이 없습니다.</small>}
+                      </section>
+                      <section>
+                        <strong>이 노트를 참조하는 노트</strong>
+                        {selectedPersonalNoteBacklinks.length ? selectedPersonalNoteBacklinks.map((note) => (
+                          <button className="plain-list-button" key={note.id} onClick={() => setSelectedPersonalNoteId(note.id)} type="button"><span>{note.title}</span><small>{note.bodyText.slice(0, 90)}</small></button>
+                        )) : <small>역링크가 없습니다.</small>}
+                      </section>
                     </div>
                     <div className="modal-actions">
                       <span className="save-status">{personalNoteSaveStatus || (selectedPersonalNote.lastSavedAt ? `마지막 저장 ${formatDate(selectedPersonalNote.lastSavedAt)}` : "")}</span>
-                      <button className="secondary-button danger" type="button" onClick={() => deletePersonalNote(selectedPersonalNote.id)}>
-                        삭제
-                      </button>
+                      {selectedPersonalNote.status === "archived" ? (
+                        <button className="secondary-button" type="button" onClick={() => void restoreArchivedPersonalNote(selectedPersonalNote)}>복원</button>
+                      ) : (
+                        <button className="secondary-button danger" type="button" onClick={() => deletePersonalNote(selectedPersonalNote.id)}>보관</button>
+                      )}
                       <button className="primary-button modal-primary" type="button" onClick={savePersonalNote}>
                         저장
                       </button>

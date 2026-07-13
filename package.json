@@ -29,7 +29,8 @@
     "db:import-ko": "node scripts/import-ko-translation.mjs",
     "db:backfill-ko-search": "node scripts/backfill-ko-search.mjs",
     "db:validate-ko": "node scripts/validate-ko-translation.mjs",
-    "lexicon:validate": "node scripts/validate-hebrew-lexicon.mjs"
+    "lexicon:validate": "node scripts/validate-hebrew-lexicon.mjs",
+    "db:smoke-notes": "node scripts/smoke-remote-personal-note-workspace.mjs"
   },
   "overrides": {
     "postcss": "^8.5.10",

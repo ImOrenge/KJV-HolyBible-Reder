@@ -4,7 +4,10 @@ import type {
   FavoriteVerse,
   Highlight,
   PersonalNote,
+  PersonalNoteLink,
+  PersonalNoteRevision,
   PersonalNoteTag,
+  PersonalNoteTemplate,
   PersonalNoteVerseLink,
   ReadingPlan,
   ReadingProgress,
@@ -212,7 +215,7 @@ function mergePersonalNotes(remote: PersonalNote[], local: PersonalNote[], userI
   const idMap = new Map<string, string>();
 
   for (const item of [...remote, ...local]) {
-    const next = withUser(item, userId);
+    const next = withUser({ ...item, revision: item.revision ?? 1 }, userId);
     const existing = merged.get(next.id);
     merged.set(next.id, newerBy(existing, next, (note) => note.updatedAt));
     idMap.set(item.id, next.id);
@@ -236,6 +239,7 @@ function mergePersonalNoteVerseLinks(
     const mapped = withUser(
       {
         ...item,
+        source: item.source ?? "reader",
         noteId: noteIdMap.get(item.noteId) ?? item.noteId,
       },
       userId,
@@ -245,6 +249,37 @@ function mergePersonalNoteVerseLinks(
   }
 
   return [...merged.values()].sort((left, right) => left.linkOrder - right.linkOrder || left.createdAt.localeCompare(right.createdAt));
+}
+
+function mergePersonalNoteRevisions(remote: PersonalNoteRevision[], local: PersonalNoteRevision[], userId: string, noteIdMap: Map<string, string>) {
+  const merged = new Map<string, PersonalNoteRevision>();
+  for (const item of [...remote, ...local]) {
+    const mapped = withUser({ ...item, noteId: noteIdMap.get(item.noteId) ?? item.noteId }, userId);
+    merged.set(`${mapped.noteId}:${mapped.revision}`, mapped);
+  }
+  return [...merged.values()].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+}
+
+function mergePersonalNoteLinks(remote: PersonalNoteLink[], local: PersonalNoteLink[], userId: string, noteIdMap: Map<string, string>) {
+  const merged = new Map<string, PersonalNoteLink>();
+  for (const item of [...remote, ...local]) {
+    const mapped = withUser({
+      ...item,
+      sourceNoteId: noteIdMap.get(item.sourceNoteId) ?? item.sourceNoteId,
+      targetNoteId: noteIdMap.get(item.targetNoteId) ?? item.targetNoteId,
+    }, userId);
+    if (mapped.sourceNoteId !== mapped.targetNoteId) merged.set(`${mapped.sourceNoteId}:${mapped.targetNoteId}`, mapped);
+  }
+  return [...merged.values()].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+}
+
+function mergePersonalNoteTemplates(remote: PersonalNoteTemplate[], local: PersonalNoteTemplate[], userId: string) {
+  const merged = new Map<string, PersonalNoteTemplate>();
+  for (const item of [...remote, ...local]) {
+    const mapped = withUser(item, userId);
+    merged.set(mapped.id, newerBy(merged.get(mapped.id), mapped, (template) => template.updatedAt));
+  }
+  return [...merged.values()].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 }
 
 function mergePersonalNoteTags(
@@ -344,6 +379,9 @@ export function hasImportableUserData(data: UserDataState) {
       data.personalNoteVerseLinks.length ||
       data.personalNoteTags.length ||
       data.verseTags.length ||
+      data.personalNoteRevisions.length ||
+      data.personalNoteLinks.length ||
+      data.personalNoteTemplates.length ||
       data.favoriteVerses.length ||
       data.tags.length ||
       data.favoriteLists.some((list) => list.id !== defaultFavoriteListId || list.name !== "기본 목록") ||
@@ -374,6 +412,9 @@ export function mergeUserDataForImport(remoteData: UserDataState, localData: Use
       personalNoteVerseLinks: mergePersonalNoteVerseLinks(remote.personalNoteVerseLinks, local.personalNoteVerseLinks, userId, noteIdMap),
       personalNoteTags: mergePersonalNoteTags(remote.personalNoteTags, local.personalNoteTags, userId, noteIdMap, tagIdMap),
       verseTags: mergeVerseTags(remote.verseTags, local.verseTags, userId, tagIdMap, noteIdMap),
+      personalNoteRevisions: mergePersonalNoteRevisions(remote.personalNoteRevisions, local.personalNoteRevisions, userId, noteIdMap),
+      personalNoteLinks: mergePersonalNoteLinks(remote.personalNoteLinks, local.personalNoteLinks, userId, noteIdMap),
+      personalNoteTemplates: mergePersonalNoteTemplates(remote.personalNoteTemplates, local.personalNoteTemplates, userId),
       tags,
     },
     userId,

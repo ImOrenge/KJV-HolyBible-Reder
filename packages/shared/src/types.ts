@@ -86,7 +86,24 @@ export type StudyNote = {
 };
 
 export type PersonalNoteStatus = "active" | "archived";
-export type PersonalNoteEditorFormat = "markdown-lite";
+export type PersonalNoteEditorFormat = "markdown-lite" | "rich-text-v1";
+export type PersonalNoteVerseLinkSource = "reader" | "inline-tag" | "dictionary";
+export type PersonalNoteDocumentMark = {
+  type: "bold" | "italic" | "underline" | "fontSize" | "textColor" | "highlight";
+  attrs?: Record<string, string>;
+};
+export type PersonalNoteNode = {
+  type: string;
+  attrs?: Record<string, unknown>;
+  content?: PersonalNoteNode[];
+  marks?: PersonalNoteDocumentMark[];
+  text?: string;
+};
+export type PersonalNoteDocument = {
+  type: "doc";
+  version?: 1;
+  content: PersonalNoteNode[];
+};
 
 export type PersonalNote = {
   id: string;
@@ -94,9 +111,12 @@ export type PersonalNote = {
   title: string;
   bodyMarkdown: string;
   bodyText: string;
+  bodyDocument?: PersonalNoteDocument;
   editorFormat: PersonalNoteEditorFormat;
   status: PersonalNoteStatus;
   pinned: boolean;
+  revision: number;
+  archivedAt?: string;
   createdAt: string;
   updatedAt: string;
   lastSavedAt?: string;
@@ -111,8 +131,39 @@ export type PersonalNoteVerseLink = {
   chapter: number;
   verse: number;
   selectedText?: string;
+  source: PersonalNoteVerseLinkSource;
   linkOrder: number;
   createdAt: string;
+};
+
+export type PersonalNoteRevision = {
+  id: string;
+  userId: string;
+  noteId: string;
+  revision: number;
+  title: string;
+  bodyDocument?: PersonalNoteDocument;
+  bodyText: string;
+  snapshotReason: "create" | "save" | "restore";
+  createdAt: string;
+};
+
+export type PersonalNoteLink = {
+  userId: string;
+  sourceNoteId: string;
+  targetNoteId: string;
+  createdAt: string;
+};
+
+export type PersonalNoteTemplate = {
+  id: string;
+  userId: string;
+  name: string;
+  description: string;
+  bodyDocument: PersonalNoteDocument;
+  status: "active" | "archived";
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type PersonalNoteTag = {
@@ -193,6 +244,9 @@ export type UserDataState = {
   personalNoteVerseLinks: PersonalNoteVerseLink[];
   personalNoteTags: PersonalNoteTag[];
   verseTags: VerseTag[];
+  personalNoteRevisions: PersonalNoteRevision[];
+  personalNoteLinks: PersonalNoteLink[];
+  personalNoteTemplates: PersonalNoteTemplate[];
   favoriteVerses: FavoriteVerse[];
   favoriteLists: FavoriteList[];
   tags: Tag[];

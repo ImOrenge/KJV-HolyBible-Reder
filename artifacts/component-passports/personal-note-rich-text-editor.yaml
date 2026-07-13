@@ -1,0 +1,49 @@
+component:
+  id: personal-note-rich-text-editor
+  status: candidate
+  updated_at: 2026-07-12T22:10:00+09:00
+  owner_scope: personal-note-feature
+  source:
+    repo: D:\kjv-educator
+    paths:
+      - apps/web/src/components/personal-note-rich-text-editor.tsx
+      - apps/web/src/app/globals.css
+      - apps/mobile/src/components/personal-note-rich-text-editor.tsx
+      - apps/mobile/metro.config.js
+    route: /app
+  classification:
+    kind: feature
+    change_gate: behavioral-style-contract
+  public_api:
+    props:
+      - noteId
+      - value
+      - linkedVerses
+      - noteOptions
+      - focusMode
+      - onChange
+      - onAddVerseLink
+      - onAddNoteLink
+      - onFocusModeChange
+  dependencies:
+    shared:
+      - PersonalNoteDocument
+      - PersonalNoteVerseLink
+      - verse-reference-autocomplete
+    external:
+      - Tiptap
+      - TenTap
+      - lucide-react
+  styling:
+    global_css:
+      file: apps/web/src/app/globals.css
+      namespace: f-personal-note-editor
+    inline_styles_allowed: false
+  state:
+    controlled: [document, focusMode]
+    local: [referenceQuery, noteQuery, suggestions, activeSuggestion, mobileTextSize, mobileTextAlign]
+  accessibility:
+    keyboard: native-toolbar-controls-and-editor
+    aria: toolbar-listbox-options-and-labeled-editor
+  validation:
+    required: [typecheck, lint, build, browser-interaction, desktop-mobile-visual]
