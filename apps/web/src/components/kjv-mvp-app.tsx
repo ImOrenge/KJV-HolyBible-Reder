@@ -61,6 +61,9 @@ import {
 } from "@/lib/auth/local-user-data-migration";
 import { TranslationFeedbackForm } from "@/components/feedback/translation-feedback-form";
 import { PersonalNoteRichTextEditor } from "@/components/personal-note-rich-text-editor";
+import { ReaderHeader, type ReaderTranslationMode } from "@/components/reader-header";
+import { ReaderVerseActions, type ReaderContextTab } from "@/components/reader-verse-actions";
+import { ReaderVerseRow } from "@/components/reader-verse-row";
 import { createClient as createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { ContinueReadingPanel, ProgressMetricPanel } from "@/components/app-preview-panels";
 import {
@@ -119,6 +122,7 @@ type KjvMvpAppProps = {
   onReaderLocationChange?: (route: StudyUiReaderRoute) => void;
   onReaderNavigate?: (route: StudyUiReaderRoute) => void;
   onViewChange?: (view: ViewKey) => void;
+  readerExperience?: "legacy" | "v2";
   readerRoute?: StudyUiReaderRoute;
   user: AppUser;
 };
@@ -536,13 +540,16 @@ export function KjvMvpApp({
   onReaderLocationChange,
   onReaderNavigate,
   onViewChange,
+  readerExperience = "legacy",
   readerRoute,
   user,
 }: KjvMvpAppProps) {
   const router = useRouter();
   const initialReaderRouteRef = useRef(readerRoute);
+  const isReaderV2 = readerExperience === "v2";
   const readerRouteBookId = readerRoute?.bookId;
   const readerRouteChapter = readerRoute?.chapter;
+  const readerRoutePanel = readerRoute?.panel;
   const readerRouteVerseNumber = getStudyUiReaderVerseNumber(readerRoute);
   const books = useMemo(() => getBooks(), []);
   const oldBooks = useMemo(() => getBooks("old"), []);
@@ -561,6 +568,13 @@ export function KjvMvpApp({
   const [currentChapter, setCurrentChapter] = useState(readerRoute?.chapter ?? 1);
   const [selectedVerseId, setSelectedVerseId] = useState<string | null>(null);
   const [currentReadingVerseId, setCurrentReadingVerseId] = useState<string | null>(null);
+  const [readerContextTab, setReaderContextTab] = useState<ReaderContextTab>(() => {
+    const panel = initialReaderRouteRef.current?.panel;
+    return panel === "dictionary" ? "original" : panel === "links" || panel === "saved" ? panel : "note";
+  });
+  const [isReaderContextOpen, setIsReaderContextOpen] = useState(Boolean(readerRoute?.primaryVerseKey));
+  const [isReaderNavigatorOpen, setIsReaderNavigatorOpen] = useState(true);
+  const [isReaderFocusMode, setIsReaderFocusMode] = useState(false);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedVerseIds, setSelectedVerseIds] = useState<string[]>([]);
   const [selectionAnchorVerseId, setSelectionAnchorVerseId] = useState<string | null>(null);
@@ -643,6 +657,7 @@ export function KjvMvpApp({
   const verseElementsRef = useRef(new Map<string, HTMLButtonElement>());
   const chapterSwipeStartRef = useRef<{ x: number; y: number; pointerId: number } | null>(null);
   const suppressVerseClickRef = useRef(false);
+  const verseLongPressTimerRef = useRef<number | null>(null);
   const progressSaveTimerRef = useRef<number | null>(null);
   const autoCompleteTimerRef = useRef<number | null>(null);
   const autoCompleteTargetVerseIdRef = useRef<string | null>(null);
@@ -658,6 +673,11 @@ export function KjvMvpApp({
   const personalNotesLoadedRef = useRef(false);
 
   const currentBook = getBook(currentBookId) ?? books[0];
+  const currentBookChapters = getChapters(currentBook.id);
+  const chapterNavigatorWindowStart = Math.max(0, Math.min(currentChapter - 6, currentBookChapters.length - 12));
+  const chapterNavigatorChapters = isReaderV2 && currentBookChapters.length > 12
+    ? currentBookChapters.slice(chapterNavigatorWindowStart, chapterNavigatorWindowStart + 12)
+    : currentBookChapters;
   const chapterPickerBook = getBook(chapterPickerBookId) ?? currentBook;
   const isAuthenticated = user.isAuthenticated;
   const resolveVerseById = useCallback(
@@ -1185,6 +1205,18 @@ export function KjvMvpApp({
     }
     setTargetVerseNumber(nextVerse);
   }, [clearAutoCompleteTimer, currentBookId, currentChapter, mounted, readerRouteBookId, readerRouteChapter, readerRouteVerseNumber]);
+
+  useEffect(() => {
+    if (!isReaderV2 || !readerRoutePanel) return;
+    setReaderContextTab(readerRoutePanel === "dictionary" ? "original" : readerRoutePanel);
+    setIsReaderContextOpen(true);
+  }, [isReaderV2, readerRoutePanel]);
+
+  useEffect(() => () => {
+    if (verseLongPressTimerRef.current !== null) {
+      window.clearTimeout(verseLongPressTimerRef.current);
+    }
+  }, []);
 
   useEffect(() => {
     onReaderLocationChange?.(createStudyUiReaderRoute({ bookId: currentBookId, chapter: currentChapter }));
@@ -1758,6 +1790,11 @@ export function KjvMvpApp({
   function selectVerse(verse: Verse) {
     setSelectedVerseId(verse.id);
     setTrackedReadingVerseId(verse.id);
+    if (isReaderV2) {
+      setReaderContextTab("note");
+      setIsReaderContextOpen(true);
+      setIsReaderFocusMode(false);
+    }
     updateProgress(verse.bookId, verse.chapter, verse.verse, getScrollPosition());
   }
 
@@ -1826,9 +1863,30 @@ export function KjvMvpApp({
       y: event.clientY,
       pointerId: event.pointerId,
     };
+
+    if (isReaderV2) {
+      const verseId = (event.target as HTMLElement).closest<HTMLElement>("[data-verse-id]")?.dataset.verseId;
+      const verse = verseId ? chapterVerses.find((item) => item.id === verseId) : null;
+      if (verse) {
+        clearVerseLongPressTimer();
+        verseLongPressTimerRef.current = window.setTimeout(() => {
+          verseLongPressTimerRef.current = null;
+          chapterSwipeStartRef.current = null;
+          suppressVerseClickRef.current = true;
+          setSelectionMode(true);
+          selectVerseForBatch(verse);
+          setIsReaderContextOpen(false);
+          window.navigator.vibrate?.(20);
+          window.setTimeout(() => {
+            suppressVerseClickRef.current = false;
+          }, 300);
+        }, 520);
+      }
+    }
   }
 
   function handleVerseListPointerUp(event: PointerEvent<HTMLElement>) {
+    clearVerseLongPressTimer();
     const start = chapterSwipeStartRef.current;
     chapterSwipeStartRef.current = null;
 
@@ -1859,8 +1917,16 @@ export function KjvMvpApp({
   }
 
   function handleVerseListPointerCancel(event: PointerEvent<HTMLElement>) {
+    clearVerseLongPressTimer();
     if (chapterSwipeStartRef.current?.pointerId === event.pointerId) {
       chapterSwipeStartRef.current = null;
+    }
+  }
+
+  function clearVerseLongPressTimer() {
+    if (verseLongPressTimerRef.current !== null) {
+      window.clearTimeout(verseLongPressTimerRef.current);
+      verseLongPressTimerRef.current = null;
     }
   }
 
@@ -3236,6 +3302,7 @@ export function KjvMvpApp({
 
   const selectedHighlight = selectedVerse ? highlightsByVerse.get(selectedVerse.id) : null;
   const selectedFavorite = selectedVerse ? favoritesByVerse.get(selectedVerse.id) : null;
+  const selectedVerseHebrewItems = selectedVerse ? hebrewOccurrencesByVerse.get(getVerseKey(selectedVerse)) ?? [] : [];
   const shouldShowTtsOverlay = ttsPlaybackState === "playing" || ttsPlaybackState === "paused";
   const pendingDeleteFavoriteList = pendingDeleteFavoriteListId
     ? userData.favoriteLists.find((list) => list.id === pendingDeleteFavoriteListId) ?? null
@@ -3250,6 +3317,17 @@ export function KjvMvpApp({
       : `${getChapterLabel(noteTarget.bookId, noteTarget.chapter)} 노트`
     : "";
   const searchDisplayLanguage: TranslationLanguage = searchLanguage === "en" ? "en" : "ko";
+  const readerTranslationMode: ReaderTranslationMode = showParallelTranslation ? "parallel" : readingLanguage;
+  const readerChapterSubtitle = `${currentBook.nameEn} · ${
+    chapterStatus === "loading"
+      ? "본문 불러오는 중"
+      : chapterStatus === "error"
+        ? "본문 오류"
+        : `${chapterVerses.length} ${chapterLanguageLabel} 구절 · ${formatSource(chapterSource)}`
+  }${(readingLanguage === "ko" || showParallelTranslation) && !currentChapterHasKorean ? " · 한국어 본문 없음" : ""}`;
+  const readerCurrentLocation = `${
+    currentReadingVerse ? `현재 위치 ${formatReference(currentReadingVerse)}` : "현재 위치 자동 추적 대기"
+  }${isCurrentPlanChapter ? " · 오늘 분량" : ""}`;
   const commandItems = [
     {
       label: "이어 읽기",
@@ -3706,8 +3784,13 @@ export function KjvMvpApp({
         ) : null}
 
         {activeView === "reader" ? (
-          <section className="reader-layout">
-            <aside className="selector-panel">
+          <section
+            className={isReaderV2 ? "reader-layout f-reader-screen" : "reader-layout"}
+            data-context-open={isReaderContextOpen}
+            data-focus-mode={isReaderFocusMode}
+            data-navigator-open={isReaderNavigatorOpen}
+          >
+            <aside className={isReaderV2 ? "selector-panel f-reader-screen__navigator" : "selector-panel"}>
               <label>
                 성경 권
                 <select value={currentBookId} onChange={(event) => openChapter(event.target.value, 1)}>
@@ -3724,8 +3807,15 @@ export function KjvMvpApp({
                 </select>
               </label>
 
+              {isReaderV2 && currentBookChapters.length > chapterNavigatorChapters.length ? (
+                <div className="f-reader-navigator__summary">
+                  <span>{chapterNavigatorChapters[0]}-{chapterNavigatorChapters[chapterNavigatorChapters.length - 1]}장</span>
+                  <button type="button" onClick={openChapterPicker}>전체 {currentBookChapters.length}장</button>
+                </div>
+              ) : null}
+
               <div className="chapter-grid" aria-label="장 선택">
-                {getChapters(currentBook.id).map((chapter) => (
+                {chapterNavigatorChapters.map((chapter) => (
                   <button
                     className={chapter === currentChapter ? "chapter-button active" : "chapter-button"}
                     key={chapter}
@@ -3739,8 +3829,60 @@ export function KjvMvpApp({
               </div>
             </aside>
 
-            <section className="reader-panel">
-              <div className="reader-toolbar">
+            <section className={isReaderV2 ? "reader-panel f-reader-screen__scripture" : "reader-panel"}>
+              {isReaderV2 ? (
+                <ReaderHeader
+                  contextOpen={isReaderContextOpen}
+                  currentLocation={readerCurrentLocation}
+                  focusMode={isReaderFocusMode}
+                  hasSelectedVerse={Boolean(selectedVerse)}
+                  navigatorOpen={isReaderNavigatorOpen}
+                  onNextChapter={() => moveChapter(1)}
+                  onOpenChapterPicker={openChapterPicker}
+                  onPlayChapter={() => playSpeechQueue(chapterVerses, 0, "현재 장", "chapter")}
+                  onPreviousChapter={() => moveChapter(-1)}
+                  onSetTranslationMode={(mode) => {
+                    if (mode === "parallel") {
+                      updateSettings({ showParallelTranslation: true });
+                      return;
+                    }
+                    updateSettings({ defaultTranslation: mode, showParallelTranslation: false });
+                  }}
+                  onToggleContext={() => setIsReaderContextOpen((current) => !current)}
+                  onToggleFocusMode={() => setIsReaderFocusMode((current) => !current)}
+                  onToggleNavigator={() => setIsReaderNavigatorOpen((current) => !current)}
+                  overflowActions={(
+                    <>
+                      <button className="f-reader-header__menu-item" type="button" onClick={() => toggleCompleted()}>
+                        <CheckCircle2 size={16} />
+                        {isCurrentChapterCompleted ? "읽음 취소" : "읽음 완료"}
+                      </button>
+                      <button className="f-reader-header__menu-item" type="button" onClick={() => setSelectionMode(!isSelectionMode)}>
+                        <ListChecks size={16} />
+                        {isSelectionMode ? `${selectedVerses.length}개 선택` : "다중 선택"}
+                      </button>
+                      <button
+                        className="f-reader-header__menu-item"
+                        type="button"
+                        onClick={() => openNoteModal({ scope: "chapter", bookId: currentBookId, chapter: currentChapter })}
+                      >
+                        <StickyNote size={16} />
+                        장 노트
+                      </button>
+                      {readingPlanDay ? (
+                        <button className="f-reader-header__menu-item" type="button" onClick={openTodayReading}>
+                          <CalendarDays size={16} />
+                          오늘 분량
+                        </button>
+                      ) : null}
+                    </>
+                  )}
+                  subtitle={readerChapterSubtitle}
+                  title={`${currentBook.nameKo} ${currentChapter}장`}
+                  translationMode={readerTranslationMode}
+                />
+              ) : (
+                <div className="reader-toolbar">
                 <button className="icon-button" type="button" onClick={() => moveChapter(-1)} aria-label="이전 장">
                   <SkipBack size={18} />
                 </button>
@@ -3765,9 +3907,10 @@ export function KjvMvpApp({
                 <button className="icon-button" type="button" onClick={() => moveChapter(1)} aria-label="다음 장">
                   <SkipForward size={18} />
                 </button>
-              </div>
+                </div>
+              )}
 
-              {renderReaderActions("top")}
+              {!isReaderV2 ? renderReaderActions("top") : null}
 
               <article
                 aria-label="성경 본문"
@@ -3788,70 +3931,36 @@ export function KjvMvpApp({
                     const hebrewItems = hebrewOccurrencesByVerse.get(getVerseKey(verse)) ?? [];
                     const verseTags = userData.verseTags.filter((tag) => tag.verseKey === getVerseKey(verse));
                     return (
-                      <button
-                        className={[
-                          "verse-row",
-                          selectedVerseId === verse.id ? "selected" : "",
-                          selectedVerseIdSet.has(verse.id) ? "batch-selected" : "",
-                          currentReadingVerseId === verse.id ? "current-reading" : "",
-                          speakingVerseId === verse.id ? "speaking" : "",
-                          showParallelTranslation ? "parallel-translation" : "",
-                          highlight ? `highlight-${highlight.color}` : "",
-                        ].join(" ")}
-                        data-verse-id={verse.id}
+                      <ReaderVerseRow
+                        batchSelected={selectedVerseIdSet.has(verse.id)}
+                        currentReading={currentReadingVerseId === verse.id}
+                        displayText={getVerseDisplayText(verse, readingLanguage)}
+                        englishText={getVerseDisplayText(verse, "en")}
+                        hasNote={Boolean(note)}
+                        highlightColor={highlight?.color}
+                        isFavorite={Boolean(favorite)}
+                        isSelectionMode={isSelectionMode}
                         key={verse.id}
-                        ref={(element) => setVerseElement(verse.id, element)}
-                        type="button"
-                        onClick={() => handleVerseClick(verse)}
-                      >
-                        <span className="verse-number">{verse.verse}</span>
-                        {showParallelTranslation ? (
-                          <span className="verse-text-split">
-                            <span className={verse.textKo ? "verse-translation-pane" : "verse-translation-pane missing"}>
-                              <small>KR</small>
-                              <span>{verse.textKo ?? "한국어 본문 없음"}</span>
-                            </span>
-                            <span className="verse-translation-pane">
-                              <small>EN</small>
-                              <span>{getVerseDisplayText(verse, "en")}</span>
-                            </span>
-                          </span>
-                        ) : (
-                          <span>{getVerseDisplayText(verse, readingLanguage)}</span>
-                        )}
-                        {hebrewItems.length || verseTags.length ? (
-                          <span className="verse-study-strip">
-                            {hebrewItems.length ? (
-                              <span className="verse-original-count">원어 {hebrewItems.length}개</span>
-                            ) : null}
-                            {hebrewItems.slice(0, 3).map(({ occurrence, entry }) => (
-                              <span
-                                className="hebrew-word-chip"
-                                dir="rtl"
-                                key={occurrence.id}
-                                title={`${entry.pronunciationKo} · ${entry.glossEn}`}
-                              >
-                                {entry.lemmaHe}
-                                <b dir="ltr">{entry.transliteration}</b>
-                                <em dir="ltr">{entry.glossKo}</em>
-                              </span>
-                            ))}
-                            {verseTags.map((tag) => {
-                              const tagItem = userData.tags.find((item) => item.id === tag.tagId);
-                              return tagItem ? <span className="chip chip-ink" key={tag.id}>{tagItem.name}</span> : null;
-                            })}
-                          </span>
-                        ) : null}
-                        <span className="verse-markers">
-                          {isSelectionMode ? (
-                            <span className={selectedVerseIdSet.has(verse.id) ? "selection-check active" : "selection-check"}>
-                              {selectedVerseIdSet.has(verse.id) ? <CheckCircle2 size={15} /> : null}
-                            </span>
-                          ) : null}
-                          {note ? <StickyNote className="verse-icon" size={15} /> : null}
-                          {favorite ? <Bookmark className="verse-icon" size={16} /> : null}
-                        </span>
-                      </button>
+                        koreanText={verse.textKo}
+                        onSelect={() => handleVerseClick(verse)}
+                        originalWords={hebrewItems.map(({ occurrence, entry }) => ({
+                          glossEn: entry.glossEn,
+                          glossKo: entry.glossKo,
+                          id: occurrence.id,
+                          lemmaHe: entry.lemmaHe,
+                          pronunciationKo: entry.pronunciationKo,
+                          transliteration: entry.transliteration,
+                        }))}
+                        parallel={showParallelTranslation}
+                        selected={selectedVerseId === verse.id}
+                        setElement={(element) => setVerseElement(verse.id, element)}
+                        speaking={speakingVerseId === verse.id}
+                        tags={verseTags.flatMap((tag) => {
+                          const tagItem = userData.tags.find((item) => item.id === tag.tagId);
+                          return tagItem ? [{ id: tag.id, name: tagItem.name }] : [];
+                        })}
+                        verse={verse}
+                      />
                     );
                   })
                 ) : (
@@ -3870,9 +3979,9 @@ export function KjvMvpApp({
                 )}
               </article>
 
-              {renderReaderActions("bottom")}
+              {!isReaderV2 ? renderReaderActions("bottom") : null}
 
-              {selectedVerse ? (
+              {!isReaderV2 && selectedVerse ? (
                 <section className="action-panel">
                   <div className="selected-reference">
                     <strong>{formatReference(selectedVerse)}</strong>
@@ -4023,6 +4132,133 @@ export function KjvMvpApp({
 
               {renderChapterPagination()}
             </section>
+            {isReaderV2 && isReaderContextOpen ? (
+              <ReaderVerseActions
+                activeTab={readerContextTab}
+                hasOriginalWords={Boolean(selectedVerseHebrewItems.length)}
+                onClose={() => setIsReaderContextOpen(false)}
+                onTabChange={setReaderContextTab}
+                panels={{
+                  note: selectedVerse ? (
+                    <>
+                      <div className="f-reader-context__actions">
+                        <button className="secondary-button" type="button" onClick={addSelectedVerseToNewPersonalNote}>
+                          <StickyNote size={16} />
+                          새 성경노트
+                        </button>
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          onClick={() => openNoteModal({
+                            scope: "verse",
+                            bookId: selectedVerse.bookId,
+                            chapter: selectedVerse.chapter,
+                            verse: selectedVerse.verse,
+                            verseId: selectedVerse.id,
+                          })}
+                        >
+                          <StickyNote size={16} />
+                          절 노트
+                        </button>
+                        <button className="secondary-button" type="button" onClick={tagSelectedVerse}>
+                          <Tags size={16} />
+                          구절 태그
+                        </button>
+                      </div>
+                      <p className="f-reader-context__empty">선택한 구절을 새 노트에 연결하거나 짧은 절 노트를 기록합니다.</p>
+                    </>
+                  ) : null,
+                  original: selectedVerse ? (
+                    <div className="f-reader-context__word-list">
+                      {selectedVerseHebrewItems.map(({ occurrence, entry }) => (
+                        <button
+                          className="f-reader-context__word"
+                          key={occurrence.id}
+                          onClick={() => {
+                            setDictionaryQuery(entry.lemmaHe);
+                            setSelectedHebrewEntryKey(entry.normalizedKey);
+                            setActiveView("dictionary");
+                          }}
+                          type="button"
+                        >
+                          <strong dir="rtl">{entry.lemmaHe}</strong>
+                          <span>{entry.transliteration} · {entry.pronunciationSymbol} · {entry.pronunciationKo}</span>
+                          <small>{entry.glossKo} · {entry.glossEn}</small>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null,
+                  links: selectedVerse ? (
+                    <>
+                      {selectedVerseNoteReferences.length ? (
+                        <div className="verse-note-backlinks">
+                          <strong>이 구절이 포함된 내 노트</strong>
+                          {selectedVerseNoteReferences.map((note) => (
+                            <button key={note.id} onClick={() => { setSelectedPersonalNoteId(note.id); setActiveView("notes"); }} type="button">
+                              <span>{note.title}</span>
+                              <small>{note.excerpt || "본문 없음"}</small>
+                            </button>
+                          ))}
+                        </div>
+                      ) : <p className="f-reader-context__empty">이 구절과 연결된 노트가 없습니다.</p>}
+                      <button
+                        className="secondary-button"
+                        disabled={!selectedVerse.textKo}
+                        onClick={openFeedbackModal}
+                        title={!selectedVerse.textKo ? "승인된 한국어 번역이 없습니다." : "번역 의견"}
+                        type="button"
+                      >
+                        <Flag size={16} />
+                        번역 의견
+                      </button>
+                    </>
+                  ) : null,
+                  saved: selectedVerse ? (
+                    <>
+                      <div className="highlight-action-group" aria-label="강조 선택">
+                        {highlightOptions.map((option) => (
+                          <button
+                            aria-label={`${option.label} 강조`}
+                            className={`swatch-button swatch-${option.color}`}
+                            key={option.color}
+                            onClick={() => applyHighlight(option.color)}
+                            type="button"
+                          >
+                            {selectedHighlight?.color === option.color ? <CheckCircle2 size={14} /> : null}
+                          </button>
+                        ))}
+                        <button className="icon-button" type="button" onClick={() => removeHighlight(selectedVerse.id)} aria-label="강조 해제">
+                          <RotateCcw size={16} />
+                        </button>
+                      </div>
+                      <div className="f-reader-context__actions">
+                        <button className="secondary-button" type="button" onClick={() => copyVerse(selectedVerse)}>
+                          <Copy size={16} />
+                          복사
+                        </button>
+                        <button className="secondary-button" type="button" onClick={() => playSpeechQueue([selectedVerse], 0, "선택 구절", "selection")}>
+                          <Volume2 size={16} />
+                          읽기
+                        </button>
+                      </div>
+                      <textarea
+                        className="highlight-note-input"
+                        value={highlightNote}
+                        onChange={(event) => setHighlightNote(event.target.value)}
+                        placeholder="강조 메모"
+                        rows={2}
+                      />
+                      <button className="secondary-button" type="button" onClick={openFavoriteModal}>
+                        <Bookmark size={16} />
+                        {selectedFavorite ? "저장한 말씀 수정" : "저장한 말씀 추가"}
+                      </button>
+                    </>
+                  ) : null,
+                }}
+                reference={selectedVerse ? formatReference(selectedVerse) : undefined}
+                source={selectedVerse ? getVerseDisplaySource(selectedVerse, readingLanguage) : undefined}
+              />
+            ) : null}
           </section>
         ) : null}
 

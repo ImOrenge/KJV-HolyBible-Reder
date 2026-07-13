@@ -4,6 +4,7 @@ import { APP_DESCRIPTION, APP_NAME, APP_SEO_TITLE } from "@/lib/brand";
 import { absoluteUrl, SITE_URL } from "@/lib/site-url";
 import "./globals.css";
 import "./study-app-shell.css";
+import "./reader-surface.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

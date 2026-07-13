@@ -30,6 +30,7 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 | 공통 계약 | `StudyContext`, semantic token, feature flag, 목표/legacy route mapping, Reader route parser, 개인정보 제외 navigation event allowlist | 모바일 route params와 safe-area/elevation token |
 | 웹 Shell | `uiShellV2` flag 아래 232/72px sidebar, top bar, account slot, 명령 검색, 5영역 모바일 nav | sync/TTS slot |
 | 웹 legacy adapter | 기존 `KjvMvpApp`을 controlled `activeView`로 열고 `/app/...` history 및 Reader 권·장·절 deep link와 연결 | 화면별 feature component 교체 |
+| 웹 Reader V2 | `readerV2` flag 아래 ReaderHeader/VerseRow/VerseActions, 3-pane, 태블릿 sheet, 모바일 action sheet | ReaderScreen data orchestration과 자동 회귀 테스트 |
 | 모바일 Shell | `uiShellV2` flag 아래 `오늘/성경/공부/보관함/설정` 5탭과 header 명령 검색 | tab/stack router와 Android/iOS 복귀 계약 |
 | 검증 | typecheck, lint, build, Expo Doctor, 구조/스타일 검사, 320/390/768/1024/1440px 브라우저 smoke | 실제 Android/iOS 검증 |
 
@@ -769,13 +770,14 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 
 ### Phase UX-02: Reader 중심 개편
 
-- [ ] 웹 reader 3-pane layout을 구현한다.
-- [ ] chapter navigator를 접을 수 있게 한다.
-- [ ] 모바일 reader header를 축소한다.
-- [ ] Verse Action Sheet와 웹 Study Context Panel을 구현한다.
-- [ ] long press 다중 선택과 즉시 액션을 구현한다.
-- [ ] 원어 marker -> dictionary context 흐름을 구현한다.
-- [ ] chapter/verse scroll 복원을 구현한다.
+- [x] 웹 reader 3-pane layout을 구현한다.
+- [x] chapter navigator를 접을 수 있게 한다.
+- [x] 모바일 reader header를 축소한다.
+- [x] Verse Action Sheet와 웹 Study Context Panel을 구현한다.
+- [x] long press 다중 선택과 즉시 액션을 구현한다.
+- [x] 원어 context -> dictionary -> Reader return 흐름을 구현한다.
+- [x] chapter/verse route와 context tab 복원을 구현한다.
+- [ ] ReaderScreen data orchestration과 자동 회귀 테스트를 분리한다.
 
 ### Phase UX-03: Notes 개편
 

@@ -205,31 +205,33 @@ flowchart LR
 
 ### 8.1 공통 태스크
 
-- [ ] `ReaderScreen`, `ReaderHeader`, `VerseRow`, `VerseActions` 책임을 분리한다.
-- [ ] 선택 절, 현재 읽기 절, 하이라이트 상태 indicator를 분리한다.
-- [ ] `StudyContext` 생성과 return verse anchor 복원을 구현한다.
+- [x] `ReaderHeader`, `VerseRow`, `VerseActions` 표시 책임을 분리한다.
+- [ ] `ReaderScreen` 데이터·저장·TTS orchestration을 `KjvMvpApp`에서 분리한다.
+- [x] 선택 절, 현재 읽기 절, 하이라이트 상태 indicator를 분리한다.
+- [x] `StudyContext` 생성과 return verse anchor 복원을 구현한다.
 - [ ] 이전/다음 장 이동 후 focus와 scroll 규칙을 구현한다.
 - [ ] TTS, 복사, 다중 선택, 저장 기능 회귀 테스트를 추가한다.
-- [ ] 원어 marker가 있을 때만 사전 action을 노출한다.
+- [x] 원어 출현 데이터가 있는 절에만 `원어` context tab을 노출한다.
 
 ### 8.2 웹 태스크
 
-- [ ] `Chapter Navigator | Scripture | Study Context Panel` 3-pane을 구현한다.
-- [ ] Scripture 폭을 최대 `760px`로 제한한다.
-- [ ] chapter navigator를 접을 수 있게 한다.
-- [ ] `노트 / 원어 / 연결 / 저장` context panel을 구현한다.
-- [ ] panel을 닫은 집중 읽기 mode를 구현한다.
-- [ ] 50개 장 selector를 첫 화면에서 상시 펼치지 않는다.
+- [x] `Chapter Navigator | Scripture | Study Context Panel` 3-pane을 구현한다.
+- [x] Scripture 폭을 최대 `760px`로 제한한다.
+- [x] chapter navigator를 접을 수 있게 한다.
+- [x] `노트 / 원어 / 연결 / 저장` context panel을 구현한다.
+- [x] panel을 닫은 집중 읽기 mode를 구현한다.
+- [x] 장 탐색에는 현재 장 주변 최대 12개만 표시하고 전체 장은 sheet에서 연다.
 
 ### 8.3 모바일 태스크
 
-- [ ] reader top bar를 이전 장, 권·장, 다음 장 중심으로 축소한다.
-- [ ] `EN / KR / 동시` segmented control을 구현한다.
-- [ ] 절 tap으로 Verse Action Sheet를 연다.
-- [ ] long press로 다중 선택 mode에 진입한다.
-- [ ] sheet snap point와 safe area를 적용한다.
-- [ ] 본문이 viewport 상단 `140px` 이내에서 시작하도록 한다.
-- [ ] bottom tab, keyboard, TTS player와 sheet가 겹치지 않게 한다.
+- [x] reader top bar를 이전 장, 권·장, 다음 장 중심으로 축소한다.
+- [x] `EN / KR / 동시` segmented control을 구현한다.
+- [x] 절 tap으로 Verse Action Sheet를 연다.
+- [x] long press로 다중 선택 mode에 진입한다.
+- [x] sheet max-height와 safe area offset을 적용한다.
+- [x] 본문이 viewport 상단 `140px` 이내에서 시작하도록 한다.
+- [x] bottom tab과 TTS player offset을 sheet에 적용한다.
+- [ ] keyboard 회피와 drag snap point를 구현하고 실제 기기에서 검증한다.
 
 ### 산출물
 
@@ -240,11 +242,11 @@ flowchart LR
 
 ### 완료 기준
 
-- [ ] 절 선택 후 노트, 하이라이트, 저장 시작까지 최대 2회 action이다.
-- [ ] 모바일 선택 액션을 위해 장 끝까지 scroll할 필요가 없다.
-- [ ] Reader에서 노트/사전으로 이동 후 원래 절과 scroll로 복귀한다.
+- [x] 절 선택 후 노트, 하이라이트, 저장 시작까지 최대 2회 action이다.
+- [x] 모바일 선택 액션을 위해 장 끝까지 scroll할 필요가 없다.
+- [x] Reader에서 사전으로 이동 후 원래 절과 context tab으로 복귀한다.
 - [ ] 본문 선택, TTS 자동 scroll, 다중 선택이 서로 충돌하지 않는다.
-- [ ] `320~1440px`에서 horizontal page overflow가 없다.
+- [x] `320~1440px`에서 horizontal page overflow가 없다.
 
 ## 9. Phase P4: Notes 작업 공간 개편
 

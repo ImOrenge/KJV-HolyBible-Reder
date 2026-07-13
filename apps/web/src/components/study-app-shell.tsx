@@ -36,6 +36,7 @@ import { KjvMvpApp } from "./kjv-mvp-app";
 
 type StudyAppShellProps = {
   initialRoute: StudyUiRouteState;
+  readerV2?: boolean;
   user: AppUser;
 };
 
@@ -93,7 +94,7 @@ const viewLabels: Record<StudyUiWebViewKey, string> = {
 
 const commandItems = sidebarSections.flatMap((section) => section.items).concat({ icon: Settings, label: "설정", view: "settings" });
 
-export function StudyAppShell({ initialRoute, user }: StudyAppShellProps) {
+export function StudyAppShell({ initialRoute, readerV2 = false, user }: StudyAppShellProps) {
   const router = useRouter();
   const commandDialogRef = useRef<HTMLDialogElement>(null);
   const initialReaderBookId = initialRoute.reader?.bookId;
@@ -159,7 +160,7 @@ export function StudyAppShell({ initialRoute, user }: StudyAppShellProps) {
   }, [commandQuery]);
 
   return (
-    <div className="f-study-shell" data-sidebar-collapsed={isSidebarCollapsed}>
+    <div className="f-study-shell" data-active-view={activeView} data-sidebar-collapsed={isSidebarCollapsed}>
       <aside className="f-study-shell__sidebar" aria-label="주요 탐색">
         <div className="f-study-shell__brand-row">
           <button className="f-study-shell__brand" type="button" onClick={() => navigate("dashboard")} aria-label="KJV 리더노트 오늘 화면">
@@ -242,6 +243,7 @@ export function StudyAppShell({ initialRoute, user }: StudyAppShellProps) {
             onReaderLocationChange={rememberReaderLocation}
             onReaderNavigate={navigateReader}
             onViewChange={navigate}
+            readerExperience={readerV2 ? "v2" : "legacy"}
             readerRoute={activeView === "reader" ? readerRoute : undefined}
             user={user}
           />
