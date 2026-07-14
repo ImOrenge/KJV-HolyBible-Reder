@@ -1,0 +1,430 @@
+.f-study-shell {
+  --study-shell-sidebar-width: 232px;
+  background: var(--bg);
+  color: var(--text);
+  display: grid;
+  grid-template-columns: var(--study-shell-sidebar-width) minmax(0, 1fr);
+  min-height: 100dvh;
+}
+
+.f-study-shell[data-sidebar-collapsed="true"] {
+  --study-shell-sidebar-width: 72px;
+}
+
+.f-study-shell__sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow: hidden auto;
+  padding: 10px;
+  position: sticky;
+  top: 0;
+}
+
+.f-study-shell__brand-row,
+.f-study-shell__topbar,
+.f-study-shell__topbar-actions,
+.f-study-shell__command-heading,
+.f-study-shell__command-input {
+  align-items: center;
+  display: flex;
+}
+
+.f-study-shell__brand-row {
+  gap: 6px;
+  justify-content: space-between;
+  min-height: 44px;
+}
+
+.f-study-shell__brand,
+.f-study-shell__nav-item,
+.f-study-shell__account,
+.f-study-shell__mobile-nav button,
+.f-study-shell__command-results button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  display: flex;
+}
+
+.f-study-shell__brand {
+  gap: 9px;
+  min-height: 44px;
+  min-width: 0;
+  padding: 0 8px;
+}
+
+.f-study-shell__brand span {
+  font-size: 0.95rem;
+  font-weight: 900;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.f-study-shell__icon-button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--muted);
+  display: inline-flex;
+  height: 44px;
+  justify-content: center;
+  min-width: 44px;
+}
+
+.f-study-shell__icon-button:hover,
+.f-study-shell__icon-button:focus-visible {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.f-study-shell__navigation {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 14px;
+}
+
+.f-study-shell__nav-section {
+  display: grid;
+  gap: 3px;
+}
+
+.f-study-shell__section-label {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 7px 10px 3px;
+}
+
+.f-study-shell__nav-item {
+  border-radius: 6px;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 10px;
+  text-align: left;
+  width: 100%;
+}
+
+.f-study-shell__nav-item:hover,
+.f-study-shell__nav-item:focus-visible,
+.f-study-shell__nav-item.is-active {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.f-study-shell__nav-item.is-active {
+  box-shadow: inset 3px 0 0 var(--accent);
+  font-weight: 900;
+}
+
+.f-study-shell__nav-item svg,
+.f-study-shell__brand svg {
+  flex: 0 0 auto;
+}
+
+.f-study-shell__settings {
+  margin-top: 10px;
+}
+
+.f-study-shell[data-sidebar-collapsed="true"] .f-study-shell__brand span,
+.f-study-shell[data-sidebar-collapsed="true"] .f-study-shell__section-label,
+.f-study-shell[data-sidebar-collapsed="true"] .f-study-shell__nav-item span {
+  display: none;
+}
+
+.f-study-shell[data-sidebar-collapsed="true"] .f-study-shell__brand,
+.f-study-shell[data-sidebar-collapsed="true"] .f-study-shell__nav-item {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.f-study-shell[data-sidebar-collapsed="true"] .f-study-shell__brand-row {
+  flex-direction: column;
+  padding-bottom: 8px;
+}
+
+.f-study-shell__workspace {
+  min-width: 0;
+}
+
+.f-study-shell__topbar {
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  border-bottom: 1px solid var(--line);
+  height: 56px;
+  justify-content: space-between;
+  padding: 0 18px;
+  position: sticky;
+  top: 0;
+  z-index: 25;
+}
+
+.f-study-shell__screen-heading {
+  display: grid;
+  gap: 1px;
+}
+
+.f-study-shell__screen-heading strong {
+  font-size: 0.95rem;
+}
+
+.f-study-shell__mobile-brand {
+  color: var(--muted);
+  display: none;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.f-study-shell__topbar-actions {
+  gap: 4px;
+}
+
+.f-study-shell__account {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  gap: 7px;
+  margin-left: 4px;
+  min-height: 44px;
+  min-width: 0;
+  padding: 0 8px;
+}
+
+.f-study-shell__account:hover,
+.f-study-shell__account:focus-visible {
+  background: var(--surface-2);
+}
+
+.f-study-shell__account > span:last-child {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.f-study-shell__avatar {
+  align-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  display: inline-flex;
+  height: 30px;
+  justify-content: center;
+  overflow: hidden;
+  width: 30px;
+}
+
+.f-study-shell__avatar img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.f-study-shell__content .app-root.shell-navigation {
+  min-height: calc(100dvh - 56px);
+  padding: 18px;
+}
+
+.f-study-shell__mobile-nav {
+  display: none;
+}
+
+.f-study-shell__command-dialog {
+  background: transparent;
+  border: 0;
+  margin: auto;
+  max-height: none;
+  max-width: none;
+  padding: 0;
+  width: min(520px, calc(100% - 32px));
+}
+
+.f-study-shell__command-dialog::backdrop {
+  background: rgba(21, 23, 22, 0.48);
+}
+
+.f-study-shell__command-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 12px;
+  max-height: min(70dvh, 620px);
+  padding: 14px;
+}
+
+.f-study-shell__command-heading {
+  justify-content: space-between;
+}
+
+.f-study-shell__command-heading > div {
+  display: grid;
+  gap: 2px;
+}
+
+.f-study-shell__command-heading span {
+  color: var(--accent-2);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.f-study-shell__command-input {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 12px;
+}
+
+.f-study-shell__command-input input {
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  outline: 0;
+}
+
+.f-study-shell__command-results {
+  display: grid;
+  gap: 4px;
+  overflow: auto;
+}
+
+.f-study-shell__command-results button {
+  border-radius: 6px;
+  gap: 10px;
+  min-height: 46px;
+  padding: 0 12px;
+  text-align: left;
+}
+
+.f-study-shell__command-results button:hover,
+.f-study-shell__command-results button:focus-visible {
+  background: var(--surface-2);
+}
+
+.f-study-shell__command-results p {
+  color: var(--muted);
+  margin: 0;
+  padding: 18px 12px;
+  text-align: center;
+}
+
+@media (max-width: 1023px) and (min-width: 768px) {
+  .f-study-shell {
+    --study-shell-sidebar-width: 72px;
+  }
+
+  .f-study-shell__brand-row {
+    flex-direction: column;
+    padding-bottom: 8px;
+  }
+
+  .f-study-shell__brand span,
+  .f-study-shell__section-label,
+  .f-study-shell__nav-item span,
+  .f-study-shell__collapse {
+    display: none;
+  }
+
+  .f-study-shell__brand,
+  .f-study-shell__nav-item {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
+@media (max-width: 767px) {
+  .f-study-shell {
+    display: block;
+    min-height: 100dvh;
+  }
+
+  .f-study-shell__sidebar {
+    display: none;
+  }
+
+  .f-study-shell__topbar {
+    height: 56px;
+    padding: 0 10px 0 12px;
+  }
+
+  .f-study-shell__mobile-brand {
+    display: block;
+  }
+
+  .f-study-shell__screen-heading strong {
+    font-size: 0.88rem;
+  }
+
+  .f-study-shell__account {
+    margin-left: 0;
+    padding: 0 5px;
+  }
+
+  .f-study-shell__account > span:last-child {
+    display: none;
+  }
+
+  .f-study-shell__content .app-root.shell-navigation {
+    min-height: calc(100dvh - 56px);
+    padding: 12px 12px calc(82px + env(safe-area-inset-bottom));
+  }
+
+  .f-study-shell__mobile-nav {
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+    bottom: 0;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    left: 0;
+    padding: 7px 8px calc(7px + env(safe-area-inset-bottom));
+    position: fixed;
+    right: 0;
+    z-index: 35;
+  }
+
+  .f-study-shell__mobile-nav button {
+    border-radius: 6px;
+    color: var(--muted);
+    display: grid;
+    gap: 2px;
+    justify-items: center;
+    min-height: 50px;
+    min-width: 0;
+    padding: 3px;
+  }
+
+  .f-study-shell__mobile-nav button.is-active {
+    background: var(--surface-2);
+    color: var(--text);
+  }
+
+  .f-study-shell__mobile-nav span {
+    font-size: 0.68rem;
+    font-weight: 800;
+    line-height: 1.1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100%;
+  }
+
+  .f-study-shell__command-dialog {
+    margin: auto auto calc(12px + env(safe-area-inset-bottom));
+    width: calc(100% - 24px);
+  }
+}

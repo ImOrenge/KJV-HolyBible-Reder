@@ -1,0 +1,41 @@
+component:
+  id: first-login-onboarding
+  status: candidate
+  updated_at: 2026-07-13T10:20:00+09:00
+  owner_scope: auth-profile-feature
+  source:
+    repo: D:\kjv-educator
+    paths:
+      - apps/web/src/components/onboarding/onboarding-form.tsx
+      - apps/mobile/src/onboarding-screen.tsx
+      - apps/web/src/app/globals.css
+    routes:
+      - /onboarding
+      - expo-auth-entry
+  classification:
+    kind: feature
+    change_gate: behavioral-style-contract
+  public_api:
+    web_props: [email, nextPath]
+    mobile_props: [accessToken, apiBaseUrl, email, onComplete, onSignOut, theme]
+  dependencies:
+    shared:
+      - USER_HONORIFICS
+      - UserOnboardingProfile
+      - onboarding-api-client
+    external:
+      - expo-image-picker
+      - lucide-react
+  styling:
+    global_css:
+      file: apps/web/src/app/globals.css
+      namespace: f-onboarding
+    mobile_style_owner: apps/mobile/src/onboarding-screen.tsx
+    inline_styles_allowed: false
+  state:
+    local: [nickname, fullName, honorific, avatar, submitting, message]
+  accessibility:
+    keyboard: native-form-controls
+    aria: labeled-form-avatar-preview-and-live-error
+  validation:
+    required: [typecheck, lint, build, web-mobile-visual, authenticated-rls-smoke]

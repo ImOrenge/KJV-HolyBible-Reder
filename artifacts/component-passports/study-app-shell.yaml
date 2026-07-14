@@ -1,0 +1,52 @@
+component:
+  id: study-app-shell
+  status: candidate
+  updated_at: 2026-07-13T23:30:00+09:00
+  owner_scope: study-navigation-shell
+  source:
+    repo: D:\kjv-educator
+    paths:
+      - apps/web/src/components/study-app-shell.tsx
+      - apps/web/src/app/study-app-shell.css
+      - apps/web/src/components/kjv-mvp-app.tsx
+    routes:
+      - /app
+  classification:
+    kind: shell
+    change_gate: behavioral-style-contract
+  public_api:
+    props: [initialView, user]
+    events: [legacy-view-navigation]
+  dependencies:
+    shared:
+      - StudyUiWebViewKey
+      - buildLegacyStudyAppUrl
+      - getStudyUiAreaForView
+    external:
+      - lucide-react
+      - next-navigation
+  styling:
+    global_css:
+      file: apps/web/src/app/study-app-shell.css
+      namespace: f-study-shell
+    tokens: [bg, surface, surface-2, text, muted, line, accent, shadow]
+    inline_styles_allowed: false
+  state:
+    local: [activeView, readerRoute, isSidebarCollapsed, isCommandOpen, commandQuery]
+    route: [view, bookId, chapter, verse, panel, word]
+  accessibility:
+    keyboard: native-buttons-and-dialog
+    aria: aria-current-navigation-and-labeled-icon-buttons
+  validation:
+    required: [typecheck, lint, build, desktop-mobile-visual, browser-back]
+    evidence:
+      - typecheck: pass
+      - lint: pass
+      - build: pass
+      - browser_desktop_1440: pass
+      - browser_mobile_320_390: pass
+      - browser_back_and_deep_link: pass
+      - target_route_deep_link: pass
+      - reader_chapter_history: pass
+      - command_dialog_alignment: pass
+      - feature_flag_off_legacy_shell: pass

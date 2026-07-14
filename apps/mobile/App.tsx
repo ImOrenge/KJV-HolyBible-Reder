@@ -9,12 +9,14 @@ import {
   createInitialUserData,
   defaultFavoriteListId,
   formatPlanChapters,
+  getUserOnboarding,
   getAdjacentChapter,
   getBook,
   getBooks,
   getChapters,
   getLocalDateKey,
   getReadingPlanDay,
+  getStudyUiAreaForView,
   getTotalChapterCount,
   hasImportableUserData,
   hebrewDictionaryThemes,
@@ -52,13 +54,17 @@ import {
   type TranslationLanguage,
   type TranslationFeedbackIssueType,
   type UserDataState,
+  type UserOnboardingProfile,
   type Verse,
+  type StudyUiMobileViewKey,
 } from "@kjv/shared";
 import { createClient as createSupabaseClient, type Session, type User } from "@supabase/supabase-js";
 import * as Clipboard from "expo-clipboard";
+import { makeRedirectUri } from "expo-auth-session";
 import Constants from "expo-constants";
 import * as Speech from "expo-speech";
 import { StatusBar } from "expo-status-bar";
+import * as WebBrowser from "expo-web-browser";
 import { createElement, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -68,6 +74,7 @@ import {
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -79,8 +86,12 @@ import {
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { PersonalNoteRichTextEditor } from "./src/components/personal-note-rich-text-editor";
+import { OnboardingScreen } from "./src/onboarding-screen";
+import { studyUiFeatureFlags } from "./src/study-ui-feature-flags";
 
-type ViewKey = "dashboard" | "reader" | "quickMove" | "progress" | "highlights" | "favorites" | "search" | "notes" | "dictionary" | "settings";
+WebBrowser.maybeCompleteAuthSession();
+
+type ViewKey = StudyUiMobileViewKey;
 type HomeTab = "today" | "progress" | "activity" | "study";
 type SettingsSectionKey = "account" | "tts" | "text" | "view";
 type SearchSelectKey = "language" | "sort" | "testament" | "book";
@@ -89,6 +100,7 @@ type AuthCredentialMode = "login" | "sign-up";
 type LoadStatus = "idle" | "loading" | "ready" | "error";
 type SubmitStatus = "idle" | "submitting" | "success" | "error";
 type SyncStatus = "idle" | "loading" | "ready" | "saving" | "error";
+type OnboardingStatus = "idle" | "checking" | "required" | "complete" | "error";
 type TtsPlaybackState = "idle" | "playing" | "paused";
 type SpeechQueueItem = {
   id?: string;
@@ -313,6 +325,37 @@ function getConfiguredSupabaseConfig() {
   return { supabaseAnonKey, supabaseUrl };
 }
 
+function getGoogleOAuthRedirectUrl() {
+  if (Platform.OS === "web" && typeof globalThis.location?.origin === "string") {
+    return globalThis.location.origin;
+  }
+
+  const configuredScheme = Constants.expoConfig?.scheme;
+  const scheme = Array.isArray(configuredScheme) ? configuredScheme[0] : configuredScheme;
+  const appScheme = scheme || "kjvreadernote";
+
+  return makeRedirectUri({
+    native: `${appScheme}://google-auth`,
+    scheme: appScheme,
+  });
+}
+
+function isRunningInExpoGo() {
+  return Platform.OS !== "web" && Boolean(Constants.expoVersion);
+}
+
+function readGoogleOAuthCallback(callbackUrl: string) {
+  const url = new URL(callbackUrl);
+  const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""));
+  const readParam = (key: string) => hashParams.get(key) ?? url.searchParams.get(key);
+
+  return {
+    accessToken: readParam("access_token"),
+    error: readParam("error_description") ?? readParam("error"),
+    refreshToken: readParam("refresh_token"),
+  };
+}
+
 function createMobileSupabaseClient(config: { supabaseAnonKey: string; supabaseUrl: string } | null) {
   if (!config) {
     return null;
@@ -321,7 +364,7 @@ function createMobileSupabaseClient(config: { supabaseAnonKey: string; supabaseU
   return createSupabaseClient(config.supabaseUrl, config.supabaseAnonKey, {
     auth: {
       autoRefreshToken: true,
-      detectSessionInUrl: false,
+      detectSessionInUrl: Platform.OS === "web",
       persistSession: true,
       storage: AsyncStorage,
     },
@@ -413,6 +456,10 @@ function AppShell() {
   const [entryMode, setEntryMode] = useState<EntryMode>("welcome");
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [authSession, setAuthSession] = useState<Session | null>(null);
+  const [onboardingStatus, setOnboardingStatus] = useState<OnboardingStatus>("idle");
+  const [onboardingProfile, setOnboardingProfile] = useState<UserOnboardingProfile | null>(null);
+  const [onboardingMessage, setOnboardingMessage] = useState("");
+  const [onboardingRetryToken, setOnboardingRetryToken] = useState(0);
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authStatus, setAuthStatus] = useState<SubmitStatus>("idle");
@@ -516,6 +563,9 @@ function AppShell() {
   );
   const selectedVerse = selectedVerseId ? knownVerses.get(selectedVerseId) ?? null : null;
   const currentReadingVerse = currentReadingVerseId ? knownVerses.get(currentReadingVerseId) ?? null : null;
+  const authenticatedDisplayName = onboardingProfile
+    ? `${onboardingProfile.nickname} ${onboardingProfile.honorific}`
+    : authUser?.email ?? "로그인 리더";
   const readingLanguage = userData.settings.defaultTranslation;
   const isDark = userData.settings.theme === "dark";
   const colors = isDark ? darkColors : lightColors;
@@ -625,8 +675,7 @@ function AppShell() {
         .filter((link) => link.noteId === selectedPersonalNote.id)
         .sort((left, right) => left.linkOrder - right.linkOrder)
     : [];
-  const quickMoveActive =
-    isQuickMoveOpen || activeView === "progress" || activeView === "highlights" || activeView === "search" || activeView === "notes" || activeView === "dictionary";
+  const activePrimaryArea = activeView === "quickMove" ? null : getStudyUiAreaForView(activeView);
   const filteredHighlights = useMemo(
     () =>
       userData.highlights
@@ -800,6 +849,55 @@ function AppShell() {
       subscription.unsubscribe();
     };
   }, [supabase]);
+
+  useEffect(() => {
+    if (Platform.OS === "web") {
+      return;
+    }
+
+    void WebBrowser.warmUpAsync();
+    return () => {
+      void WebBrowser.coolDownAsync();
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const accessToken = authSession?.access_token;
+
+    if (!authUser) {
+      setOnboardingStatus("idle");
+      setOnboardingProfile(null);
+      setOnboardingMessage("");
+      return;
+    }
+
+    if (!accessToken) {
+      setOnboardingStatus("error");
+      setOnboardingProfile(null);
+      setOnboardingMessage("로그인 세션을 확인하지 못했습니다.");
+      return;
+    }
+
+    setOnboardingStatus("checking");
+    setOnboardingMessage("");
+    void getUserOnboarding({ accessToken, baseUrl: apiBaseUrl })
+      .then((result) => {
+        if (cancelled) return;
+        setOnboardingProfile(result.profile);
+        setOnboardingStatus(result.completed && result.profile ? "complete" : "required");
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setOnboardingProfile(null);
+        setOnboardingStatus("error");
+        setOnboardingMessage(error instanceof Error ? error.message : "프로필 상태를 확인하지 못했습니다.");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [apiBaseUrl, authSession?.access_token, authUser, onboardingRetryToken]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2154,7 +2252,7 @@ function AppShell() {
 
     if (error) {
       setAuthStatus("error");
-      setAuthMessage(error.message);
+      setAuthMessage("로그인에 실패했습니다. 이메일과 비밀번호를 확인하세요.");
       return;
     }
 
@@ -2182,7 +2280,7 @@ function AppShell() {
 
     if (error) {
       setAuthStatus("error");
-      setAuthMessage(error.message);
+      setAuthMessage("가입 요청을 처리하지 못했습니다. 입력값을 확인하세요.");
       return;
     }
 
@@ -2196,12 +2294,84 @@ function AppShell() {
     }
   };
 
+  const signInWithGoogle = async () => {
+    if (!supabase) {
+      setAuthStatus("error");
+      setAuthMessage("Expo Supabase 공개 설정이 없습니다.");
+      return;
+    }
+
+    if (isRunningInExpoGo()) {
+      setAuthStatus("error");
+      setAuthMessage("Google 로그인은 Expo Go에서 지원되지 않습니다. 개발 빌드 또는 설치 앱에서 다시 시도하세요.");
+      return;
+    }
+
+    setAuthStatus("submitting");
+    setAuthMessage("");
+
+    try {
+      const redirectTo = getGoogleOAuthRedirectUrl();
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          queryParams: {
+            prompt: "select_account",
+          },
+          redirectTo,
+          skipBrowserRedirect: Platform.OS !== "web",
+        },
+      });
+
+      if (error || !data.url) {
+        throw new Error("oauth-start-failed");
+      }
+
+      if (Platform.OS === "web") {
+        return;
+      }
+
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+      if (result.type !== "success") {
+        setAuthStatus("idle");
+        setAuthMessage("Google 로그인이 취소되었습니다.");
+        return;
+      }
+
+      const callback = readGoogleOAuthCallback(result.url);
+      if (callback.error || !callback.accessToken || !callback.refreshToken) {
+        throw new Error("oauth-callback-failed");
+      }
+
+      const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+        access_token: callback.accessToken,
+        refresh_token: callback.refreshToken,
+      });
+
+      if (sessionError || !sessionData.session) {
+        throw new Error("oauth-session-failed");
+      }
+
+      setAuthSession(sessionData.session);
+      setAuthUser(sessionData.session.user);
+      setAuthStatus("success");
+      setAuthMessage("Google 계정으로 로그인되었습니다.");
+      setShowAuthForm(false);
+    } catch {
+      setAuthStatus("error");
+      setAuthMessage("Google 로그인을 완료하지 못했습니다. 다시 시도하세요.");
+    }
+  };
+
   const signOut = async () => {
     if (supabase) {
       await supabase.auth.signOut();
     }
     setAuthSession(null);
     setAuthUser(null);
+    setOnboardingStatus("idle");
+    setOnboardingProfile(null);
+    setOnboardingMessage("");
     setAuthStatus("idle");
     setAuthMessage("");
     setAuthPassword("");
@@ -2566,7 +2736,7 @@ function AppShell() {
                     <View>
                       <Text style={styles.authEntryFormTitle}>{credentialMode === "login" ? "로그인" : "회원가입"}</Text>
                       <Text style={styles.authEntryFormCopy}>
-                        {credentialMode === "login" ? "계정으로 통독 기록을 이어갑니다." : "이메일 계정으로 리더노트를 시작합니다."}
+                        {credentialMode === "login" ? "계정으로 통독 기록을 이어갑니다." : "Google 또는 이메일 계정으로 리더노트를 시작합니다."}
                       </Text>
                     </View>
                     <Pressable onPress={returnToWelcome} style={styles.authEntryBackButton}>
@@ -2581,6 +2751,7 @@ function AppShell() {
                     mode={credentialMode}
                     onChangeEmail={setAuthEmail}
                     onChangePassword={setAuthPassword}
+                    onGoogleSubmit={signInWithGoogle}
                     onPrivacyPress={credentialMode === "sign-up" ? () => setShowPrivacyPolicy(true) : undefined}
                     onSubmit={credentialMode === "login" ? signIn : signUp}
                     styles={styles}
@@ -2596,6 +2767,61 @@ function AppShell() {
     );
   }
 
+  if (authUser && onboardingStatus !== "complete") {
+    if (onboardingStatus === "required" && authSession?.access_token) {
+      return (
+        <SafeAreaProvider>
+          <SafeAreaView style={styles.safeArea}>
+            <StatusBar style={isDark ? "light" : "dark"} />
+            <OnboardingScreen
+              accessToken={authSession.access_token}
+              apiBaseUrl={apiBaseUrl}
+              email={authUser.email ?? ""}
+              onComplete={(profile) => {
+                setOnboardingProfile(profile);
+                setOnboardingStatus("complete");
+              }}
+              onSignOut={() => { void signOut(); }}
+              theme={colors}
+            />
+          </SafeAreaView>
+        </SafeAreaProvider>
+      );
+    }
+
+    if (onboardingStatus === "error") {
+      return (
+        <SafeAreaProvider>
+          <SafeAreaView style={styles.safeArea}>
+            <StatusBar style={isDark ? "light" : "dark"} />
+            <View style={styles.authLoadingScreen}>
+              <Text style={styles.authEntryTitle}>프로필 확인 오류</Text>
+              <Text style={styles.errorText}>{onboardingMessage}</Text>
+              <Pressable onPress={() => setOnboardingRetryToken((value) => value + 1)} style={styles.authGuestButton}>
+                <Text style={styles.authGuestButtonText}>다시 시도</Text>
+              </Pressable>
+              <Pressable onPress={() => { void signOut(); }} style={styles.authEntryTextButton}>
+                <Text style={styles.authEntryTextButtonLabel}>다른 계정으로 로그인</Text>
+              </Pressable>
+            </View>
+          </SafeAreaView>
+        </SafeAreaProvider>
+      );
+    }
+
+    return (
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.safeArea}>
+          <StatusBar style={isDark ? "light" : "dark"} />
+          <View style={styles.authLoadingScreen}>
+            <Text style={styles.authEntryTitle}>프로필 확인 중</Text>
+            <ActivityIndicator color={colors.accent} />
+          </View>
+        </SafeAreaView>
+      </SafeAreaProvider>
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.safeArea}>
@@ -2606,7 +2832,13 @@ function AppShell() {
               <Text style={styles.title}>KJV 리더노트</Text>
             </View>
             <View style={styles.headerActions}>
-              <Text style={styles.mockUser}>{authUser ? authUser.email ?? "로그인 리더" : "비로그인 리더"}</Text>
+              {studyUiFeatureFlags.uiShellV2 ? (
+                <Pressable accessibilityLabel="명령 검색" onPress={() => setIsQuickMoveOpen(true)} style={styles.headerIconButton}>
+                  <Icon color={colors.text} name="command-outline" size={18} />
+                </Pressable>
+              ) : null}
+              {onboardingProfile?.avatarUrl ? <Image source={{ uri: onboardingProfile.avatarUrl }} style={styles.headerAvatar} /> : null}
+              <Text numberOfLines={1} style={styles.mockUser}>{authUser ? authenticatedDisplayName : "비로그인 리더"}</Text>
               {!authUser ? (
                 <Pill
                   active={false}
@@ -3625,9 +3857,10 @@ function AppShell() {
                         <Icon color={colors.text} name={authUser ? "log-out-outline" : "log-in-outline"} size={18} />
                       </View>
                       <View style={styles.accountSummary}>
+                        {onboardingProfile?.avatarUrl ? <Image source={{ uri: onboardingProfile.avatarUrl }} style={styles.accountAvatar} /> : null}
                         <View style={styles.accountTextBlock}>
                           <Text style={styles.eyebrow}>현재 계정</Text>
-                          <Text style={styles.accountName}>{authUser?.email ?? "비로그인 리더"}</Text>
+                          <Text style={styles.accountName}>{authUser ? authenticatedDisplayName : "비로그인 리더"}</Text>
                           <Text style={styles.metaText}>{authUser ? authUser.email ?? "로그인 상태" : "비로그인 리더"}</Text>
                         </View>
                         <Text style={[styles.statusBadge, authUser ? styles.statusBadgeActive : null]}>{authUser ? "로그인" : "비로그인"}</Text>
@@ -3686,6 +3919,7 @@ function AppShell() {
                           mode="login"
                           onChangeEmail={setAuthEmail}
                           onChangePassword={setAuthPassword}
+                          onGoogleSubmit={signInWithGoogle}
                           onSecondarySubmit={signUp}
                           onSubmit={signIn}
                           secondaryIcon="person-add-outline"
@@ -3694,7 +3928,11 @@ function AppShell() {
                           supabaseAvailable={Boolean(supabase)}
                         />
                       ) : null}
-                      {authMessage && (authUser || !showAuthForm) ? <Text style={authStatus === "error" ? styles.errorText : styles.successText}>{authMessage}</Text> : null}
+                      {authMessage && (authUser || !showAuthForm) ? (
+                        <Text style={authStatus === "error" ? styles.errorText : authStatus === "success" ? styles.successText : styles.metaText}>
+                          {authMessage}
+                        </Text>
+                      ) : null}
                     </View>
                   ) : null}
 
@@ -4259,13 +4497,23 @@ function AppShell() {
               {ttsPlaybackState === "playing" ? <Text style={styles.liveDot}>재생</Text> : null}
             </View>
           ) : null}
-          <View style={styles.tabBar}>
-            <TabButton active={activeView === "dashboard"} icon="home-outline" label="홈" onPress={() => setActiveView("dashboard")} styles={styles} />
-            <TabButton active={activeView === "reader"} icon="book-outline" label="성경" onPress={() => setActiveView("reader")} styles={styles} />
-            <TabButton active={activeView === "favorites"} icon="bookmark-outline" label="인용" onPress={() => setActiveView("favorites")} styles={styles} />
-            <TabButton active={quickMoveActive} icon="command-outline" label="빠른이동" onPress={() => setIsQuickMoveOpen(true)} styles={styles} />
-            <TabButton active={activeView === "settings"} icon="settings-outline" label="설정" onPress={() => setActiveView("settings")} styles={styles} />
-          </View>
+          {studyUiFeatureFlags.uiShellV2 ? (
+            <View style={styles.tabBar}>
+              <TabButton active={activePrimaryArea === "today"} icon="home-outline" label="오늘" onPress={() => setActiveView("dashboard")} styles={styles} />
+              <TabButton active={activePrimaryArea === "read"} icon="book-outline" label="성경" onPress={() => setActiveView("reader")} styles={styles} />
+              <TabButton active={activePrimaryArea === "study"} icon="reader-outline" label="공부" onPress={() => setActiveView("notes")} styles={styles} />
+              <TabButton active={activePrimaryArea === "library"} icon="bookmark-outline" label="보관함" onPress={() => setActiveView("favorites")} styles={styles} />
+              <TabButton active={activePrimaryArea === "settings"} icon="settings-outline" label="설정" onPress={() => setActiveView("settings")} styles={styles} />
+            </View>
+          ) : (
+            <View style={styles.tabBar}>
+              <TabButton active={activeView === "dashboard"} icon="home-outline" label="홈" onPress={() => setActiveView("dashboard")} styles={styles} />
+              <TabButton active={activeView === "reader"} icon="book-outline" label="성경" onPress={() => setActiveView("reader")} styles={styles} />
+              <TabButton active={activeView === "favorites"} icon="bookmark-outline" label="인용" onPress={() => setActiveView("favorites")} styles={styles} />
+              <TabButton active={isQuickMoveOpen || activeView === "quickMove"} icon="command-outline" label="빠른이동" onPress={() => setIsQuickMoveOpen(true)} styles={styles} />
+              <TabButton active={activeView === "settings"} icon="settings-outline" label="설정" onPress={() => setActiveView("settings")} styles={styles} />
+            </View>
+          )}
         </KeyboardAvoidingView>
       </SafeAreaView>
     </SafeAreaProvider>
@@ -4438,6 +4686,7 @@ function AuthCredentialForm({
   mode,
   onChangeEmail,
   onChangePassword,
+  onGoogleSubmit,
   onPrivacyPress,
   onSecondarySubmit,
   onSubmit,
@@ -4453,6 +4702,7 @@ function AuthCredentialForm({
   mode: AuthCredentialMode;
   onChangeEmail: (value: string) => void;
   onChangePassword: (value: string) => void;
+  onGoogleSubmit: () => void;
   onPrivacyPress?: () => void;
   onSubmit: () => void;
   styles: ReturnType<typeof createStyles>;
@@ -4466,6 +4716,20 @@ function AuthCredentialForm({
 
   return (
     <View style={styles.authForm}>
+      <Pressable
+        accessibilityRole="button"
+        disabled={isSubmitting}
+        onPress={onGoogleSubmit}
+        style={[styles.authGoogleButton, isSubmitting ? styles.actionButtonDisabled : null]}
+      >
+        {isSubmitting ? <ActivityIndicator color="#202124" size="small" /> : <Text style={styles.authGoogleMark}>G</Text>}
+        <Text style={styles.authGoogleButtonText}>{isSubmitting ? "Google 연결 중" : "Google로 계속하기"}</Text>
+      </Pressable>
+      <View accessibilityRole="none" style={styles.authDivider}>
+        <View style={styles.authDividerLine} />
+        <Text style={styles.authDividerText}>또는 이메일</Text>
+        <View style={styles.authDividerLine} />
+      </View>
       <TextInput
         autoCapitalize="none"
         keyboardType="email-address"
@@ -4511,7 +4775,11 @@ function AuthCredentialForm({
         </Pressable>
       ) : null}
       {!supabaseAvailable ? <Text style={styles.errorText}>Supabase 공개 설정이 Expo에 전달되지 않았습니다.</Text> : null}
-      {authMessage ? <Text style={authStatus === "error" ? styles.errorText : styles.successText}>{authMessage}</Text> : null}
+      {authMessage ? (
+        <Text style={authStatus === "error" ? styles.errorText : authStatus === "success" ? styles.successText : styles.metaText}>
+          {authMessage}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -5010,6 +5278,45 @@ function createStyles(colors: typeof lightColors, viewportHeight = 844) {
         fontWeight: "900",
         textDecorationLine: "underline",
       },
+      authGoogleButton: {
+        alignItems: "center",
+        backgroundColor: "#fff",
+        borderColor: "#dadce0",
+        borderRadius: 6,
+        borderWidth: 1,
+        flexDirection: "row",
+        gap: 10,
+        justifyContent: "center",
+        minHeight: 48,
+        paddingHorizontal: 14,
+      },
+      authGoogleButtonText: {
+        color: "#202124",
+        fontSize: 14,
+        fontWeight: "800",
+      },
+      authGoogleMark: {
+        color: "#4285f4",
+        fontFamily: "Arial",
+        fontSize: 18,
+        fontWeight: "900",
+      },
+      authDivider: {
+        alignItems: "center",
+        flexDirection: "row",
+        gap: 10,
+        minHeight: 24,
+      },
+      authDividerLine: {
+        backgroundColor: colors.border,
+        flex: 1,
+        height: 1,
+      },
+      authDividerText: {
+        color: colors.muted,
+        fontSize: 12,
+        fontWeight: "700",
+      },
       header: {
         alignItems: "center",
         borderBottomColor: colors.border,
@@ -5026,6 +5333,23 @@ function createStyles(colors: typeof lightColors, viewportHeight = 844) {
         flexDirection: "row",
         flexShrink: 1,
         gap: 7,
+      },
+      headerIconButton: {
+        alignItems: "center",
+        borderColor: colors.border,
+        borderRadius: 6,
+        borderWidth: 1,
+        height: 44,
+        justifyContent: "center",
+        width: 44,
+      },
+      headerAvatar: {
+        backgroundColor: colors.surfaceStrong,
+        borderColor: colors.border,
+        borderRadius: 6,
+        borderWidth: 1,
+        height: 30,
+        width: 30,
       },
       eyebrow: {
         color: colors.accentSecondary,
@@ -5708,6 +6032,14 @@ function createStyles(colors: typeof lightColors, viewportHeight = 844) {
         justifyContent: "space-between",
         minHeight: 72,
         padding: 12,
+      },
+      accountAvatar: {
+        backgroundColor: colors.surface,
+        borderColor: colors.border,
+        borderRadius: 8,
+        borderWidth: 1,
+        height: 52,
+        width: 52,
       },
       accountTextBlock: {
         flex: 1,

@@ -1,0 +1,94 @@
+component:
+  id: reader-v2-surface
+  name: Reader V2 Surface
+  kind: feature-composite
+  status: candidate
+  owner_scope: bible-reader
+  source:
+    components:
+      - apps/web/src/components/reader-header.tsx
+      - apps/web/src/components/reader-verse-row.tsx
+      - apps/web/src/components/reader-verse-actions.tsx
+    integration: apps/web/src/components/kjv-mvp-app.tsx
+    style: apps/web/src/app/reader-surface.css
+    route: /app/read/[bookId]/[chapter]
+  public_api:
+    components: [ReaderHeader, ReaderVerseRow, ReaderVerseActions]
+    state_types: [ReaderContextTab, ReaderTranslationMode]
+    events:
+      - chapter navigation
+      - translation mode change
+      - verse selection
+      - context tab change
+      - context close
+    feature_flag: NEXT_PUBLIC_READER_V2
+  change_gate:
+    type: behavioral-and-style-contract
+    summary: Reader rendering responsibility is extracted and the V2 flag adds responsive three-pane, tablet sheet, and mobile action-sheet behavior.
+  dependencies:
+    internal: [Verse, HighlightColor, KjvMvpApp reader handlers]
+    external: [react, lucide-react]
+  styling:
+    namespace: f-reader
+    global_css: apps/web/src/app/reader-surface.css
+    legacy_css: apps/web/src/app/globals.css
+    tokens: [bg, surface, surface-2, text, muted, line, accent, accent-3, shadow]
+    inline_styles_allowed: false
+  state:
+    local_owner: KjvMvpApp
+    local:
+      - readerContextTab
+      - isReaderContextOpen
+      - isReaderNavigatorOpen
+      - isReaderFocusMode
+    route: [bookId, chapter, verse, panel]
+    persisted: existing reader settings and user data repository
+  accessibility:
+    keyboard:
+      - native buttons
+      - tablist and tabs
+      - native details overflow menu
+    aria:
+      - labeled chapter navigation
+      - aria-pressed verse and translation states
+      - selected context tab
+      - labeled pane controls
+    touch:
+      - 520ms verse long press enters multi-select
+      - existing horizontal swipe changes chapter
+  responsive_contract:
+    desktop: chapter navigator, scripture max 760px, study context panel
+    tablet: chapter navigator plus centered bottom study sheet
+    mobile: compact reader header and safe-area-aware verse action sheet
+  evidence:
+    current_level: 4
+    items:
+      - type: static
+        command: npm run typecheck
+        result: pass
+      - type: static
+        command: npm run lint
+        result: pass
+      - type: contract
+        command: npm run study-ui:validate
+        result: pass
+      - type: browser-smoke
+        result: pass
+        findings:
+          - 1440px three-pane columns resolve to 210px, 595px, 320px without horizontal overflow
+          - 390px default scripture starts at 130px and verse tap opens a safe-area-aware action sheet
+          - 320px and 768px scripture starts at 130px and 140px without horizontal overflow
+          - Psalms 75 limits the navigator to chapters 70 through 81 and delegates all 150 chapters to the picker sheet
+          - long press selects one verse while quick horizontal swipe still changes chapters
+          - Genesis 1:1 dictionary panel shows five original-language entries and browser back restores the verse and tab
+          - feature flag off restores the legacy toolbar, action rows, and selected verse
+        artifacts:
+          - reports/ui-ux-redesign-screenshots/reader-v2-desktop-1440.png
+          - reports/ui-ux-redesign-screenshots/reader-v2-tablet-1024.png
+          - reports/ui-ux-redesign-screenshots/reader-v2-mobile-390-default.png
+          - reports/ui-ux-redesign-screenshots/reader-v2-mobile-390.png
+          - reports/ui-ux-redesign-screenshots/reader-v2-mobile-320.png
+  residual_risk:
+    - ReaderScreen data orchestration remains in KjvMvpApp.
+    - Automated TTS, copy, multi-select, and save interaction tests are not yet installed.
+    - Native keyboard and interactive sheet snap behavior still require device verification.

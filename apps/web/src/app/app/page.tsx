@@ -1,17 +1,14 @@
-import { KjvMvpApp } from "@/components/kjv-mvp-app";
-import { guestAppUser, toAppUser } from "@/lib/auth/app-user";
-import { hasSupabasePublicConfig } from "@/lib/supabase/config";
-import { createClient } from "@/lib/supabase/server";
+import { StudyAppEntry } from "@/components/study-app-entry";
+import { toStudyUrlSearchParams, type StudyPageSearchParams } from "@/lib/study-route-search-params";
+import { parseStudyUiRoute } from "@kjv/shared/study-ui";
 
-export default async function AppPage() {
-  if (!hasSupabasePublicConfig({ includeServerFallback: true })) {
-    return <KjvMvpApp user={guestAppUser} />;
-  }
+export const dynamic = "force-dynamic";
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+type AppPageProps = {
+  searchParams?: Promise<StudyPageSearchParams>;
+};
 
-  return <KjvMvpApp user={user ? toAppUser(user) : guestAppUser} />;
+export default async function AppPage({ searchParams }: AppPageProps) {
+  const route = parseStudyUiRoute("/app", toStudyUrlSearchParams(await searchParams));
+  return <StudyAppEntry route={route ?? { view: "dashboard" }} />;
 }
