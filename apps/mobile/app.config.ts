@@ -28,6 +28,12 @@ const config: ExpoConfig = {
   },
   plugins: [
     [
+      "expo-web-browser",
+      {
+        experimentalLauncherActivity: false,
+      },
+    ],
+    [
       "expo-image-picker",
       {
         cameraPermission: false,

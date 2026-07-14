@@ -7,11 +7,12 @@ import { createClient } from "@/lib/supabase/server";
 type LoginPageProps = {
   searchParams?: Promise<{
     next?: string;
+    oauthError?: string;
   }>;
 };
 
 function normalizeNextPath(nextPath: string | undefined) {
-  if (!nextPath || !nextPath.startsWith("/") || nextPath.startsWith("//")) {
+  if (!nextPath || !nextPath.startsWith("/") || nextPath.startsWith("//") || nextPath.includes("\\")) {
     return "/app";
   }
 
@@ -30,5 +31,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     redirect(nextPath);
   }
 
-  return <EmailAuthForm action={signInWithEmail} mode="login" next={nextPath} />;
+  return (
+    <EmailAuthForm
+      action={signInWithEmail}
+      mode="login"
+      next={nextPath}
+      oauthError={params?.oauthError ? "Google 로그인을 완료하지 못했습니다. 다시 시도하세요." : undefined}
+    />
+  );
 }

@@ -51,7 +51,7 @@
 | --- | --- | --- | --- |
 | Public | 공개 가능한 성경 권 메타데이터, 공개 KJV 본문 | Supabase public tables | read-only grant, 무결성 관리 |
 | User Private | 읽기 위치, 완료 장, 강조, 인용, 태그, 노트, 플랜, 설정 | localStorage 전환기, 이후 Supabase user tables | 계정별 분리, RLS, 최소 권한 grant |
-| Auth Sensitive | 이메일, auth user id, 세션 cookie, refresh token | Supabase Auth/cookie | SSR cookie session, XSS/CSRF 방어, 로그 마스킹 |
+| Auth Sensitive | 이메일, OAuth provider id, auth user id, 세션 cookie, refresh token, OAuth 기본 프로필 메타데이터 | Supabase Auth/cookie | SSR cookie session, XSS/CSRF 방어, 로그 마스킹 |
 | Secret | secret key, service role key, DB password | 서버 환경 변수/비밀 저장소 | 브라우저 노출 금지, 로그 금지, 회전 절차 |
 
 ## Ownership Model
@@ -150,6 +150,17 @@ using ((select auth.uid()) = user_id);
 - secret key가 필요 없는 구조면 발급하지 않는다.
 - secret key가 유출되었다고 의심되면 즉시 새 key를 발급하고, 서버를 교체한 뒤 기존 key를 삭제한다.
 - 로그에는 API key 전체를 남기지 않는다. 필요 시 해시 또는 앞 6자 이하만 저장한다.
+- Google OAuth client secret은 Supabase provider 설정에만 보관하고 앱 환경 변수, 소스, 번들에 포함하지 않는다.
+
+## OAuth Redirect And Provider Policy
+
+- 웹 callback은 HTTPS production origin과 명시적으로 허용한 localhost/preview origin만 사용한다.
+- callback의 `next`는 앱 내부 절대 경로만 허용하고 `//` 또는 외부 URL은 `/app`으로 정규화한다.
+- Expo 네이티브 callback은 등록된 앱 scheme `kjvreadernote://google-auth`만 사용한다.
+- Supabase Redirect URLs는 필요한 origin과 앱 scheme만 최소 범위로 등록한다.
+- Google Cloud Authorized redirect URI에는 Supabase 프로젝트의 `/auth/v1/callback`을 등록하고 앱 callback을 직접 등록하지 않는다.
+- OAuth access token, refresh token, authorization code, callback 전체 URL은 로그나 사용자 오류 메시지에 출력하지 않는다.
+- `raw_user_meta_data`의 Google 표시 이름과 프로필 이미지 URL은 화면 표시 또는 온보딩 보조값으로만 사용할 수 있으며 권한 판단에는 사용하지 않는다.
 
 ## LocalStorage Transition Policy
 
@@ -236,6 +247,9 @@ Auth 구현 완료 전:
 - [ ] 로그인 실패 메시지가 계정 존재 여부를 노출하지 않는다.
 - [ ] 새로고침 후 세션 유지가 cookie 기반으로 동작한다.
 - [ ] `?mockAuth=1`은 production에서 우회 수단이 아니다.
+- [ ] 웹/Expo OAuth callback이 Supabase Redirect URLs 허용 목록과 일치한다.
+- [ ] Google OAuth client secret이 클라이언트 환경 변수와 번들에 없다.
+- [ ] 외부 `next` URL과 등록되지 않은 앱 scheme으로 리디렉션할 수 없다.
 
 개인 데이터 DB 전환 전:
 

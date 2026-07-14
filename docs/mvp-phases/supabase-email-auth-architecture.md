@@ -1,10 +1,10 @@
-# Supabase 이메일 로그인 구현 아키텍처
+# Supabase 이메일 및 Google OAuth 구현 아키텍처
 
 ## Summary
 
 현재 앱은 `demo-user` mock auth와 localStorage 개인 데이터 저장소를 사용한다. 성경 본문 조회는 Supabase REST 기반으로 전환되어 있지만, 로그인 세션과 개인 통독/강조/인용/설정 데이터는 아직 실제 `auth.users`와 연결되어 있지 않다.
 
-이 문서는 mock auth를 Supabase 이메일 로그인으로 교체하는 구현 아키텍처다. 1차 목표는 Supabase Auth 세션을 앱의 사용자 식별자로 만들고, 기존 localStorage 개인 데이터는 `auth.uid()` 기준으로 분리해 안전하게 유지하는 것이다. 개인 데이터의 DB 동기화는 로그인 전환 이후 별도 단계에서 진행한다.
+이 문서는 mock auth를 Supabase 이메일 로그인과 Google OAuth로 교체하는 구현 아키텍처다. 1차 목표는 웹과 Expo 앱이 동일한 Supabase Auth 세션을 사용자 식별자로 사용하고, 기존 localStorage 개인 데이터는 `auth.uid()` 기준으로 분리해 안전하게 유지하는 것이다. 개인 데이터의 DB 동기화는 로그인 전환 이후 별도 단계에서 진행한다.
 
 ## Current State
 
@@ -23,12 +23,15 @@
 - Supabase server-side auth overview: https://supabase.com/docs/guides/auth/server-side
 - Supabase password auth: https://supabase.com/docs/guides/auth/passwords
 - Supabase `signInWithPassword`: https://supabase.com/docs/reference/javascript/auth-signinwithpassword
+- Supabase Google login: https://supabase.com/docs/guides/auth/social-login/auth-google
+- Supabase native mobile deep linking: https://supabase.com/docs/guides/auth/native-mobile-deep-linking
 
-확인일: 2026-06-23
+확인일: 2026-07-14
 
 ## Goals
 
 - Supabase 이메일/비밀번호 기반 로그인과 회원가입을 구현한다.
+- 웹과 Expo 앱에 Supabase Google OAuth 로그인을 구현한다.
 - Next.js App Router에서 Supabase 세션을 쿠키 기반으로 유지한다.
 - 새로고침 후에도 로그인 상태가 유지된다.
 - 앱 내부 사용자 식별자를 `demo-user`에서 Supabase `auth.users.id`로 전환한다.
@@ -38,7 +41,7 @@
 
 ## Non-goals
 
-- Google/GitHub 등 OAuth provider 로그인
+- Google 이외의 OAuth provider 로그인
 - 패스워드리스 magic link 전용 로그인
 - MFA
 - 관리자 계정/권한 모델
@@ -48,12 +51,13 @@
 
 ## Target Auth Model
 
-로그인 방식은 이메일/비밀번호를 기본값으로 한다.
+로그인 방식은 이메일/비밀번호와 Google OAuth를 제공한다.
 
 - 회원가입: `supabase.auth.signUp({ email, password, options })`
 - 로그인: `supabase.auth.signInWithPassword({ email, password })`
 - 로그아웃: `supabase.auth.signOut()`
 - 비밀번호 재설정: `supabase.auth.resetPasswordForEmail(email, { redirectTo })`
+- Google 로그인: `supabase.auth.signInWithOAuth({ provider: "google", options })`
 - 서버 보호 판단: 서버 코드에서 `getSession()`만 신뢰하지 않고 Supabase 권장 방식에 따라 토큰 검증 기반 API를 사용한다.
 
 이메일 confirmation은 Supabase 프로젝트 설정을 따른다.
@@ -83,6 +87,25 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<legacy anon key>
 - 현재 성경 REST 조회가 legacy anon key를 사용하므로, 전환 기간에는 `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`와 `NEXT_PUBLIC_SUPABASE_ANON_KEY`를 병행 지원할 수 있다.
 - `service_role` 또는 secret key는 브라우저에 노출되는 `NEXT_PUBLIC_` 변수로 절대 두지 않는다.
 - 서버 전용 secret key가 필요해지는 작업은 개인 데이터 DB repository 전환 단계에서 별도 설계한다.
+- Google OAuth client secret은 Supabase Dashboard의 provider 설정에만 저장하고 웹/Expo 환경 변수나 번들에 넣지 않는다.
+
+### Google OAuth Redirect 계약
+
+Supabase Dashboard의 **Authentication > URL Configuration > Redirect URLs**에는 다음 경로를 환경별로 등록한다.
+
+```txt
+http://localhost:3000/auth/callback
+https://<production-domain>/auth/callback
+kjvreadernote://google-auth
+```
+
+- Preview 배포를 허용할 경우 신뢰하는 preview 도메인 패턴만 추가한다.
+- Expo 네이티브 앱 scheme은 `apps/mobile/app.config.ts`의 `kjvreadernote`를 단일 기준으로 사용한다.
+- 네이티브 callback은 `expo-auth-session`의 `makeRedirectUri({ native: "kjvreadernote://google-auth" })`로 생성한다.
+- Expo Go는 커스텀 scheme 기반 OAuth 복귀를 지원하지 않으므로 Google 로그인을 시작하지 않는다. 로컬 OAuth 검증은 EAS `development` 빌드 또는 설치형 `preview` 빌드에서 수행한다.
+- Google Cloud Console의 Authorized redirect URI에는 앱 URL이 아니라 Supabase 콜백 `https://<project-ref>.supabase.co/auth/v1/callback`을 등록한다.
+- Supabase Google provider 설정에는 Web Client ID를 기본으로 두고, 네이티브 배포 시 Android/iOS client ID를 각 플랫폼 설정에 추가한다.
+- Android OAuth client는 배포 패키지명과 실제 서명 인증서 SHA 지문을 사용하고, iOS OAuth client는 실제 bundle identifier를 사용한다.
 
 ## Proposed File Structure
 
@@ -190,18 +213,23 @@ type AppUser = {
 
 - 이메일
 - 비밀번호
+- Google로 계속하기
 
 액션:
 
 - 로그인
 - 회원가입으로 이동
 - 비밀번호 재설정으로 이동
+- Google 계정 선택 후 Supabase callback으로 복귀
 
 동작:
 
 - 실패 메시지는 계정 존재 여부를 노출하지 않는 일반 메시지로 표시한다.
 - 성공 시 `/`로 이동한다.
 - 이미 로그인된 사용자는 `/`로 이동한다.
+- 웹 OAuth callback의 `next`는 `/`로 시작하는 내부 경로만 허용한다.
+- Expo 네이티브는 시스템 인증 브라우저에서 로그인한 뒤 `kjvreadernote://google-auth`로 돌아와 세션을 설정한다.
+- Google 사용자의 최초 로그인은 이메일 사용자와 동일하게 온보딩 절차로 이동한다.
 
 ### 회원가입 페이지
 
@@ -395,6 +423,29 @@ DB 전환 원칙:
 - [ ] 새로고침과 다른 기기 로그인 후에도 개인 데이터가 동기화된다.
 - [ ] localStorage fallback 없이도 핵심 흐름이 동작한다.
 
+### Phase A-07: Web/Expo Google OAuth
+
+작업 체크리스트:
+
+- [x] 웹 로그인/회원가입 화면에 Google OAuth 진입 버튼을 추가한다.
+- [x] 웹 callback에서 authorization code를 Supabase cookie session으로 교환한다.
+- [x] 웹 callback의 `next` 외부 리디렉션을 차단한다.
+- [x] Expo 앱에 `expo-web-browser` 기반 OAuth 세션을 추가한다.
+- [x] Expo 네이티브 딥링크의 access/refresh token을 `setSession()`으로 교환한다.
+- [x] Expo Go에서 OAuth를 시작하지 않고 개발 빌드 안내를 표시한다.
+- [x] EAS development client 프로필을 추가한다.
+- [x] OAuth 취소/실패 메시지에서 provider 내부 오류와 계정 존재 여부를 숨긴다.
+- [x] Google OAuth 메타데이터 처리 범위를 공유 개인정보 처리방침에 반영한다.
+- [ ] Supabase 운영 Redirect URLs에 웹 callback과 `kjvreadernote://google-auth`를 등록한다.
+- [ ] Android/iOS 배포 client ID와 실제 서명/번들 식별자를 Supabase Google provider에 등록한다.
+
+수용 기준:
+
+- [ ] 웹에서 Google 로그인 후 요청한 내부 경로로 이동한다.
+- [ ] Android/iOS에서 Google 로그인 후 앱으로 복귀하고 세션이 유지된다.
+- [ ] 신규 Google 사용자는 최초 로그인 온보딩을 완료해야 앱 본 화면에 진입한다.
+- [ ] OAuth 취소 후 인증 화면을 벗어나지 않고 다시 시도할 수 있다.
+
 ## Test Plan
 
 자동 검증:
@@ -413,6 +464,11 @@ Auth 수동 검증:
 - [ ] 로그아웃 후 앱 본 화면에 접근할 수 없다.
 - [ ] 잘못된 비밀번호에서 계정 존재 여부가 노출되지 않는다.
 - [ ] 비밀번호 재설정 메일을 요청할 수 있다.
+- [ ] 웹에서 Google 계정을 선택하고 `/auth/callback`을 거쳐 로그인한다.
+- [ ] 변조된 외부 `next` URL이 `/app`으로 정규화된다.
+- [ ] Expo 네이티브에서 Google 로그인 후 `kjvreadernote://google-auth`로 복귀한다.
+- [ ] Expo Go에서 Google 로그인을 누르면 개발 빌드 안내가 표시되고 웹앱으로 이동하지 않는다.
+- [ ] Google OAuth를 취소하면 일반 안내 후 인증 화면에 남는다.
 
 데이터 분리 검증:
 
@@ -426,6 +482,8 @@ Auth 수동 검증:
 
 - [ ] 클라이언트 번들 또는 `NEXT_PUBLIC_` 환경 변수에 service role/secret key가 없다.
 - [ ] Supabase Auth redirect URL이 localhost, preview, production에 맞게 등록되어 있다.
+- [ ] Google Cloud에는 Supabase `/auth/v1/callback`만 Authorized redirect URI로 등록되어 있다.
+- [ ] Google client secret, OAuth token, callback URL 전체가 클라이언트 로그에 남지 않는다.
 - [ ] 개인 데이터 DB repository 전환 전까지는 RLS 테이블을 직접 쓰지 않는다.
 - [ ] DB repository 전환 시 `auth.uid() = user_id` 정책으로 CRUD smoke test를 실행한다.
 
@@ -446,3 +504,4 @@ Auth 수동 검증:
 - [ ] 기존 demo localStorage 데이터 보존/가져오기 정책이 구현되어 있다.
 - [ ] lint, build, audit가 통과한다.
 - [ ] 회원가입, 로그인, 로그아웃, 새로고침, 계정별 데이터 분리를 브라우저에서 검증했다.
+- [ ] 웹과 Expo 네이티브의 Google OAuth 로그인 및 최초 온보딩 진입을 검증했다.

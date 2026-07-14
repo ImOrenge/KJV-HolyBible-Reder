@@ -60,9 +60,11 @@ import {
 } from "@kjv/shared";
 import { createClient as createSupabaseClient, type Session, type User } from "@supabase/supabase-js";
 import * as Clipboard from "expo-clipboard";
+import { makeRedirectUri } from "expo-auth-session";
 import Constants from "expo-constants";
 import * as Speech from "expo-speech";
 import { StatusBar } from "expo-status-bar";
+import * as WebBrowser from "expo-web-browser";
 import { createElement, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -86,6 +88,8 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { PersonalNoteRichTextEditor } from "./src/components/personal-note-rich-text-editor";
 import { OnboardingScreen } from "./src/onboarding-screen";
 import { studyUiFeatureFlags } from "./src/study-ui-feature-flags";
+
+WebBrowser.maybeCompleteAuthSession();
 
 type ViewKey = StudyUiMobileViewKey;
 type HomeTab = "today" | "progress" | "activity" | "study";
@@ -321,6 +325,37 @@ function getConfiguredSupabaseConfig() {
   return { supabaseAnonKey, supabaseUrl };
 }
 
+function getGoogleOAuthRedirectUrl() {
+  if (Platform.OS === "web" && typeof globalThis.location?.origin === "string") {
+    return globalThis.location.origin;
+  }
+
+  const configuredScheme = Constants.expoConfig?.scheme;
+  const scheme = Array.isArray(configuredScheme) ? configuredScheme[0] : configuredScheme;
+  const appScheme = scheme || "kjvreadernote";
+
+  return makeRedirectUri({
+    native: `${appScheme}://google-auth`,
+    scheme: appScheme,
+  });
+}
+
+function isRunningInExpoGo() {
+  return Platform.OS !== "web" && Boolean(Constants.expoVersion);
+}
+
+function readGoogleOAuthCallback(callbackUrl: string) {
+  const url = new URL(callbackUrl);
+  const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""));
+  const readParam = (key: string) => hashParams.get(key) ?? url.searchParams.get(key);
+
+  return {
+    accessToken: readParam("access_token"),
+    error: readParam("error_description") ?? readParam("error"),
+    refreshToken: readParam("refresh_token"),
+  };
+}
+
 function createMobileSupabaseClient(config: { supabaseAnonKey: string; supabaseUrl: string } | null) {
   if (!config) {
     return null;
@@ -329,7 +364,7 @@ function createMobileSupabaseClient(config: { supabaseAnonKey: string; supabaseU
   return createSupabaseClient(config.supabaseUrl, config.supabaseAnonKey, {
     auth: {
       autoRefreshToken: true,
-      detectSessionInUrl: false,
+      detectSessionInUrl: Platform.OS === "web",
       persistSession: true,
       storage: AsyncStorage,
     },
@@ -814,6 +849,17 @@ function AppShell() {
       subscription.unsubscribe();
     };
   }, [supabase]);
+
+  useEffect(() => {
+    if (Platform.OS === "web") {
+      return;
+    }
+
+    void WebBrowser.warmUpAsync();
+    return () => {
+      void WebBrowser.coolDownAsync();
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -2206,7 +2252,7 @@ function AppShell() {
 
     if (error) {
       setAuthStatus("error");
-      setAuthMessage(error.message);
+      setAuthMessage("로그인에 실패했습니다. 이메일과 비밀번호를 확인하세요.");
       return;
     }
 
@@ -2234,7 +2280,7 @@ function AppShell() {
 
     if (error) {
       setAuthStatus("error");
-      setAuthMessage(error.message);
+      setAuthMessage("가입 요청을 처리하지 못했습니다. 입력값을 확인하세요.");
       return;
     }
 
@@ -2245,6 +2291,75 @@ function AppShell() {
     setAuthPassword("");
     if (data.session) {
       setShowAuthForm(false);
+    }
+  };
+
+  const signInWithGoogle = async () => {
+    if (!supabase) {
+      setAuthStatus("error");
+      setAuthMessage("Expo Supabase 공개 설정이 없습니다.");
+      return;
+    }
+
+    if (isRunningInExpoGo()) {
+      setAuthStatus("error");
+      setAuthMessage("Google 로그인은 Expo Go에서 지원되지 않습니다. 개발 빌드 또는 설치 앱에서 다시 시도하세요.");
+      return;
+    }
+
+    setAuthStatus("submitting");
+    setAuthMessage("");
+
+    try {
+      const redirectTo = getGoogleOAuthRedirectUrl();
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          queryParams: {
+            prompt: "select_account",
+          },
+          redirectTo,
+          skipBrowserRedirect: Platform.OS !== "web",
+        },
+      });
+
+      if (error || !data.url) {
+        throw new Error("oauth-start-failed");
+      }
+
+      if (Platform.OS === "web") {
+        return;
+      }
+
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+      if (result.type !== "success") {
+        setAuthStatus("idle");
+        setAuthMessage("Google 로그인이 취소되었습니다.");
+        return;
+      }
+
+      const callback = readGoogleOAuthCallback(result.url);
+      if (callback.error || !callback.accessToken || !callback.refreshToken) {
+        throw new Error("oauth-callback-failed");
+      }
+
+      const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+        access_token: callback.accessToken,
+        refresh_token: callback.refreshToken,
+      });
+
+      if (sessionError || !sessionData.session) {
+        throw new Error("oauth-session-failed");
+      }
+
+      setAuthSession(sessionData.session);
+      setAuthUser(sessionData.session.user);
+      setAuthStatus("success");
+      setAuthMessage("Google 계정으로 로그인되었습니다.");
+      setShowAuthForm(false);
+    } catch {
+      setAuthStatus("error");
+      setAuthMessage("Google 로그인을 완료하지 못했습니다. 다시 시도하세요.");
     }
   };
 
@@ -2621,7 +2736,7 @@ function AppShell() {
                     <View>
                       <Text style={styles.authEntryFormTitle}>{credentialMode === "login" ? "로그인" : "회원가입"}</Text>
                       <Text style={styles.authEntryFormCopy}>
-                        {credentialMode === "login" ? "계정으로 통독 기록을 이어갑니다." : "이메일 계정으로 리더노트를 시작합니다."}
+                        {credentialMode === "login" ? "계정으로 통독 기록을 이어갑니다." : "Google 또는 이메일 계정으로 리더노트를 시작합니다."}
                       </Text>
                     </View>
                     <Pressable onPress={returnToWelcome} style={styles.authEntryBackButton}>
@@ -2636,6 +2751,7 @@ function AppShell() {
                     mode={credentialMode}
                     onChangeEmail={setAuthEmail}
                     onChangePassword={setAuthPassword}
+                    onGoogleSubmit={signInWithGoogle}
                     onPrivacyPress={credentialMode === "sign-up" ? () => setShowPrivacyPolicy(true) : undefined}
                     onSubmit={credentialMode === "login" ? signIn : signUp}
                     styles={styles}
@@ -3803,6 +3919,7 @@ function AppShell() {
                           mode="login"
                           onChangeEmail={setAuthEmail}
                           onChangePassword={setAuthPassword}
+                          onGoogleSubmit={signInWithGoogle}
                           onSecondarySubmit={signUp}
                           onSubmit={signIn}
                           secondaryIcon="person-add-outline"
@@ -3811,7 +3928,11 @@ function AppShell() {
                           supabaseAvailable={Boolean(supabase)}
                         />
                       ) : null}
-                      {authMessage && (authUser || !showAuthForm) ? <Text style={authStatus === "error" ? styles.errorText : styles.successText}>{authMessage}</Text> : null}
+                      {authMessage && (authUser || !showAuthForm) ? (
+                        <Text style={authStatus === "error" ? styles.errorText : authStatus === "success" ? styles.successText : styles.metaText}>
+                          {authMessage}
+                        </Text>
+                      ) : null}
                     </View>
                   ) : null}
 
@@ -4565,6 +4686,7 @@ function AuthCredentialForm({
   mode,
   onChangeEmail,
   onChangePassword,
+  onGoogleSubmit,
   onPrivacyPress,
   onSecondarySubmit,
   onSubmit,
@@ -4580,6 +4702,7 @@ function AuthCredentialForm({
   mode: AuthCredentialMode;
   onChangeEmail: (value: string) => void;
   onChangePassword: (value: string) => void;
+  onGoogleSubmit: () => void;
   onPrivacyPress?: () => void;
   onSubmit: () => void;
   styles: ReturnType<typeof createStyles>;
@@ -4593,6 +4716,20 @@ function AuthCredentialForm({
 
   return (
     <View style={styles.authForm}>
+      <Pressable
+        accessibilityRole="button"
+        disabled={isSubmitting}
+        onPress={onGoogleSubmit}
+        style={[styles.authGoogleButton, isSubmitting ? styles.actionButtonDisabled : null]}
+      >
+        {isSubmitting ? <ActivityIndicator color="#202124" size="small" /> : <Text style={styles.authGoogleMark}>G</Text>}
+        <Text style={styles.authGoogleButtonText}>{isSubmitting ? "Google 연결 중" : "Google로 계속하기"}</Text>
+      </Pressable>
+      <View accessibilityRole="none" style={styles.authDivider}>
+        <View style={styles.authDividerLine} />
+        <Text style={styles.authDividerText}>또는 이메일</Text>
+        <View style={styles.authDividerLine} />
+      </View>
       <TextInput
         autoCapitalize="none"
         keyboardType="email-address"
@@ -4638,7 +4775,11 @@ function AuthCredentialForm({
         </Pressable>
       ) : null}
       {!supabaseAvailable ? <Text style={styles.errorText}>Supabase 공개 설정이 Expo에 전달되지 않았습니다.</Text> : null}
-      {authMessage ? <Text style={authStatus === "error" ? styles.errorText : styles.successText}>{authMessage}</Text> : null}
+      {authMessage ? (
+        <Text style={authStatus === "error" ? styles.errorText : authStatus === "success" ? styles.successText : styles.metaText}>
+          {authMessage}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -5136,6 +5277,45 @@ function createStyles(colors: typeof lightColors, viewportHeight = 844) {
         color: colors.accent,
         fontWeight: "900",
         textDecorationLine: "underline",
+      },
+      authGoogleButton: {
+        alignItems: "center",
+        backgroundColor: "#fff",
+        borderColor: "#dadce0",
+        borderRadius: 6,
+        borderWidth: 1,
+        flexDirection: "row",
+        gap: 10,
+        justifyContent: "center",
+        minHeight: 48,
+        paddingHorizontal: 14,
+      },
+      authGoogleButtonText: {
+        color: "#202124",
+        fontSize: 14,
+        fontWeight: "800",
+      },
+      authGoogleMark: {
+        color: "#4285f4",
+        fontFamily: "Arial",
+        fontSize: 18,
+        fontWeight: "900",
+      },
+      authDivider: {
+        alignItems: "center",
+        flexDirection: "row",
+        gap: 10,
+        minHeight: 24,
+      },
+      authDividerLine: {
+        backgroundColor: colors.border,
+        flex: 1,
+        height: 1,
+      },
+      authDividerText: {
+        color: colors.muted,
+        fontSize: 12,
+        fontWeight: "700",
       },
       header: {
         alignItems: "center",
