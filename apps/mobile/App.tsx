@@ -81,7 +81,8 @@ import {
   View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { PersonalNoteRichTextEditor } from "./src/components/personal-note-rich-text-editor";
+import { PersonalNoteEditorScreen } from "./src/components/notes/personal-note-editor-screen";
+import { PersonalNoteListScreen } from "./src/components/notes/personal-note-list-screen";
 import { ReaderHeader } from "./src/components/reader/reader-header";
 import type { MobileReaderTranslationMode } from "./src/components/reader/reader-types";
 import { ReaderVerseActionsSheet } from "./src/components/reader/reader-verse-actions-sheet";
@@ -672,10 +673,11 @@ function AppShell() {
       })
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
   }, [noteSearchQuery, userData.personalNoteTags, userData.personalNotes, userData.tags]);
-  const selectedPersonalNote =
-    (selectedPersonalNoteId ? userData.personalNotes.find((note) => note.id === selectedPersonalNoteId) : null) ??
-    visiblePersonalNotes[0] ??
-    null;
+  const selectedPersonalNote = activeRoute.view === "notes" && activeRoute.noteId
+    ? userData.personalNotes.find((note) => note.id === activeRoute.noteId) ?? null
+    : (selectedPersonalNoteId ? userData.personalNotes.find((note) => note.id === selectedPersonalNoteId) : null) ??
+      visiblePersonalNotes[0] ??
+      null;
   const selectedPersonalNoteLinks = selectedPersonalNote
     ? userData.personalNoteVerseLinks
         .filter((link) => link.noteId === selectedPersonalNote.id)
@@ -1678,6 +1680,15 @@ function AppShell() {
     setReaderSelectionMode(false);
   };
 
+  const openPersonalNote = (note: PersonalNote) => {
+    setSelectedPersonalNoteId(note.id);
+    pushStudyRoute({
+      view: "notes",
+      noteId: note.id,
+      ...(activeRoute.context ? { context: activeRoute.context } : {}),
+    });
+  };
+
   const savePersonalNote = () => {
     const now = new Date().toISOString();
     const existingId = selectedPersonalNote?.id ?? selectedPersonalNoteId ?? createId("personal-note");
@@ -1790,6 +1801,9 @@ function AppShell() {
     setPersonalNoteTagInput("");
     setCopyStatus("성경노트 삭제됨");
     setTimeout(() => setCopyStatus(""), 1600);
+    if (activeRoute.view === "notes" && activeRoute.noteId && !goBack()) {
+      replaceStudyRoute({ view: "notes" });
+    }
   };
 
   const toggleSelectedVerseHighlight = () => {
@@ -3288,97 +3302,41 @@ function AppShell() {
 
             {activeView === "notes" ? (
               <View style={styles.section}>
-                <View style={[styles.selectedPanel, styles.formPanel]}>
-                  <View style={styles.panelHeading}>
-                    <View>
-                      <Text style={styles.eyebrow}>Personal Notes</Text>
-                      <Text style={styles.panelTitle}>성경노트</Text>
-                    </View>
-                    <ActionButton icon="reader-outline" label="새 노트" onPress={() => openNewPersonalNote([])} styles={styles} />
-                  </View>
-                  <TextInput
-                    onChangeText={setNoteSearchQuery}
-                    placeholder="제목, 본문, 태그 검색"
-                    placeholderTextColor={colors.muted}
-                    style={styles.searchInput}
-                    value={noteSearchQuery}
+                {activeRoute.noteId && selectedPersonalNote ? (
+                  <PersonalNoteEditorScreen
+                    colors={colors}
+                    document={personalNoteDocument}
+                    formatUpdatedAt={formatShortDate}
+                    links={selectedPersonalNoteLinks}
+                    note={selectedPersonalNote}
+                    onAddVerseReference={addPersonalNoteVerseReference}
+                    onBack={goBack}
+                    onChangeDocument={setPersonalNoteDocument}
+                    onChangeTags={setPersonalNoteTagInput}
+                    onChangeTitle={setPersonalNoteTitle}
+                    onDelete={deletePersonalNote}
+                    onOpenLinkedVerse={(link) =>
+                      openReaderStudyRoute({ bookId: link.bookId, chapter: link.chapter, verseId: link.verseKey }, "note")
+                    }
+                    onSave={savePersonalNote}
+                    referenceLabel={(link) => `${getBook(link.bookId)?.nameKo ?? link.bookId} ${link.chapter}:${link.verse}`}
+                    saveStatus={copyStatus}
+                    tags={personalNoteTagInput}
+                    title={personalNoteTitle}
                   />
-                  <Text style={styles.searchSummary}>{visiblePersonalNotes.length}/{userData.personalNotes.length}개 노트</Text>
-                </View>
-
-                {selectedPersonalNote ? (
-                  <View style={styles.selectedPanel}>
-                    <View style={styles.panelHeading}>
-                      <View>
-                        <Text style={styles.eyebrow}>편집기</Text>
-                        <Text style={styles.panelTitle}>{selectedPersonalNote.title}</Text>
-                      </View>
-                      <Text style={styles.badge}>{formatShortDate(selectedPersonalNote.updatedAt)}</Text>
-                    </View>
-                    <Text style={styles.groupLabel}>제목</Text>
-                    <TextInput
-                      onChangeText={setPersonalNoteTitle}
-                      placeholder="노트 제목"
-                      placeholderTextColor={colors.muted}
-                      style={styles.searchInput}
-                      value={personalNoteTitle}
-                    />
-                    <Text style={styles.groupLabel}>본문</Text>
-                    <PersonalNoteRichTextEditor
-                      key={selectedPersonalNote.id}
-                      document={personalNoteDocument}
-                      onAddVerseReference={addPersonalNoteVerseReference}
-                      onChange={setPersonalNoteDocument}
-                    />
-                    <Text style={styles.groupLabel}>태그</Text>
-                    <TextInput
-                      onChangeText={setPersonalNoteTagInput}
-                      placeholder="태그, 쉼표 구분"
-                      placeholderTextColor={colors.muted}
-                      style={styles.searchInput}
-                      value={personalNoteTagInput}
-                    />
-                    {selectedPersonalNoteLinks.length ? (
-                      <View style={styles.badgeRow}>
-                        {selectedPersonalNoteLinks.map((link) => (
-                          <Pressable
-                            key={link.id}
-                            onPress={() => {
-                              openReaderStudyRoute({ bookId: link.bookId, chapter: link.chapter, verseId: link.verseKey }, "note");
-                            }}
-                          >
-                            <Text style={styles.badge}>{getBook(link.bookId)?.nameKo ?? link.bookId} {link.chapter}:{link.verse}</Text>
-                          </Pressable>
-                        ))}
-                      </View>
-                    ) : (
-                      <Text style={styles.metaText}>연결된 구절이 없습니다. 리더에서 구절을 선택해 새 노트를 만들 수 있습니다.</Text>
-                    )}
-                    {copyStatus ? <Text style={styles.successText}>{copyStatus}</Text> : null}
-                    <View style={styles.actionRow}>
-                      <ActionButton icon="save-outline" label="저장" onPress={savePersonalNote} styles={styles} />
-                      <ActionButton icon="trash-outline" label="삭제" onPress={deletePersonalNote} styles={styles} />
-                    </View>
-                  </View>
                 ) : (
-                  <View style={styles.emptyState}>
-                    <Text style={styles.panelTitle}>저장한 성경노트가 없습니다.</Text>
-                    <Text style={styles.metaText}>개별 노트를 만들고 구절 링크와 태그를 함께 저장할 수 있습니다.</Text>
-                    <ActionButton icon="reader-outline" label="첫 노트 만들기" onPress={() => openNewPersonalNote([])} styles={styles} />
-                  </View>
+                  <PersonalNoteListScreen
+                    colors={colors}
+                    formatUpdatedAt={formatShortDate}
+                    notes={visiblePersonalNotes}
+                    onBack={canGoBack ? goBack : undefined}
+                    onCreate={() => openNewPersonalNote([])}
+                    onOpen={openPersonalNote}
+                    onQueryChange={setNoteSearchQuery}
+                    query={noteSearchQuery}
+                    totalCount={userData.personalNotes.filter((note) => note.status === "active").length}
+                  />
                 )}
-
-                {visiblePersonalNotes.map((note) => (
-                  <Pressable
-                    key={note.id}
-                    onPress={() => setSelectedPersonalNoteId(note.id)}
-                    style={[styles.studyItem, selectedPersonalNote?.id === note.id ? styles.verseRowSelected : null]}
-                  >
-                    <Text style={styles.panelTitle}>{note.title}</Text>
-                    <Text numberOfLines={3} style={styles.resultText}>{note.bodyText || note.bodyMarkdown || "본문 없음"}</Text>
-                    <Text style={styles.metaText}>{formatShortDate(note.updatedAt)}</Text>
-                  </Pressable>
-                ))}
               </View>
             ) : null}
 

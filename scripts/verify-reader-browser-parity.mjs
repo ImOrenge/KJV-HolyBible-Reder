@@ -307,6 +307,19 @@ async function waitForText(cdp, labels, timeout = 10_000) {
   throw new Error(`Timed out waiting for text: ${expected.join(", ")}. Requests: ${JSON.stringify(requests)}. Failures: ${JSON.stringify(failures)}. Last body: ${lastText.slice(0, 500)}`);
 }
 
+async function waitForAccessibilityLabel(cdp, label, timeout = 5_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const found = await evaluate(cdp, (targetLabel) =>
+      [...document.querySelectorAll("[aria-label]")].some(
+        (element) => element.getAttribute("aria-label") === targetLabel,
+      ), label).catch(() => false);
+    if (found) return true;
+    await sleep(200);
+  }
+  return false;
+}
+
 async function ensureGuestReader(cdp) {
   const clicked = await clickExactText(cdp, "비회원 리더 로그인").catch(() => false)
     || await clickText(cdp, "비회원 리더 로그인").catch(() => false);
@@ -848,6 +861,82 @@ async function verifyMobileStackFlow(cdp, name) {
   return failures;
 }
 
+async function verifyMobileNoteStackFlow(cdp, name) {
+  if (name !== "mobile") return [];
+  const failures = [];
+  await evaluate(cdp, () => {
+    window.scrollTo(0, 0);
+    if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
+    for (const element of document.querySelectorAll("*")) {
+      if (element instanceof HTMLElement && element.scrollHeight > element.clientHeight) element.scrollTop = 0;
+    }
+  });
+  await sleep(250);
+
+  if (!(await clickAccessibilityLabel(cdp, "명령 검색"))) {
+    failures.push(`${name}.noteStack.command: command button missing`);
+    return failures;
+  }
+  await waitForText(cdp, "빠른 이동", 5_000).catch((error) => {
+    failures.push(`${name}.noteStack.commandSheet: ${error.message}`);
+  });
+  if (!(await scrollAccessibilityLabelIntoView(cdp, "명령: 성경노트"))) {
+    failures.push(`${name}.noteStack.commandItem: notes command missing`);
+    return failures;
+  }
+  await sleep(250);
+  if (!(await clickAccessibilityLabel(cdp, "명령: 성경노트"))) {
+    failures.push(`${name}.noteStack.listPush: notes command was not clickable`);
+    return failures;
+  }
+  if (!(await waitForAccessibilityLabel(cdp, "노트 목록 화면"))) {
+    failures.push(`${name}.noteStack.list: list screen missing`);
+    return failures;
+  }
+
+  const listState = await evaluate(cdp, () => ({
+    editor: document.querySelectorAll('[aria-label="노트 편집 화면"]').length,
+    list: document.querySelectorAll('[aria-label="노트 목록 화면"]').length,
+  }));
+  if (listState.list !== 1 || listState.editor !== 0) {
+    failures.push(`${name}.noteStack.listExclusive: ${JSON.stringify(listState)}`);
+  }
+
+  if (!(await clickAccessibilityLabel(cdp, "새 노트")) && !(await clickAccessibilityLabel(cdp, "첫 노트 만들기"))) {
+    failures.push(`${name}.noteStack.create: create note button missing`);
+    return failures;
+  }
+  if (!(await waitForAccessibilityLabel(cdp, "노트 편집 화면", 8_000))) {
+    failures.push(`${name}.noteStack.editor: editor screen missing`);
+    return failures;
+  }
+
+  const editorState = await evaluate(cdp, () => ({
+    editor: document.querySelectorAll('[aria-label="노트 편집 화면"]').length,
+    list: document.querySelectorAll('[aria-label="노트 목록 화면"]').length,
+  }));
+  if (editorState.editor !== 1 || editorState.list !== 0) {
+    failures.push(`${name}.noteStack.editorExclusive: ${JSON.stringify(editorState)}`);
+  }
+
+  if (!(await clickAccessibilityLabel(cdp, "노트 편집기 이전 화면"))) {
+    failures.push(`${name}.noteStack.editorBack: editor back button missing`);
+    return failures;
+  }
+  if (!(await waitForAccessibilityLabel(cdp, "노트 목록 화면"))) {
+    failures.push(`${name}.noteStack.listRestore: list screen was not restored`);
+    return failures;
+  }
+  if (!(await clickAccessibilityLabel(cdp, "이전 화면"))) {
+    failures.push(`${name}.noteStack.readerBack: list return button missing`);
+    return failures;
+  }
+  await waitForText(cdp, "창세기 1장", 8_000).catch((error) => {
+    failures.push(`${name}.noteStack.readerRestore: ${error.message}`);
+  });
+  return failures;
+}
+
 async function verifySelectionFlow(cdp, name) {
   const failures = [];
   if (!(await evaluate(cdp, dispatchFirstVersePointer, "down"))) {
@@ -963,9 +1052,10 @@ async function verifyReader(cdp, name, threshold) {
   const chapterNavigationFailures = await verifyChapterNavigationFlow(cdp, name);
   const chapterPickerFailures = await verifyChapterPickerFlow(cdp, name, threshold);
   const stackFailures = await verifyMobileStackFlow(cdp, name);
+  const noteStackFailures = await verifyMobileNoteStackFlow(cdp, name);
   const contextFailures = await verifyV2ContextFlow(cdp, name);
   const selectionFailures = await verifySelectionFlow(cdp, name);
-  return { chapterNavigationFailures, chapterPickerFailures, contextFailures, layoutFailures, metrics, name, selectionFailures, stackFailures };
+  return { chapterNavigationFailures, chapterPickerFailures, contextFailures, layoutFailures, metrics, name, noteStackFailures, selectionFailures, stackFailures };
 }
 
 async function main() {
@@ -1008,6 +1098,7 @@ async function main() {
           mobileResult.chapterPickerFailures.length === 0 &&
           mobileResult.contextFailures.length === 0 &&
           mobileResult.layoutFailures.length === 0 &&
+          mobileResult.noteStackFailures.length === 0 &&
           mobileResult.selectionFailures.length === 0 &&
           mobileResult.stackFailures.length === 0,
       };
@@ -1036,12 +1127,14 @@ async function main() {
         webResult.chapterPickerFailures.length === 0 &&
         webResult.contextFailures.length === 0 &&
         webResult.layoutFailures.length === 0 &&
+        webResult.noteStackFailures.length === 0 &&
         webResult.selectionFailures.length === 0 &&
         webResult.stackFailures.length === 0 &&
         mobileResult.chapterNavigationFailures.length === 0 &&
         mobileResult.chapterPickerFailures.length === 0 &&
         mobileResult.contextFailures.length === 0 &&
         mobileResult.layoutFailures.length === 0 &&
+        mobileResult.noteStackFailures.length === 0 &&
         mobileResult.selectionFailures.length === 0 &&
         mobileResult.stackFailures.length === 0,
       web: webResult,

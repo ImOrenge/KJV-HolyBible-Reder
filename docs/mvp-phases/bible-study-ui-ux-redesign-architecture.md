@@ -33,9 +33,10 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 | 웹 Reader V2 | `readerV2` flag 아래 ReaderHeader/VerseRow/VerseActions, 3-pane, 태블릿 sheet, 모바일 action sheet | ReaderScreen data orchestration과 자동 회귀 테스트 |
 | 모바일 Shell | `uiShellV2` flag 아래 `오늘/성경/공부/보관함/설정` 5탭, custom route stack adapter, header 명령 검색, Android hardware back | Expo Router 전환, iOS swipe back, screen별 컴포넌트 분리 |
 | 모바일 Reader V2 | `readerV2` flag 아래 native ReaderHeader/VerseRow/VerseActionsSheet, EN/KR/동시 보기, long press 다중 선택, keyboard 회피와 2단계 snap, 전용 Reader controller/TTS hook, route/context 복귀 | Android/iOS 실기기 검증 |
+| 모바일 Notes V2 | `PersonalNoteListScreen`과 `PersonalNoteEditorScreen`을 route noteId 기준으로 상호 배타 렌더링하고 Reader -> 목록 -> 편집기 -> 목록 -> Reader stack 복귀 | keyboard toolbar 고정, local draft, remote conflict, inspector sheet |
 | 검증 | typecheck, lint, build, Expo Doctor, 구조/스타일 검사, 320/390/768/1024/1440px 웹 smoke, Expo Reader V2 390px interaction smoke | 실제 Android/iOS 검증 |
 
-이 상태는 P2 완료를 뜻하지 않는다. Reader, Notes, Dictionary Detail을 독립 screen/pane으로 분리하기 전까지 기존 대형 컴포넌트는 legacy adapter 안에서 유지한다.
+이 상태는 P2 완료를 뜻하지 않는다. Reader data orchestration, Notes inspector/keyboard toolbar, Dictionary Detail을 독립 screen/pane 책임으로 분리하기 전까지 기존 대형 컴포넌트는 legacy adapter 안에서 유지한다.
 
 관련 문서:
 
@@ -47,6 +48,7 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 - [웹 Reader V2 컴포넌트 패스포트](../../artifacts/component-passports/reader-v2-surface.yaml)
 - [모바일 Reader V2 컴포넌트 패스포트](../../artifacts/component-passports/reader-v2-native-surface.yaml)
 - [모바일 공부 내비게이션 컴포넌트 패스포트](../../artifacts/component-passports/mobile-study-navigation.yaml)
+- [모바일 개인 노트 화면 컴포넌트 패스포트](../../artifacts/component-passports/mobile-personal-note-screens.yaml)
 
 ## 2. 현재 구조 진단
 
@@ -802,7 +804,7 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 
 ### Phase UX-03: Notes 개편
 
-- [ ] 모바일 note list와 editor를 별도 screen으로 분리한다.
+- [x] 모바일 note list와 editor를 별도 screen으로 분리한다.
 - [ ] 웹 note list/editor/inspector 구조를 구현한다.
 - [ ] 구절 노트, 장 노트, 성경노트 표시 개념을 통합한다.
 - [ ] template 선택을 note 생성 단계로 이동한다.
@@ -863,7 +865,7 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 - [ ] 온보딩 migration, Storage RLS, nickname 충돌, 계정 삭제 smoke evidence가 남는다.
 - [ ] 웹과 모바일의 뒤로 가기가 출발 문맥으로 복귀한다.
 - [ ] 모바일 선택 구절 액션이 장 끝에 나타나는 기존 문제가 제거된다.
-- [ ] 모바일 note list와 editor가 동시에 한 scroll에 나타나지 않는다.
+- [x] 모바일 note list와 editor가 동시에 한 scroll에 나타나지 않는다.
 - [ ] 웹의 9개 가로 tab과 항상 펼친 50개 장 selector가 제거된다.
 - [ ] 기존 Supabase RLS, revision, note link와 verseKey 계약이 유지된다.
 - [ ] 비로그인 local data와 로그인 remote data가 모두 유지된다.

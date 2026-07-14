@@ -34,6 +34,9 @@
 - `useMobileStudyNavigation`이 기존 `activeView` 렌더러 앞에서 route stack과 Android hardware back을 관리한다.
 - 검색, 노트, 사전, 보관함에서 Reader로 이동할 때 권·장·절과 return target을 보존한다.
 - 사전 출현 구절은 해당 절 Reader를 열고 뒤로 가면 동일 사전 항목 route로 복귀한다.
+- `PersonalNoteListScreen`과 `PersonalNoteEditorScreen`은 noteId route에 따라 상호 배타 렌더링된다.
+- Reader -> 노트 목록 -> 새 노트 편집기 -> 목록 -> Reader stack 복귀를 자동 검증한다.
+- TenTap CSS 주입은 bridge `isReady` 이후에만 실행해 Expo Web/느린 WebView 초기화 race를 방지한다.
 
 Expo Web `390x844` 검증:
 
@@ -44,6 +47,7 @@ Expo Web `390x844` 검증:
 - `창세기 1장 -> 2장 -> 1장` 복귀 후 1절이 보이고 현재 위치가 `창세기 1:1`로 유지된다.
 - 선택 mode에서 1절과 3절을 누르면 1~3절이 연속 범위로 선택된다.
 - Reader의 명령 검색에서 검색 화면을 push하고 이전 버튼으로 창세기 1장에 복귀한다.
+- Reader에서 노트 목록과 새 편집기를 왕복할 때 목록과 편집기가 동시에 렌더링되지 않는다.
 - 증거: `reports/ui-ux-redesign-screenshots/expo-reader-v2-mobile-390.png`
 
 ## 브라우저 검증

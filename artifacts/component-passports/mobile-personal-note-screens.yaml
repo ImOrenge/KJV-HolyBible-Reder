@@ -1,0 +1,64 @@
+component:
+  id: mobile-personal-note-screens
+  name: Mobile Personal Note Screens
+  kind: feature-screens
+  status: candidate
+  change_gate: behavioral
+  owner_scope: mobile-personal-notes
+  source:
+    list_screen: apps/mobile/src/components/notes/personal-note-list-screen.tsx
+    editor_screen: apps/mobile/src/components/notes/personal-note-editor-screen.tsx
+    rich_text_editor: apps/mobile/src/components/personal-note-rich-text-editor.tsx
+    navigation: apps/mobile/src/hooks/use-mobile-study-navigation.ts
+    integration: apps/mobile/App.tsx
+  public_api:
+    list_props: [notes, query, totalCount, onCreate, onOpen, onQueryChange, onBack]
+    editor_props: [note, title, document, tags, links, onSave, onDelete, onBack, onOpenLinkedVerse]
+  styling:
+    system: react-native StyleSheet
+    tokens: [accent, accentText, border, danger, muted, surface, surfaceStrong, text]
+    inline_styles_allowed: false
+  state:
+    controlled: [query, title, document, tags]
+    local: []
+  accessibility:
+    screen_roots: [노트 목록 화면, 노트 편집 화면]
+    back_control: 노트 편집기 이전 화면
+    controls: native Pressable and TextInput roles with explicit labels
+  owns:
+    - personal note list search and empty state presentation
+    - full-screen personal note editor presentation
+    - title, structured document, tag, linked verse, save, and delete controls
+    - list and editor accessibility screen identities
+  does_not_own:
+    - note persistence and Supabase synchronization
+    - route transition implementation
+    - local draft debounce and revision conflict resolution
+    - keyboard toolbar positioning and linked verse inspector sheet
+  rendering_contract:
+    - a notes root route renders PersonalNoteListScreen only
+    - a notes route with noteId renders PersonalNoteEditorScreen only
+    - selecting or creating a note pushes a note detail route
+    - editor back pops to the list and a pushed list can pop to its source Reader
+    - deleting an open note removes its memberships and returns to the list
+  editor_contract:
+    - TenTap receives the shared PersonalNoteDocument JSON model
+    - CSS injection waits for bridge isReady to prevent WebView initialization races
+    - inline verse autocomplete continues to call the existing verse-link callback
+  test_surface:
+    static: [npm run typecheck, npm run structure:mobile]
+    runtime: [npm run browser:reader -- --single=true --port=9352]
+  evidence:
+    - type: browser-interaction
+      command: npm run browser:reader -- --single=true --port=9352
+      result: pass
+      findings:
+        - Reader command search pushes the personal note list
+        - creating a note pushes the editor screen
+        - list and editor accessibility roots are never rendered together
+        - editor back restores the list and list back restores Genesis 1 Reader
+        - Reader chapter, context sheet, and selection checks remain green
+  residual_risk:
+    - Local draft recovery and remote revision conflict UI are not implemented yet.
+    - The rich-text toolbar is not yet pinned above the native keyboard.
+    - Android and iOS device keyboard, IME, and long-document performance still require verification.

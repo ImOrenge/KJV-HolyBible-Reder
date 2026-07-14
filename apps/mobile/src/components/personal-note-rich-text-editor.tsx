@@ -8,7 +8,7 @@ import {
   type PersonalNoteDocumentMark,
   type PersonalNoteNode,
 } from "@kjv/shared";
-import { RichText, TenTapStartKit, useEditorBridge, useEditorContent } from "@10play/tentap-editor";
+import { RichText, TenTapStartKit, useBridgeState, useEditorBridge, useEditorContent } from "@10play/tentap-editor";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
@@ -221,6 +221,7 @@ export function PersonalNoteRichTextEditor({ document, onAddVerseReference, onCh
       webviewContainer: { backgroundColor: "#ffffff" },
     },
   });
+  const editorState = useBridgeState(editor);
   const editorJson = useEditorContent(editor, { type: "json", debounceInterval: 180 });
   const lastEmitted = useRef(JSON.stringify(document));
   const preservedReferences = useRef(collectReferenceNodes(document));
@@ -235,10 +236,11 @@ export function PersonalNoteRichTextEditor({ document, onAddVerseReference, onCh
   }, [editorJson, onChange, textAlign, textSize]);
 
   useEffect(() => {
+    if (!editorState.isReady) return;
     const alignCss = textAlign === "start" ? "left" : textAlign === "end" ? "right" : textAlign;
     const sizeCss = textSize === "sm" ? "14px" : textSize === "lg" ? "19px" : "16px";
     editor.injectCSS(`.ProseMirror { font-size: ${sizeCss} !important; text-align: ${alignCss} !important; }`, "personal-note-document-style");
-  }, [editor, textAlign, textSize]);
+  }, [editor, editorState.isReady, textAlign, textSize]);
 
   const plainText = editorJson ? personalNoteDocumentToText(fromEditorDocument(editorJson)) : personalNoteDocumentToText(document);
   const triggerMatch = /(?:^|\s)#([^#\n]{0,40})$/.exec(plainText);

@@ -267,7 +267,7 @@ flowchart LR
 - [ ] `StudyNote` legacy read adapter와 `PersonalNote` write 정책을 고정한다.
 - [ ] 리더의 구절/장 노트 action을 하나의 `노트` action으로 통합한다.
 - [ ] 웹 list `300px` + editor + inspector 구조를 구현한다.
-- [ ] 모바일 Note List와 Note Editor를 별도 stack screen으로 분리한다.
+- [x] 모바일 Note List와 Note Editor를 별도 stack screen으로 분리한다.
 - [ ] rich-text toolbar를 모바일 keyboard 위에 고정한다.
 - [ ] 기본 toolbar와 더보기 toolbar의 도구를 분리한다.
 - [ ] verse autocomplete의 `#창`, `#창 1:10` 흐름을 유지한다.
@@ -279,7 +279,7 @@ flowchart LR
 
 ### 완료 기준
 
-- [ ] 모바일에서 목록과 편집기가 한 scroll에 동시에 나타나지 않는다.
+- [x] 모바일에서 목록과 편집기가 한 scroll에 동시에 나타나지 않는다.
 - [ ] keyboard가 toolbar와 마지막 편집 줄을 가리지 않는다.
 - [ ] 저장 실패와 앱 종료 후에도 local draft가 유지된다.
 - [ ] 연결 구절 추가/삭제 후 Reader backlink가 일관된다.
