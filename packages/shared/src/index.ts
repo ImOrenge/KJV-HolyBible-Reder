@@ -9,6 +9,7 @@ export * from "./onboarding";
 export * from "./personal-note-document";
 export * from "./privacy-policy";
 export * from "./reading-plan";
+export * from "./reader-orchestration";
 export * from "./search-highlight";
 export * from "./study-ui";
 export * from "./supabase-user-data-repository";

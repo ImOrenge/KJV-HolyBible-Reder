@@ -7,11 +7,12 @@ component:
     paths:
       - apps/web/src/components/kjv-mvp-app.tsx
       - apps/web/src/app/globals.css
+      - apps/mobile/src/hooks/use-mobile-reader-tts.ts
     route: /app
     baseline_component: "Reader TTS action buttons, settings TTS controls, and player bar"
   target:
     expo:
-      path: apps/mobile/App.tsx
+      path: apps/mobile/src/hooks/use-mobile-reader-tts.ts
       surface: "Expo React Native app and Expo Web parity surface"
     probes:
       - scripts/capture-mobile-visuals.mjs

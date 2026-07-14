@@ -10,6 +10,8 @@ component:
       - apps/mobile/src/components/reader/reader-verse-row.tsx
       - apps/mobile/src/components/reader/reader-verse-actions-sheet.tsx
       - apps/mobile/src/components/reader/reader-types.ts
+      - apps/mobile/src/hooks/use-mobile-reader-controller.ts
+      - apps/mobile/src/hooks/use-mobile-reader-tts.ts
     integration: apps/mobile/App.tsx
   public_api:
     components: [ReaderHeader, ReaderVerseRow, ReaderVerseActionsSheet]
@@ -23,16 +25,16 @@ component:
     feature_flag: EXPO_PUBLIC_READER_V2
   change_gate:
     type: compatible-and-style-contract
-    summary: Existing Reader orchestration remains in App while native display responsibilities move behind the Reader V2 flag.
+    summary: Native display stays behind the Reader V2 flag while Reader data, selection, scroll, and TTS orchestration live in dedicated hooks.
   dependencies:
-    internal: [Verse, App reader handlers, semantic mobile colors]
+    internal: [Verse, reader orchestration shared model, semantic mobile colors]
     external: [react, react-native]
   styling:
     namespace: native-reader-local-styles
     tokens: [surface, surfaceStrong, text, muted, border, accent, accentSecondary, warning]
     inline_styles_allowed: dynamic font size, line height, animated translateY
   state:
-    local_owner: apps/mobile/App.tsx
+    local_owner: apps/mobile/src/hooks/use-mobile-reader-controller.ts
     component_local:
       - action sheet expanded state
       - action sheet animated snap offset
@@ -53,7 +55,7 @@ component:
     overlays: bottom offset increases while the TTS player is visible
   test_surface:
     static: [mobile typecheck, lint]
-    contract: [structure:mobile, style:mobile, study-ui:validate]
+    contract: [structure:mobile, style:mobile, study-ui:validate, reader:validate]
     runtime: [Expo Web browser smoke, Android and iOS device smoke]
   evidence:
     current_level: 4
@@ -75,6 +77,6 @@ component:
           - 620ms long press enters multi-select with one selected verse
         artifact: reports/ui-ux-redesign-screenshots/expo-reader-v2-mobile-390.png
   residual_risk:
-    - Reader data, persistence, and TTS orchestration still live in App.tsx.
     - Drag snap and keyboard avoidance require Android and iOS device verification.
-    - Automated copy, TTS, save, and multi-select interaction tests remain pending.
+    - Automated clipboard, remote save, and real device TTS interaction tests remain pending.
+    - Expo route params and context return still depend on App activeView adapters.

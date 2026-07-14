@@ -27,6 +27,9 @@
 - 단일 구절 action sheet에서 복사, 읽기, 강조, 구절 노트, 번역 의견, 인용 저장, 성경노트를 시작한다.
 - 다중 선택 sheet는 복사, 인용 저장, 새 노트, 읽기, 선택 해제를 제공한다.
 - action sheet는 TTS player bottom offset, iOS/Android keyboard 회피, 펼침/compact 2단계 drag snap을 적용한다.
+- `useMobileReaderController`가 장 조회, 진입 절, 선택 범위, 현재 읽기 절, 첫 절 scroll, 읽음 완료를 소유한다.
+- `useMobileReaderTts`가 재생 queue, 반복, 일시정지, 이전/다음 절, 현재 재생 절을 소유한다.
+- `packages/shared/src/reader-orchestration.ts`가 웹/모바일 공통 Reader target, 범위 선택, 현재 절, TTS queue 규칙을 제공한다.
 
 Expo Web `390x844` 검증:
 
@@ -34,6 +37,8 @@ Expo Web `390x844` 검증:
 - 동시 보기에서 한국어 본문과 KJV 영어 본문이 같은 구절 행에 표시된다.
 - 단일 구절 action sheet의 7개 동작과 compact snap state가 노출된다.
 - 약 `620ms` long press 후 1개 구절 다중 선택 sheet가 열린다.
+- `창세기 1장 -> 2장 -> 1장` 복귀 후 1절이 보이고 현재 위치가 `창세기 1:1`로 유지된다.
+- 선택 mode에서 1절과 3절을 누르면 1~3절이 연속 범위로 선택된다.
 - 증거: `reports/ui-ux-redesign-screenshots/expo-reader-v2-mobile-390.png`
 
 ## 브라우저 검증
@@ -65,11 +70,15 @@ Expo Web `390x844` 검증:
 - `시편 75편`에서 현재 위치 주변 `70~81편` 12개만 표시한다.
 - `전체 150장` action으로 기존 전체 장 선택 sheet를 연다.
 
+Reader orchestration 검증:
+
+- `npm run reader:validate`: 진입 target, 역방향 범위 선택, 읽기 line 계산, 선택 mode 자동 scroll 억제, TTS queue/index 경계를 검증한다.
+- `npm run typecheck`, `npm run structure:mobile`, `npm run style:mobile`: 통과.
+
 ## 남은 작업
 
-- `ReaderScreen` 데이터 조회·저장·TTS orchestration을 `KjvMvpApp`에서 분리한다.
+- 웹 `ReaderScreen` 데이터 조회·저장·TTS orchestration을 `KjvMvpApp`에서 분리한다.
 - 원어 marker 자체의 keyboard/tap action을 context panel에 직접 연결한다.
-- TTS 자동 scroll, 복사, 저장, 다중 선택을 자동 interaction test로 고정한다.
-- tablet/mobile sheet의 drag snap과 keyboard 회피를 구현한다.
-- Expo Reader에 동일한 route params와 새 context surface 계약을 적용한다.
+- 실제 clipboard, 원격 저장, 기기 TTS를 Android/iOS interaction test로 고정한다.
+- Expo Reader에 route params와 새 context return surface 계약을 적용한다.
 - Expo Reader V2의 drag snap과 keyboard 회피를 Android/iOS 실제 기기에서 검증한다.

@@ -206,11 +206,14 @@ flowchart LR
 ### 8.1 공통 태스크
 
 - [x] `ReaderHeader`, `VerseRow`, `VerseActions` 표시 책임을 분리한다.
-- [ ] `ReaderScreen` 데이터·저장·TTS orchestration을 `KjvMvpApp`에서 분리한다.
+- [x] Expo Reader의 데이터·선택·스크롤·TTS orchestration을 `AppShell`에서 전용 hook으로 분리한다.
+- [ ] 웹 `ReaderScreen` 데이터·저장·TTS orchestration을 `KjvMvpApp`에서 분리한다.
 - [x] 선택 절, 현재 읽기 절, 하이라이트 상태 indicator를 분리한다.
 - [x] `StudyContext` 생성과 return verse anchor 복원을 구현한다.
-- [ ] 이전/다음 장 이동 후 focus와 scroll 규칙을 구현한다.
-- [ ] TTS, 복사, 다중 선택, 저장 기능 회귀 테스트를 추가한다.
+- [x] Expo 이전/다음 장 이동 후 첫 절 focus와 scroll 규칙을 구현한다.
+- [ ] 웹 이전/다음 장 이동 후 focus와 scroll 규칙을 구현한다.
+- [ ] TTS, 복사, 저장 기능 회귀 테스트를 추가한다.
+- [x] Reader target, TTS queue, 자동 scroll 억제, 다중 선택 범위 회귀 테스트를 추가한다.
 - [x] 원어 출현 데이터가 있는 절에만 `원어` context tab을 노출한다.
 
 ### 8.2 웹 태스크
@@ -246,7 +249,8 @@ flowchart LR
 - [x] 절 선택 후 노트, 하이라이트, 저장 시작까지 최대 2회 action이다.
 - [x] 모바일 선택 액션을 위해 장 끝까지 scroll할 필요가 없다.
 - [x] Reader에서 사전으로 이동 후 원래 절과 context tab으로 복귀한다.
-- [ ] 본문 선택, TTS 자동 scroll, 다중 선택이 서로 충돌하지 않는다.
+- [x] Expo에서 본문 선택, TTS 자동 scroll, 다중 선택이 서로 충돌하지 않는다.
+- [ ] 웹에서 본문 선택, TTS 자동 scroll, 다중 선택 충돌을 자동 검증한다.
 - [x] `320~1440px`에서 horizontal page overflow가 없다.
 
 ## 9. Phase P4: Notes 작업 공간 개편

@@ -32,7 +32,7 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 | 웹 legacy adapter | 기존 `KjvMvpApp`을 controlled `activeView`로 열고 `/app/...` history 및 Reader 권·장·절 deep link와 연결 | 화면별 feature component 교체 |
 | 웹 Reader V2 | `readerV2` flag 아래 ReaderHeader/VerseRow/VerseActions, 3-pane, 태블릿 sheet, 모바일 action sheet | ReaderScreen data orchestration과 자동 회귀 테스트 |
 | 모바일 Shell | `uiShellV2` flag 아래 `오늘/성경/공부/보관함/설정` 5탭과 header 명령 검색 | tab/stack router와 Android/iOS 복귀 계약 |
-| 모바일 Reader V2 | `readerV2` flag 아래 native ReaderHeader/VerseRow/VerseActionsSheet, EN/KR/동시 보기, long press 다중 선택, keyboard 회피와 2단계 snap | ReaderScreen orchestration, route/context 복귀, Android/iOS 실기기 검증 |
+| 모바일 Reader V2 | `readerV2` flag 아래 native ReaderHeader/VerseRow/VerseActionsSheet, EN/KR/동시 보기, long press 다중 선택, keyboard 회피와 2단계 snap, 전용 Reader controller/TTS hook | route/context 복귀, Android/iOS 실기기 검증 |
 | 검증 | typecheck, lint, build, Expo Doctor, 구조/스타일 검사, 320/390/768/1024/1440px 웹 smoke, Expo Reader V2 390px interaction smoke | 실제 Android/iOS 검증 |
 
 이 상태는 P2 완료를 뜻하지 않는다. Reader, Notes, Dictionary Detail을 독립 screen/pane으로 분리하기 전까지 기존 대형 컴포넌트는 legacy adapter 안에서 유지한다.
@@ -602,6 +602,9 @@ apps/mobile/
     dictionary/[entryId].tsx
     search.tsx
   src/components/
+  src/hooks/
+    use-mobile-reader-controller.ts
+    use-mobile-reader-tts.ts
   src/features/reader/
   src/features/notes/
   src/features/dictionary/
@@ -618,6 +621,7 @@ apps/mobile/
 - 성경·노트·사전 view model 변환
 - design token 이름과 semantic value
 - 검색 highlight와 reference formatter
+- Reader 진입 대상, 선택 범위, 현재 절 계산, TTS queue 규칙
 - API client와 repository
 - onboarding validation, profile/status 타입, API client
 
@@ -780,7 +784,8 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 - [x] long press 다중 선택과 즉시 액션을 구현한다.
 - [x] 원어 context -> dictionary -> Reader return 흐름을 구현한다.
 - [x] chapter/verse route와 context tab 복원을 구현한다.
-- [ ] ReaderScreen data orchestration과 자동 회귀 테스트를 분리한다.
+- [x] Expo Reader data/selection/scroll/TTS orchestration과 shared 회귀 테스트를 분리한다.
+- [ ] 웹 ReaderScreen data orchestration을 `KjvMvpApp`에서 분리한다.
 
 ### Phase UX-03: Notes 개편
 

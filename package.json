@@ -30,6 +30,7 @@
     "db:backfill-ko-search": "node scripts/backfill-ko-search.mjs",
     "db:validate-ko": "node scripts/validate-ko-translation.mjs",
     "lexicon:validate": "node scripts/validate-hebrew-lexicon.mjs",
+    "reader:validate": "node scripts/run-reader-orchestration-validation.mjs",
     "study-ui:validate": "node scripts/run-study-context-validation.mjs",
     "db:smoke-notes": "node scripts/smoke-remote-personal-note-workspace.mjs",
     "db:smoke-onboarding": "node scripts/smoke-remote-onboarding.mjs"

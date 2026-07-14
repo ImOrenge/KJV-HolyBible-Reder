@@ -10,7 +10,6 @@ import {
   defaultFavoriteListId,
   formatPlanChapters,
   getUserOnboarding,
-  getAdjacentChapter,
   getBook,
   getBooks,
   getChapters,
@@ -69,9 +68,6 @@ import {
   Alert,
   type GestureResponderEvent,
   KeyboardAvoidingView,
-  type LayoutChangeEvent,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
   Image,
   Platform,
   Pressable,
@@ -88,6 +84,8 @@ import { ReaderHeader } from "./src/components/reader/reader-header";
 import type { MobileReaderTranslationMode } from "./src/components/reader/reader-types";
 import { ReaderVerseActionsSheet } from "./src/components/reader/reader-verse-actions-sheet";
 import { ReaderVerseRow } from "./src/components/reader/reader-verse-row";
+import { useMobileReaderController } from "./src/hooks/use-mobile-reader-controller";
+import { useMobileReaderTts } from "./src/hooks/use-mobile-reader-tts";
 import { OnboardingScreen } from "./src/onboarding-screen";
 import { studyUiFeatureFlags } from "./src/study-ui-feature-flags";
 
@@ -101,12 +99,6 @@ type LoadStatus = "idle" | "loading" | "ready" | "error";
 type SubmitStatus = "idle" | "submitting" | "success" | "error";
 type SyncStatus = "idle" | "loading" | "ready" | "saving" | "error";
 type OnboardingStatus = "idle" | "checking" | "required" | "complete" | "error";
-type TtsPlaybackState = "idle" | "playing" | "paused";
-type SpeechQueueItem = {
-  id?: string;
-  label: string;
-  text: string;
-};
 const ttsSpeedOptions = [0.75, 1, 1.25, 1.5] as const;
 const iconGlyphs = {
   "book-outline": "▤",
@@ -387,27 +379,6 @@ function verseIdFromProgress(bookId: string, chapter: number, verse: number) {
   return normalizeVerseId(`${bookId}-${chapter}-${verse}`);
 }
 
-function upsertRecentRead(state: UserDataState, userId: string, bookId: string, chapter: number, verse = 1): UserDataState {
-  const now = new Date().toISOString();
-  const nextProgress = {
-    userId,
-    bookId,
-    chapter,
-    verse,
-    scrollPosition: 0,
-    lastReadAt: now,
-  };
-
-  return {
-    ...state,
-    progress: nextProgress,
-    recentReads: [
-      nextProgress,
-      ...state.recentReads.filter((read) => read.bookId !== bookId || read.chapter !== chapter),
-    ].slice(0, 10),
-  };
-}
-
 function AppShell() {
   const books = useMemo(() => getBooks(), []);
   const oldBooks = useMemo(() => getBooks("old"), []);
@@ -435,20 +406,9 @@ function AppShell() {
   const [authMessage, setAuthMessage] = useState("");
   const [showAuthForm, setShowAuthForm] = useState(false);
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
-  const [bookId, setBookId] = useState("gen");
-  const [chapter, setChapter] = useState(1);
-  const [chapterStatus, setChapterStatus] = useState<LoadStatus>("idle");
-  const [chapterError, setChapterError] = useState("");
-  const [chapterSource, setChapterSource] = useState("CrossWire KJV");
-  const [verses, setVerses] = useState<Verse[]>([]);
   const [isChapterPickerOpen, setIsChapterPickerOpen] = useState(false);
   const [chapterPickerBookId, setChapterPickerBookId] = useState("gen");
   const [isChapterPickerBookMenuOpen, setIsChapterPickerBookMenuOpen] = useState(false);
-  const [selectedVerseId, setSelectedVerseId] = useState<string | null>(null);
-  const [currentReadingVerseId, setCurrentReadingVerseId] = useState<string | null>(null);
-  const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [selectedVerseIds, setSelectedVerseIds] = useState<string[]>([]);
-  const [selectionAnchorVerseId, setSelectionAnchorVerseId] = useState<string | null>(null);
   const [userData, setUserData] = useState<UserDataState>(() => createInitialUserData(guestUserId));
   const [storageReady, setStorageReady] = useState(false);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
@@ -497,10 +457,6 @@ function AppShell() {
   const [searchTotal, setSearchTotal] = useState(0);
   const [storedVerses, setStoredVerses] = useState<Record<string, Verse>>({});
   const [ttsVoices, setTtsVoices] = useState<Speech.Voice[]>([]);
-  const [ttsPlaybackState, setTtsPlaybackState] = useState<TtsPlaybackState>("idle");
-  const [ttsStatus, setTtsStatus] = useState("대기");
-  const [ttsQueueLabel, setTtsQueueLabel] = useState("대기");
-  const [speakingVerseId, setSpeakingVerseId] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState("");
   const [chapterNoteDraft, setChapterNoteDraft] = useState("");
   const [showChapterNote, setShowChapterNote] = useState(false);
@@ -516,14 +472,42 @@ function AppShell() {
   const didLoadStorageRef = useRef(false);
   const remoteSaveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRemoteSnapshotRef = useRef("");
-  const pendingSelectedVerseIdRef = useRef<string | null>(null);
   const pendingStoredVerseFetchesRef = useRef(new Set<string>());
-  const verseLayoutsRef = useRef(new Map<string, { height: number; y: number }>());
-  const speechQueueRef = useRef<SpeechQueueItem[]>([]);
-  const speechIndexRef = useRef(0);
-  const speechCancelRef = useRef(false);
 
   const activeUserId = authUser?.id ?? guestUserId;
+  const {
+    bookId,
+    chapter,
+    chapterError,
+    chapterSource,
+    chapterStatus,
+    clearVerseSelection,
+    currentReadingVerseId,
+    focusReaderVerse,
+    handleContentScroll,
+    isSelectionMode,
+    loadChapter,
+    markChapterComplete,
+    navigateChapter,
+    openReaderLocation,
+    recordReaderPanelLayout,
+    recordVerseLayout,
+    scrollRef,
+    selectionAnchorVerseId,
+    selectedVerseId,
+    selectedVerseIds,
+    selectReaderVerse,
+    selectVerseForBatch,
+    setReaderSelectionMode,
+    setSelectedVerseId,
+    verses,
+  } = useMobileReaderController({
+    activeUserId,
+    activeView,
+    apiClient,
+    progress: userData.progress,
+    setUserData,
+  });
   const currentBook = getBook(bookId) ?? books[0];
   const chapterPickerBook = getBook(chapterPickerBookId) ?? currentBook;
   const knownVerses = useMemo(
@@ -561,6 +545,24 @@ function AppShell() {
     ],
     [defaultTtsVoiceLabel, ttsVoiceOptions],
   );
+  const {
+    moveSpeech,
+    pauseOrResumeSpeech,
+    playSpeechQueue,
+    setTtsStatus,
+    speakingVerseId,
+    stopSpeech,
+    ttsPlaybackState,
+    ttsQueueLabel,
+    ttsStatus,
+  } = useMobileReaderTts({
+    autoScroll: userData.settings.ttsAutoScroll,
+    language: readingLanguage,
+    onSpeakingVerse: focusReaderVerse,
+    repeat: userData.settings.ttsRepeat,
+    speed: userData.settings.ttsSpeed,
+    voiceIdentifier: selectedTtsVoice?.identifier || userData.settings.ttsVoice || undefined,
+  });
   const selectedReadingModeLabel = readingModeOptions.find((option) => option.value === userData.settings.readingMode)?.label ?? "일반 보기";
   const ttsPlaybackLabel = ttsPlaybackState === "playing" ? "재생 중" : ttsPlaybackState === "paused" ? "일시정지" : "대기";
   const shouldShowTtsOverlay = ttsPlaybackState === "playing" || ttsPlaybackState === "paused";
@@ -866,9 +868,11 @@ function AppShell() {
     const applyLoadedData = (data: UserDataState) => {
       setUserData(data);
       if (data.progress) {
-        pendingSelectedVerseIdRef.current = verseIdFromProgress(data.progress.bookId, data.progress.chapter, data.progress.verse);
-        setBookId(data.progress.bookId);
-        setChapter(data.progress.chapter);
+        openReaderLocation({
+          bookId: data.progress.bookId,
+          chapter: data.progress.chapter,
+          verseId: verseIdFromProgress(data.progress.bookId, data.progress.chapter, data.progress.verse),
+        });
       }
     };
 
@@ -927,7 +931,7 @@ function AppShell() {
     return () => {
       cancelled = true;
     };
-  }, [activeUserId, authUser, supabase]);
+  }, [activeUserId, authUser, openReaderLocation, supabase]);
 
   useEffect(() => {
     if (!storageReady || !didLoadStorageRef.current) {
@@ -1027,61 +1031,6 @@ function AppShell() {
     };
   }, []);
 
-  const loadChapter = useCallback(async () => {
-    setChapterStatus("loading");
-    setChapterError("");
-
-    try {
-      const response = await apiClient.fetchBibleChapter(bookId, chapter);
-      verseLayoutsRef.current.clear();
-      setVerses(response.verses);
-      setChapterSource(response.source.version ? `${response.source.name} ${response.source.version}` : response.source.name);
-      setChapterStatus("ready");
-      const pendingVerseId = pendingSelectedVerseIdRef.current;
-      const nextSelectedVerseId =
-        pendingVerseId && response.verses.some((verse) => verse.id === pendingVerseId)
-          ? pendingVerseId
-          : null;
-      pendingSelectedVerseIdRef.current = null;
-      setSelectedVerseId(nextSelectedVerseId);
-      setCurrentReadingVerseId(nextSelectedVerseId);
-      setSelectedVerseIds([]);
-      setSelectionAnchorVerseId(null);
-      setIsSelectionMode(false);
-      setShowChapterNote(false);
-      setShowVerseNote(false);
-      setShowFeedbackModal(false);
-    } catch (error) {
-      setChapterStatus("error");
-      setChapterError(error instanceof Error ? error.message : "본문을 불러오지 못했습니다.");
-      setVerses([]);
-    }
-  }, [activeUserId, apiClient, bookId, chapter]);
-
-  useEffect(() => {
-    void loadChapter();
-  }, [loadChapter]);
-
-  useEffect(() => {
-    if (!verses.length) {
-      return;
-    }
-
-    if (currentReadingVerseId) {
-      return;
-    }
-
-    const progressMatchesChapter = userData.progress?.bookId === bookId && userData.progress.chapter === chapter;
-    const targetVerse = progressMatchesChapter
-      ? verses.find((verse) => verse.verse === userData.progress?.verse) ?? verses[0]
-      : verses[0];
-
-    setCurrentReadingVerseId(targetVerse.id);
-    if (progressMatchesChapter && !selectedVerseId) {
-      setSelectedVerseId(targetVerse.id);
-    }
-  }, [bookId, chapter, currentReadingVerseId, selectedVerseId, userData.progress, verses]);
-
   useEffect(() => {
     const targetVerseIds = new Set([
       ...userData.highlights.map((highlight) => highlight.verseId),
@@ -1109,6 +1058,12 @@ function AppShell() {
   useEffect(() => {
     setChapterNoteDraft(chapterNote?.note ?? "");
   }, [chapterNote?.note, bookId, chapter]);
+
+  useEffect(() => {
+    setShowChapterNote(false);
+    setShowVerseNote(false);
+    setShowFeedbackModal(false);
+  }, [bookId, chapter]);
 
   useEffect(() => {
     if (!selectedPersonalNote) {
@@ -1153,15 +1108,6 @@ function AppShell() {
     }));
   };
 
-  const navigateChapter = (direction: -1 | 1) => {
-    const adjacent = getAdjacentChapter(bookId, chapter, direction);
-    if (!adjacent) {
-      return;
-    }
-    setBookId(adjacent.bookId);
-    setChapter(adjacent.chapter);
-  };
-
   const openChapterPicker = () => {
     setChapterPickerBookId(bookId);
     setIsChapterPickerBookMenuOpen(false);
@@ -1169,8 +1115,7 @@ function AppShell() {
   };
 
   const selectChapterFromPicker = (nextChapter: number) => {
-    setBookId(chapterPickerBookId);
-    setChapter(nextChapter);
+    openReaderLocation({ bookId: chapterPickerBookId, chapter: nextChapter });
     setIsChapterPickerBookMenuOpen(false);
     setIsChapterPickerOpen(false);
   };
@@ -1229,11 +1174,7 @@ function AppShell() {
   }, [executeSearch, query]);
 
   const openVerse = (verse: Verse) => {
-    pendingSelectedVerseIdRef.current = verse.id;
-    setBookId(verse.bookId);
-    setChapter(verse.chapter);
-    setSelectedVerseId(verse.id);
-    setCurrentReadingVerseId(verse.id);
+    openReaderLocation({ bookId: verse.bookId, chapter: verse.chapter, verseId: verse.id });
     setActiveView("reader");
   };
 
@@ -1769,11 +1710,6 @@ function AppShell() {
     setTimeout(() => setCopyStatus(""), 1600);
   };
 
-  const clearVerseSelection = () => {
-    setSelectedVerseIds([]);
-    setSelectionAnchorVerseId(null);
-  };
-
   const toggleSelectedVerseHighlight = () => {
     if (!selectedVerse) {
       return;
@@ -1807,48 +1743,6 @@ function AppShell() {
     setTimeout(() => setCopyStatus(""), 1600);
   };
 
-  const setReaderSelectionMode = (nextMode: boolean) => {
-    setIsSelectionMode(nextMode);
-    if (!nextMode) {
-      clearVerseSelection();
-    }
-  };
-
-  const selectVerseForBatch = (verse: Verse) => {
-    setSelectedVerseId(verse.id);
-
-    if (!selectionAnchorVerseId || !selectedVerseIds.length) {
-      setSelectionAnchorVerseId(verse.id);
-      setSelectedVerseIds([verse.id]);
-      return;
-    }
-
-    const anchorIndex = verses.findIndex((item) => item.id === selectionAnchorVerseId);
-    const targetIndex = verses.findIndex((item) => item.id === verse.id);
-    if (anchorIndex >= 0 && targetIndex >= 0 && anchorIndex !== targetIndex) {
-      const start = Math.min(anchorIndex, targetIndex);
-      const end = Math.max(anchorIndex, targetIndex);
-      setSelectedVerseIds(verses.slice(start, end + 1).map((item) => item.id));
-      return;
-    }
-
-    setSelectedVerseIds((current) =>
-      current.includes(verse.id) ? current.filter((verseId) => verseId !== verse.id) : [...current, verse.id],
-    );
-    setCurrentReadingVerseId(verse.id);
-  };
-
-  const selectReaderVerse = (verse: Verse) => {
-    if (isSelectionMode) {
-      selectVerseForBatch(verse);
-      return;
-    }
-
-    setSelectedVerseId(verse.id);
-    setCurrentReadingVerseId(verse.id);
-    setUserData((current) => upsertRecentRead(current, activeUserId, verse.bookId, verse.chapter, verse.verse));
-  };
-
   const cycleTtsSpeed = () => {
     const currentIndex = ttsSpeedOptions.findIndex((speed) => speed === userData.settings.ttsSpeed);
     const nextSpeed = ttsSpeedOptions[(currentIndex + 1) % ttsSpeedOptions.length] ?? 1;
@@ -1865,129 +1759,6 @@ function AppShell() {
     const currentIndex = readingModeOptions.findIndex((option) => option.value === userData.settings.readingMode);
     const nextMode = readingModeOptions[(currentIndex + 1) % readingModeOptions.length] ?? readingModeOptions[0];
     updateSettings({ readingMode: nextMode.value });
-  };
-
-  const recordVerseLayout = (verseId: string, event: LayoutChangeEvent) => {
-    const { height, y } = event.nativeEvent.layout;
-    verseLayoutsRef.current.set(verseId, { height, y });
-  };
-
-  const handleContentScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (activeView !== "reader" || !verses.length) {
-      return;
-    }
-
-    const { contentOffset, layoutMeasurement } = event.nativeEvent;
-    const readingLine = contentOffset.y + Math.min(layoutMeasurement.height * 0.45, 360);
-    const nextVerse = verses.find((verse) => {
-      const layout = verseLayoutsRef.current.get(verse.id);
-      return layout ? layout.y <= readingLine && layout.y + layout.height >= readingLine : false;
-    }) ?? verses.find((verse) => {
-      const layout = verseLayoutsRef.current.get(verse.id);
-      return layout ? layout.y + layout.height >= readingLine : false;
-    }) ?? verses[verses.length - 1];
-
-    if (nextVerse && nextVerse.id !== currentReadingVerseId) {
-      setCurrentReadingVerseId(nextVerse.id);
-    }
-  };
-
-  const markChapterComplete = () => {
-    setUserData((current) => {
-      const key = chapterKey(bookId, chapter);
-      const exists = current.completedChapters.some((item) => chapterKey(item.bookId, item.chapter) === key);
-      if (exists) {
-        return {
-          ...current,
-          completedChapters: current.completedChapters.filter((item) => chapterKey(item.bookId, item.chapter) !== key),
-        };
-      }
-
-      return {
-        ...current,
-        completedChapters: [
-          {
-            id: createId("completed"),
-            userId: activeUserId,
-            bookId,
-            chapter,
-            completedAt: new Date().toISOString(),
-          },
-          ...current.completedChapters,
-        ],
-      };
-    });
-  };
-
-  const speakQueueAtIndex = (index: number) => {
-    const queue = speechQueueRef.current;
-    const item = queue[index];
-    if (!item?.text.trim()) {
-      return;
-    }
-
-    const language = readingLanguage === "ko" ? "ko-KR" : "en-US";
-    const voice = selectedTtsVoice?.identifier || userData.settings.ttsVoice || undefined;
-
-    speechIndexRef.current = index;
-    setSpeakingVerseId(item.id ?? null);
-    setCurrentReadingVerseId(item.id ?? null);
-    setTtsPlaybackState("playing");
-    setTtsStatus(`${item.label} 재생 중`);
-    Speech.speak(item.text, {
-      language,
-      onDone: () => {
-        if (speechCancelRef.current) {
-          return;
-        }
-        const nextIndex = index + 1;
-        if (nextIndex < speechQueueRef.current.length) {
-          speakQueueAtIndex(nextIndex);
-          return;
-        }
-        if (userData.settings.ttsRepeat && speechQueueRef.current.length) {
-          speakQueueAtIndex(0);
-          return;
-        }
-        setSpeakingVerseId(null);
-        setTtsPlaybackState("idle");
-        setTtsStatus(`${ttsQueueLabel} 완료`);
-      },
-      onError: () => {
-        setSpeakingVerseId(null);
-        setTtsPlaybackState("idle");
-        setTtsStatus("TTS 재생 오류");
-      },
-      onStart: () => {
-        setTtsPlaybackState("playing");
-        setTtsStatus(`${item.label} 재생 중`);
-      },
-      onStopped: () => {
-        if (speechCancelRef.current) {
-          return;
-        }
-        setSpeakingVerseId(null);
-        setTtsPlaybackState("idle");
-        setTtsStatus("정지");
-      },
-      rate: userData.settings.ttsSpeed,
-      voice,
-    });
-  };
-
-  const playSpeechQueue = (items: SpeechQueueItem[], startIndex = 0, label = "재생 목록") => {
-    const queue = items.filter((item) => item.text.trim());
-    if (!queue.length) {
-      return;
-    }
-
-    speechCancelRef.current = true;
-    void Speech.stop().finally(() => {
-      speechCancelRef.current = false;
-      speechQueueRef.current = queue;
-      setTtsQueueLabel(`${label} · ${queue.length}개`);
-      speakQueueAtIndex(Math.min(Math.max(startIndex, 0), queue.length - 1));
-    });
   };
 
   const speakSelectedVerse = () => {
@@ -2032,44 +1803,6 @@ function AppShell() {
     } catch {
       setTtsStatus("오늘 분량 재생 실패");
     }
-  };
-
-  const pauseOrResumeSpeech = async () => {
-    try {
-      if (ttsPlaybackState === "paused") {
-        await Speech.resume();
-        setTtsPlaybackState("playing");
-        setTtsStatus("재개");
-        return;
-      }
-
-      await Speech.pause();
-      setTtsPlaybackState("paused");
-      setTtsStatus("일시정지");
-    } catch {
-      setTtsStatus("이 플랫폼에서는 일시정지를 지원하지 않습니다.");
-    }
-  };
-
-  const stopSpeech = async () => {
-    speechCancelRef.current = true;
-    await Speech.stop();
-    speechCancelRef.current = false;
-    setSpeakingVerseId(null);
-    setTtsPlaybackState("idle");
-    setTtsStatus("정지");
-  };
-
-  const moveSpeech = async (direction: -1 | 1) => {
-    if (!speechQueueRef.current.length) {
-      return;
-    }
-
-    const nextIndex = Math.min(Math.max(speechIndexRef.current + direction, 0), speechQueueRef.current.length - 1);
-    speechCancelRef.current = true;
-    await Speech.stop();
-    speechCancelRef.current = false;
-    speakQueueAtIndex(nextIndex);
   };
 
   const copySelectedVerse = async () => {
@@ -2173,8 +1906,7 @@ function AppShell() {
       return;
     }
 
-    setBookId(readingPlanTargetChapter.bookId);
-    setChapter(readingPlanTargetChapter.chapter);
+    openReaderLocation(readingPlanTargetChapter);
     setActiveView("reader");
   };
 
@@ -2182,24 +1914,22 @@ function AppShell() {
     const firstIncompleteChapter = getChapters(targetBookId).find((item) => !completedKeys.has(chapterKey(targetBookId, item)))
       ?? getChapters(targetBookId)[0]
       ?? 1;
-    setBookId(targetBookId);
-    setChapter(firstIncompleteChapter);
+    openReaderLocation({ bookId: targetBookId, chapter: firstIncompleteChapter });
     setActiveView("reader");
   };
 
   const openActivityTarget = (target: { bookId: string; chapter: number; verse?: number }) => {
-    setBookId(target.bookId);
-    setChapter(target.chapter);
+    openReaderLocation({
+      bookId: target.bookId,
+      chapter: target.chapter,
+      verseId: target.verse ? verseIdFromProgress(target.bookId, target.chapter, target.verse) : null,
+    });
     setActiveView("reader");
   };
 
   const openStudyNote = (note: UserDataState["studyNotes"][number]) => {
-    setBookId(note.bookId);
-    setChapter(note.chapter);
+    openReaderLocation({ bookId: note.bookId, chapter: note.chapter, verseId: note.verseId });
     if (note.scope === "verse" && note.verseId) {
-      pendingSelectedVerseIdRef.current = note.verseId;
-      setSelectedVerseId(note.verseId);
-      setCurrentReadingVerseId(note.verseId);
       setNoteDraft(note.note);
       setShowVerseNote(true);
       setActiveView("reader");
@@ -2501,11 +2231,13 @@ function AppShell() {
       description: userData.progress ? `${getBook(userData.progress.bookId)?.nameKo ?? userData.progress.bookId} ${userData.progress.chapter}장` : "창세기 1장",
       action: () => {
         if (userData.progress) {
-          setBookId(userData.progress.bookId);
-          setChapter(userData.progress.chapter);
+          openReaderLocation({
+            bookId: userData.progress.bookId,
+            chapter: userData.progress.chapter,
+            verseId: verseIdFromProgress(userData.progress.bookId, userData.progress.chapter, userData.progress.verse),
+          });
         } else {
-          setBookId("gen");
-          setChapter(1);
+          openReaderLocation({ bookId: "gen", chapter: 1 });
         }
         setActiveView("reader");
       },
@@ -2785,6 +2517,7 @@ function AppShell() {
             contentContainerStyle={[styles.content, activeView === "reader" && isSelectionMode ? styles.contentWithSelectionSheet : null]}
             keyboardShouldPersistTaps="handled"
             onScroll={handleContentScroll}
+            ref={scrollRef}
             scrollEventThrottle={100}
           >
             {activeView === "dashboard" ? (
@@ -2814,8 +2547,11 @@ function AppShell() {
                         label="이어 읽기"
                         onPress={() => {
                           if (userData.progress) {
-                            setBookId(userData.progress.bookId);
-                            setChapter(userData.progress.chapter);
+                            openReaderLocation({
+                              bookId: userData.progress.bookId,
+                              chapter: userData.progress.chapter,
+                              verseId: verseIdFromProgress(userData.progress.bookId, userData.progress.chapter, userData.progress.verse),
+                            });
                           }
                           setActiveView("reader");
                         }}
@@ -2903,11 +2639,7 @@ function AppShell() {
                           <Pressable
                             key={highlight.id}
                             onPress={() => {
-                              pendingSelectedVerseIdRef.current = highlight.verseId;
-                              setBookId(highlight.bookId);
-                              setChapter(highlight.chapter);
-                              setSelectedVerseId(highlight.verseId);
-                              setCurrentReadingVerseId(highlight.verseId);
+                              openReaderLocation({ bookId: highlight.bookId, chapter: highlight.chapter, verseId: highlight.verseId });
                               setActiveView("reader");
                             }}
                             style={styles.plainListButton}
@@ -2931,11 +2663,7 @@ function AppShell() {
                           <Pressable
                             key={favorite.id}
                             onPress={() => {
-                              pendingSelectedVerseIdRef.current = favorite.verseId;
-                              setBookId(favorite.bookId);
-                              setChapter(favorite.chapter);
-                              setSelectedVerseId(favorite.verseId);
-                              setCurrentReadingVerseId(favorite.verseId);
+                              openReaderLocation({ bookId: favorite.bookId, chapter: favorite.chapter, verseId: favorite.verseId });
                               setActiveView("reader");
                             }}
                             style={styles.plainListButton}
@@ -2978,7 +2706,7 @@ function AppShell() {
             ) : null}
 
             {activeView === "reader" ? (
-              <View style={[styles.section, styles.readerPanel]}>
+              <View onLayout={recordReaderPanelLayout} style={[styles.section, styles.readerPanel]}>
                 {studyUiFeatureFlags.readerV2 ? (
                   <ReaderHeader
                     chapterComplete={currentChapterCompleted}
@@ -3504,9 +3232,7 @@ function AppShell() {
                           <Pressable
                             key={link.id}
                             onPress={() => {
-                              pendingSelectedVerseIdRef.current = link.verseKey;
-                              setBookId(link.bookId);
-                              setChapter(link.chapter);
+                              openReaderLocation({ bookId: link.bookId, chapter: link.chapter, verseId: link.verseKey });
                               setActiveView("reader");
                             }}
                           >
@@ -3631,11 +3357,7 @@ function AppShell() {
                           icon="book-outline"
                           label="열기"
                           onPress={() => {
-                            pendingSelectedVerseIdRef.current = item.verseId;
-                            setBookId(item.bookId);
-                            setChapter(item.chapter);
-                            setSelectedVerseId(item.verseId);
-                            setCurrentReadingVerseId(item.verseId);
+                            openReaderLocation({ bookId: item.bookId, chapter: item.chapter, verseId: item.verseId });
                             setActiveView("reader");
                           }}
                           styles={styles}
@@ -3773,11 +3495,7 @@ function AppShell() {
                         icon="book-outline"
                         label="열기"
                         onPress={() => {
-                          pendingSelectedVerseIdRef.current = item.verseId;
-                          setBookId(item.bookId);
-                          setChapter(item.chapter);
-                          setSelectedVerseId(item.verseId);
-                          setCurrentReadingVerseId(item.verseId);
+                          openReaderLocation({ bookId: item.bookId, chapter: item.chapter, verseId: item.verseId });
                           setActiveView("reader");
                         }}
                         styles={styles}

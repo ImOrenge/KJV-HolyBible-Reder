@@ -93,8 +93,15 @@ class CdpSession {
     this.events = [];
     this.socket = new WebSocket(webSocketUrl);
     this.ready = new Promise((resolveReady, rejectReady) => {
-      this.socket.addEventListener("open", resolveReady, { once: true });
-      this.socket.addEventListener("error", rejectReady, { once: true });
+      const timeout = setTimeout(() => rejectReady(new Error("Chrome DevTools WebSocket connection timed out.")), 10_000);
+      this.socket.addEventListener("open", () => {
+        clearTimeout(timeout);
+        resolveReady();
+      }, { once: true });
+      this.socket.addEventListener("error", (error) => {
+        clearTimeout(timeout);
+        rejectReady(error);
+      }, { once: true });
     });
     this.socket.addEventListener("message", (event) => {
       const payload = JSON.parse(event.data);
@@ -694,7 +701,7 @@ async function openReader(cdp) {
 
 async function verifyChapterPickerFlow(cdp, name, threshold) {
   const failures = [];
-  if (!(await clickText(cdp, "창세기 1장"))) {
+  if (!(await clickAccessibilityLabel(cdp, "장 선택 열기"))) {
     failures.push(`${name}.chapterPicker.open: title button missing`);
     return failures;
   }
@@ -720,6 +727,37 @@ async function verifyChapterPickerFlow(cdp, name, threshold) {
   if (pickerStillOpen) {
     failures.push(`${name}.chapterPicker.close: sheet remained open after chapter selection`);
   }
+  return failures;
+}
+
+async function verifyChapterNavigationFlow(cdp, name) {
+  const failures = [];
+  if (!(await clickAccessibilityLabel(cdp, "다음 장"))) {
+    failures.push(`${name}.chapterNavigation.next: button missing`);
+    return failures;
+  }
+  await waitForText(cdp, "창세기 2장", 8_000).catch((error) => {
+    failures.push(`${name}.chapterNavigation.next: ${error.message}`);
+  });
+  await sleep(700);
+
+  const firstVerseVisibility = await evaluate(cdp, () => {
+    const target = document.querySelector('[aria-label="2장 1절"]');
+    if (!target) return null;
+    const rect = target.getBoundingClientRect();
+    return { bottom: rect.bottom, top: rect.top, viewportHeight: window.innerHeight };
+  });
+  if (firstVerseVisibility && (firstVerseVisibility.bottom <= 0 || firstVerseVisibility.top >= firstVerseVisibility.viewportHeight)) {
+    failures.push(`${name}.chapterNavigation.focus: Genesis 2:1 is outside the viewport`);
+  }
+
+  if (!(await clickAccessibilityLabel(cdp, "이전 장"))) {
+    failures.push(`${name}.chapterNavigation.previous: button missing`);
+    return failures;
+  }
+  await waitForText(cdp, "창세기 1장", 8_000).catch((error) => {
+    failures.push(`${name}.chapterNavigation.previous: ${error.message}`);
+  });
   return failures;
 }
 
@@ -761,7 +799,10 @@ async function verifyV2ContextFlow(cdp, name) {
     failures.push(`${name}.parallel.button: missing`);
     return failures;
   }
-  await waitForText(cdp, ["태초에", "In the beginning"], 5_000).catch((error) => {
+  const parallelExpectations = await evaluate(cdp, () => (document.body.innerText || "").includes("Local fixture"))
+    ? ["EN/KR", "In the beginning"]
+    : ["태초에", "In the beginning"];
+  await waitForText(cdp, parallelExpectations, 5_000).catch((error) => {
     failures.push(`${name}.parallel.content: ${error.message}`);
   });
 
@@ -832,10 +873,11 @@ async function verifyReader(cdp, name, threshold) {
   await openReader(cdp);
   const metrics = await evaluate(cdp, collectReaderMetrics);
   const layoutFailures = verifyReaderLayout(name, metrics, threshold);
+  const chapterNavigationFailures = await verifyChapterNavigationFlow(cdp, name);
   const chapterPickerFailures = await verifyChapterPickerFlow(cdp, name, threshold);
   const contextFailures = await verifyV2ContextFlow(cdp, name);
   const selectionFailures = await verifySelectionFlow(cdp, name);
-  return { chapterPickerFailures, contextFailures, layoutFailures, metrics, name, selectionFailures };
+  return { chapterNavigationFailures, chapterPickerFailures, contextFailures, layoutFailures, metrics, name, selectionFailures };
 }
 
 async function main() {
@@ -848,7 +890,9 @@ async function main() {
   const child = spawn(chrome, [
     "--headless=new",
     "--disable-gpu",
+    "--disable-dev-shm-usage",
     "--hide-scrollbars",
+    "--no-sandbox",
     "--no-first-run",
     `--remote-debugging-port=${options.port}`,
     `--user-data-dir=${userDataDir}`,
@@ -872,6 +916,7 @@ async function main() {
         mobile: mobileResult,
         options,
         passed:
+          mobileResult.chapterNavigationFailures.length === 0 &&
           mobileResult.chapterPickerFailures.length === 0 &&
           mobileResult.contextFailures.length === 0 &&
           mobileResult.layoutFailures.length === 0 &&
@@ -898,10 +943,12 @@ async function main() {
       mobile: mobileResult,
       options,
       passed:
+        webResult.chapterNavigationFailures.length === 0 &&
         webResult.chapterPickerFailures.length === 0 &&
         webResult.contextFailures.length === 0 &&
         webResult.layoutFailures.length === 0 &&
         webResult.selectionFailures.length === 0 &&
+        mobileResult.chapterNavigationFailures.length === 0 &&
         mobileResult.chapterPickerFailures.length === 0 &&
         mobileResult.contextFailures.length === 0 &&
         mobileResult.layoutFailures.length === 0 &&
@@ -924,7 +971,7 @@ async function main() {
   }
 }
 
-main().catch((error) => {
+await main().catch((error) => {
   console.error(error instanceof Error ? error.message : error);
   process.exitCode = 1;
 });

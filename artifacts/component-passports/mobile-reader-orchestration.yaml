@@ -1,0 +1,48 @@
+component:
+  id: mobile-reader-orchestration
+  name: Mobile Reader Orchestration
+  kind: feature-controller
+  status: verified
+  owner_scope: mobile-reader
+  source:
+    controller: apps/mobile/src/hooks/use-mobile-reader-controller.ts
+    tts: apps/mobile/src/hooks/use-mobile-reader-tts.ts
+    shared_model: packages/shared/src/reader-orchestration.ts
+    integration: apps/mobile/App.tsx
+  owns:
+    - chapter loading and stale request rejection
+    - reader entry target and first verse focus
+    - current reading verse and programmatic scroll suppression
+    - single and contiguous range selection
+    - completed chapter and recent read updates
+    - TTS queue lifecycle, repeat, pause, stop, and queue movement
+  does_not_own:
+    - route stack and return target
+    - verse note, highlight, citation, and clipboard persistence
+    - native speech engine behavior
+  conflict_rules:
+    - programmatic chapter and TTS focus suppresses transient scroll tracking
+    - selection mode disables scroll-driven current verse updates
+    - TTS may update the current verse in selection mode but cannot auto-scroll it
+  test_surface:
+    static: [npm run typecheck]
+    contract: [npm run reader:validate, npm run structure:mobile, npm run style:mobile]
+    runtime: [Expo Web 390x844 reader smoke]
+  evidence:
+    - type: contract
+      command: npm run reader:validate
+      result: pass
+      findings:
+        - explicit verse and saved progress target precedence
+        - forward and reverse contiguous selection
+        - visible reading line lookup
+        - TTS auto-scroll suppression during selection
+        - speech queue filtering and bounded movement
+    - type: browser-interaction
+      result: pass
+      findings:
+        - Genesis 1 to 2 to 1 returns with Genesis 1:1 visible and current
+        - selecting Genesis 1:1 then 1:3 produces a three-verse range
+  residual_risk:
+    - The local development fixture has no Genesis 2 verses, so first-verse focus is browser-verified on return to Genesis 1 and contract-tested for arbitrary chapters.
+    - Android and iOS device speech and keyboard behavior still require release-device verification.
