@@ -5,7 +5,7 @@ const config: ExpoConfig = {
   owner: "nicholas0913",
   slug: "kjv-reader-note",
   scheme: "kjvreadernote",
-  version: "0.6.1",
+  version: "0.7.1",
   orientation: "portrait",
   userInterfaceStyle: "automatic",
   extra: {
@@ -21,7 +21,7 @@ const config: ExpoConfig = {
   },
   android: {
     package: "com.kjvreader",
-    versionCode: 6,
+    versionCode: 7,
   },
   web: {
     bundler: "metro",

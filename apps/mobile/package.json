@@ -1,6 +1,6 @@
 {
   "name": "@kjv/mobile",
-  "version": "0.6.1",
+  "version": "0.7.1",
   "private": true,
   "main": "expo/AppEntry.js",
   "scripts": {
