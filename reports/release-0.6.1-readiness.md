@@ -4,9 +4,9 @@
 
 ## 현재 판정
 
-**LOCAL RELEASE CANDIDATE READY - 운영 OAuth 설정, EAS AAB와 실기기 검증은 남아 있다.**
+**ANDROID RELEASE ARTIFACT VERIFIED - 운영 OAuth 설정과 실기기 검증은 남아 있다.**
 
-`main@336db1c6`을 기준으로 첫 로그인 온보딩과 QT 커뮤니티·랭킹 기능을 통합했다. 웹·Expo 빌드, 원격 커뮤니티 API, 마이그레이션, DB lint와 반응형 UI 검증을 통과했다.
+`main@336db1c6`을 기준으로 첫 로그인 온보딩과 QT 커뮤니티·랭킹 기능을 통합했다. 웹·Expo 빌드, 원격 커뮤니티 API, 마이그레이션, DB lint, 반응형 UI와 EAS production AAB 검증을 통과했다.
 
 ## 릴리즈 범위
 
@@ -45,6 +45,9 @@
 | `npm run build` | PASS - Next.js 16.2.9, 커뮤니티 API 11개 포함 |
 | `npm run expo:doctor` | PASS - 20/20 |
 | Expo Android export | PASS - 986 modules, Android Hermes bundle |
+| EAS production AAB | PASS - build `c7b504c8-9fe3-4f40-be88-3434c051ef30`, commit `eee2c3db` |
+| AAB manifest | PASS - `com.kjvreader`, version `0.6.1`, versionCode `6` |
+| AAB signing | PASS - 기존 Play 업로드 인증서 SHA-1/SHA-256 일치 |
 | 커뮤니티 원격 스모크 | PASS - 16P/2P, 댓글 1, 도움 1, 랭킹 2 |
 | 스모크 사용자 cleanup | PASS - 최근 잔존 테스트 사용자 0명 |
 | `supabase migration list --linked` | PASS - 로컬/원격 전체 일치 |
@@ -55,6 +58,17 @@
 | 390px/1440px 브라우저 | PASS - 커뮤니티 탭 표시, 가로 넘침과 콘솔 오류 없음 |
 | `npm audit --omit=dev --audit-level=high` | PASS - high/critical 0, moderate 10 |
 | `npm run audit:mobile-clicks` | BLOCKED - 연결된 Android 기기/에뮬레이터 없음 |
+
+## Android production 산출물
+
+- EAS build: `c7b504c8-9fe3-4f40-be88-3434c051ef30` (`FINISHED`)
+- EAS source commit: `eee2c3db41f6878238082795f42b502a5d7f4c97`
+- AAB: [Expo artifact](https://expo.dev/artifacts/eas/8evrtOEqlPl8MToZ7VB8kNiYT_3zkZRGbl45-UYPCPo.aab)
+- AAB SHA-256: `FA8BA7E46DC70756C352B297DC12020B272913AE4BFEC683C9D3475D40C5C4EB`
+- Package/version: `com.kjvreader`, `0.6.1 (6)`
+- Signing SHA-1: `9F:51:A8:96:1B:EA:0A:35:53:8A:A8:CF:64:D6:3F:23:19:4F:6A:5F`
+- Signing SHA-256: `E8:45:72:72:39:60:D4:A4:B4:A8:91:C8:ED:74:6A:9B:46:27:F9:1C:51:0B:8F:E3:E2:C0:EE:3C:2B:37:E9:D0`
+- 로컬 검증 파일: `.tmp/release-0.6.1/kjv-reader-note-0.6.1-6.aab` (Git 제외)
 
 ## 검증 중 수정한 결함
 
@@ -67,7 +81,6 @@
 
 - Supabase URL Configuration의 Site URL과 Redirect URL을 `https://www.kjvreadernote.app` 기준으로 맞춰야 한다.
 - Google Cloud OAuth Web Client의 redirect URI는 `https://ntpjrzonhebhgfxeryvt.supabase.co/auth/v1/callback`이어야 한다.
-- EAS production AAB 생성, package/version/signing 검증은 이번 로컬 준비 이후 별도 실행한다.
 - 연결된 Android 기기 또는 에뮬레이터에서 `audit:mobile-clicks`와 실기기 UI를 확인해야 한다.
 - `release/0.6.1` 원격 push, `main` 병합, `v0.6.1` 태그와 배포는 아직 수행하지 않는다.
 
