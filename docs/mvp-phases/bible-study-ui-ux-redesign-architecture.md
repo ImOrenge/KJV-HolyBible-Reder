@@ -23,7 +23,7 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 
 ### 1.1 구현 상태
 
-2026-07-14 기준 P0, P1 일부, P2 AppShell 전환, P3 Reader 표시 계층과 P4 웹·모바일 Notes 작업 공간의 첫 묶음이 개발 브랜치에 구현되어 있다.
+2026-07-14 기준 P0, P1 일부, P2 AppShell 전환, P3 Reader 표시 계층, P4 웹·모바일 Notes 작업 공간과 P5 웹 Dictionary의 첫 묶음이 개발 브랜치에 구현되어 있다.
 
 | 영역 | 현재 구현 | 다음 경계 |
 | --- | --- | --- |
@@ -32,12 +32,13 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 | 웹 legacy adapter | 기존 `KjvMvpApp`을 controlled `activeView`로 열고 `/app/...` history 및 Reader 권·장·절 deep link와 연결 | 화면별 feature component 교체 |
 | 웹 Reader V2 | `readerV2` flag 아래 ReaderHeader/VerseRow/VerseActions, 3-pane, 태블릿 sheet, 모바일 action sheet | ReaderScreen data orchestration과 자동 회귀 테스트 |
 | 웹 Notes V4 | `300px list + editor + 300px inspector`, 생성 단계 template dialog, 900px 이하 목록/편집 분리, revision/backlink/linked verse inspector | feature component 추출, Reader verse anchor 복귀 자동 검증 |
+| 웹 Dictionary V2 | 독립 `HebrewDictionaryWorkspace`, compact 2-pane, filter popover/chip, 출현형 강조, 검색·필터·선택 단어 URL state, Reader 왕복 복원, 900px 이하 list/detail 분리 | `내 노트에 추가` StudyContext, scroll 복원, 원격 전체 데이터 검증 |
 | 모바일 Shell | `uiShellV2` flag 아래 `오늘/성경/공부/보관함/설정` 5탭, custom route stack adapter, header 명령 검색, Android hardware back | Expo Router 전환, iOS swipe back, screen별 컴포넌트 분리 |
 | 모바일 Reader V2 | `readerV2` flag 아래 native ReaderHeader/VerseRow/VerseActionsSheet, EN/KR/동시 보기, long press 다중 선택, keyboard 회피와 2단계 snap, 전용 Reader controller/TTS hook, route/context 복귀 | Android/iOS 실기기 검증 |
 | 모바일 Notes V4 | 목록/편집기 stack 분리, compact keyboard toolbar, 사용자·노트별 AsyncStorage draft 복구, versioned remote save와 conflict 해결 band | revision/backlink inspector sheet, 장기 offline queue, 실기기 검증 |
 | 검증 | typecheck, lint, build, Expo Doctor, 구조/스타일 검사, 320/390/768/1024/1440px 웹 smoke, Expo Reader V2 390px interaction smoke | 실제 Android/iOS 검증 |
 
-이 상태는 전체 개편 완료를 뜻하지 않는다. Reader data orchestration, 웹 Notes feature component, 모바일 Notes inspector sheet, Dictionary Detail을 독립 screen/pane 책임으로 분리하기 전까지 기존 대형 컴포넌트는 legacy adapter 안에서 유지한다.
+이 상태는 전체 개편 완료를 뜻하지 않는다. Reader data orchestration, 웹 Notes feature component, 모바일 Notes inspector sheet, Expo Dictionary list/detail screen을 분리하기 전까지 기존 대형 컴포넌트는 legacy adapter 안에서 유지한다.
 
 관련 문서:
 
@@ -50,6 +51,7 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 - [모바일 Reader V2 컴포넌트 패스포트](../../artifacts/component-passports/reader-v2-native-surface.yaml)
 - [모바일 공부 내비게이션 컴포넌트 패스포트](../../artifacts/component-passports/mobile-study-navigation.yaml)
 - [모바일 개인 노트 화면 컴포넌트 패스포트](../../artifacts/component-passports/mobile-personal-note-screens.yaml)
+- [웹 히브리어 사전 컴포넌트 패스포트](../../artifacts/component-passports/hebrew-dictionary-workspace.yaml)
 
 ## 2. 현재 구조 진단
 
@@ -224,6 +226,14 @@ Sidebar 계약:
 ```
 
 `verse`, `panel`, `word`는 private note 내용을 포함하지 않는다. 브라우저 history에는 화면 문맥만 저장한다.
+
+사전 query 계약:
+
+```text
+/app/study/dictionary?q=reshith&entry=reshith&alphabet=R&theme=genesis-primeval&book=gen&sort=canonical
+```
+
+`q`, `entry`, `alphabet`, `theme`, `book`, `sort`만 allowlist로 직렬화한다. 기본값은 URL에서 생략하며 private note 내용은 사전 route state에 넣지 않는다. 웹 Reader로 이동하기 전에 현재 사전 URL을 Next router history에 반영해 browser back에서 동일 단어와 필터를 복원한다.
 
 기존 `/app`과 `activeView`는 전환 기간 동안 route adapter로 유지한다.
 
@@ -504,6 +514,10 @@ Note List Screen -> Note Editor Screen -> Linked Verse Sheet
 - alphabet, theme, book, sort는 한 줄 filter bar와 popover로 구성한다.
 - 상세 본문은 의미, 문맥, 출현 구절, 연결 노트 순서로 구성한다.
 - `내 노트에 추가`는 현재 StudyContext를 유지한 채 note picker를 연다.
+- 목록 항목은 히브리어 lemma, Strong 번호, 음역, 발음기호, 한국어 발음, 한영 뜻과 첫 출현 구절만 간략히 표시한다.
+- 목록과 상세의 실제 출현형은 `mark`로 강조하고 색상 외에도 DOM 의미를 제공한다.
+- `900px` 이하에서는 list/detail을 동시에 렌더링하지 않고 선택 단어를 URL `entry`와 동기화한다.
+- filter chip 해제와 `단어 목록` 복귀는 URL state도 함께 갱신한다.
 
 #### 모바일
 
@@ -820,7 +834,9 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 ### Phase UX-04: Dictionary, Search, Library
 
 - [ ] 모바일 dictionary list/detail을 분리한다.
-- [ ] 웹 dictionary filter bar를 압축한다.
+- [x] 웹 dictionary filter bar와 2-pane을 압축한다.
+- [x] 웹 사전 query/filter/entry deep link와 Reader browser-back 복원을 구현한다.
+- [x] 웹 900px 이하 dictionary list/detail 단일 pane 전환을 구현한다.
 - [ ] 성경/노트/사전 통합 검색 shell을 구현한다.
 - [ ] 보관함에 하이라이트/저장한 말씀/태그를 통합한다.
 - [ ] 모든 result -> detail -> return 흐름에서 scroll을 복원한다.
@@ -904,6 +920,9 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 
 ### 2026-07-14
 
+- 웹 히브리어 사전을 독립 workspace component, compact 2-pane, filter popover와 active chip으로 개편했다.
+- 검색어·선택 단어·alphabet/theme/book/sort URL 계약과 Reader 왕복 복원을 추가했다.
+- 히브리어 출현형 강조, 한영 뜻·발음 정보 요약, 390px list/detail 단일 pane 검증을 반영했다.
 - 모바일 route serializer와 custom stack transition, Android hardware back adapter를 현재 구현으로 반영했다.
 - Reader 명령 검색에서 Search를 push하고 이전 버튼으로 같은 Reader context를 복원하는 검증을 추가했다.
 - 사전 출현 구절에서 Reader를 열고 동일 사전 route로 복귀하는 계약을 반영했다.

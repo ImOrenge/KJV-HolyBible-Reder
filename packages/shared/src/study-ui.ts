@@ -39,7 +39,20 @@ export type StudyUiReaderRoute = {
   word?: string;
 };
 
+export const STUDY_UI_DICTIONARY_SORTS = ["alphabetical", "canonical", "theme"] as const;
+export type StudyUiDictionarySort = (typeof STUDY_UI_DICTIONARY_SORTS)[number];
+
+export type StudyUiDictionaryRoute = {
+  alphabet?: string;
+  bookId?: string;
+  entryKey?: string;
+  query?: string;
+  sort?: StudyUiDictionarySort;
+  themeId?: string;
+};
+
 export type StudyUiRouteState = {
+  dictionary?: StudyUiDictionaryRoute;
   reader?: StudyUiReaderRoute;
   view: StudyUiWebViewKey;
 };
@@ -267,6 +280,50 @@ export function buildStudyUiTargetUrl(view: StudyUiWebViewKey, reader?: StudyUiR
   return query.size ? `${path}?${query.toString()}` : path;
 }
 
+export function buildStudyUiDictionaryUrl(route: StudyUiDictionaryRoute = {}) {
+  const params = new URLSearchParams();
+  const query = route.query?.trim().slice(0, 120);
+  const identifiers = [route.entryKey, route.themeId, route.bookId].filter(Boolean) as string[];
+  if (identifiers.some((value) => !IDENTIFIER_PATTERN.test(value))) throw new Error("사전 화면 식별자를 확인하세요.");
+  if (route.alphabet && !/^[A-Z]$/.test(route.alphabet)) throw new Error("사전 알파벳 필터를 확인하세요.");
+  if (query && /[\u0000-\u001f\u007f]/.test(query)) throw new Error("사전 검색어를 확인하세요.");
+  if (route.sort && !STUDY_UI_DICTIONARY_SORTS.includes(route.sort)) throw new Error("사전 정렬 값을 확인하세요.");
+
+  if (query) params.set("q", query);
+  if (route.entryKey) params.set("entry", route.entryKey);
+  if (route.alphabet) params.set("alphabet", route.alphabet);
+  if (route.themeId) params.set("theme", route.themeId);
+  if (route.bookId) params.set("book", route.bookId);
+  if (route.sort && route.sort !== "alphabetical") params.set("sort", route.sort);
+  const queryString = params.toString();
+  return queryString ? `/app/study/dictionary?${queryString}` : "/app/study/dictionary";
+}
+
+export function parseStudyUiDictionaryRoute(params: URLSearchParams): StudyUiDictionaryRoute | null {
+  const query = params.get("q")?.trim().slice(0, 120) || undefined;
+  const entryKey = params.get("entry")?.trim() || undefined;
+  const alphabet = params.get("alphabet")?.trim().toUpperCase() || undefined;
+  const themeId = params.get("theme")?.trim() || undefined;
+  const bookId = params.get("book")?.trim() || undefined;
+  const rawSort = params.get("sort")?.trim();
+  const sort = STUDY_UI_DICTIONARY_SORTS.find((candidate) => candidate === rawSort);
+  const identifiers = [entryKey, themeId, bookId].filter(Boolean) as string[];
+
+  if (identifiers.some((value) => !IDENTIFIER_PATTERN.test(value))) return null;
+  if (alphabet && !/^[A-Z]$/.test(alphabet)) return null;
+  if (query && /[\u0000-\u001f\u007f]/.test(query)) return null;
+  if (rawSort && !sort) return null;
+
+  return {
+    ...(query ? { query } : {}),
+    ...(entryKey ? { entryKey } : {}),
+    ...(alphabet ? { alphabet } : {}),
+    ...(themeId ? { themeId } : {}),
+    ...(bookId ? { bookId } : {}),
+    ...(sort ? { sort } : {}),
+  };
+}
+
 export function parseStudyUiRoute(pathname: string, params = new URLSearchParams()): StudyUiRouteState | null {
   const segments = pathname.split("/").filter(Boolean);
   if (segments[0] !== "app") return null;
@@ -287,7 +344,11 @@ export function parseStudyUiRoute(pathname: string, params = new URLSearchParams
 
   if (segments[1] === "study" && segments.length === 3) {
     if (segments[2] === "notes") return { view: "notes" };
-    if (segments[2] === "dictionary") return { view: "dictionary" };
+    if (segments[2] === "dictionary") {
+      const dictionary = parseStudyUiDictionaryRoute(params);
+      if (!dictionary) return null;
+      return Object.keys(dictionary).length ? { view: "dictionary", dictionary } : { view: "dictionary" };
+    }
     return null;
   }
 

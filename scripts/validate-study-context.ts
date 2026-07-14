@@ -3,9 +3,11 @@ import assert from "node:assert/strict";
 import {
   parseStudyContextQuery,
   parseStudyContextPanel,
+  parseStudyUiDictionaryRoute,
   parseStudyUiRoute,
   parseStudyUiWebView,
   buildLegacyStudyAppUrl,
+  buildStudyUiDictionaryUrl,
   buildStudyUiTargetUrl,
   createStudyUiReaderRoute,
   createStudyUiNavigationEvent,
@@ -84,6 +86,23 @@ assert.equal(buildLegacyStudyAppUrl("dashboard"), "/app");
 assert.equal(buildLegacyStudyAppUrl("notes"), "/app?view=notes");
 assert.equal(buildStudyUiTargetUrl("notes"), "/app/study/notes");
 assert.equal(buildStudyUiTargetUrl("highlights"), "/app/library?section=highlights");
+const dictionaryUrl = buildStudyUiDictionaryUrl({
+  query: "reshith",
+  entryKey: "reshith",
+  alphabet: "R",
+  themeId: "genesis-primeval",
+  bookId: "gen",
+  sort: "canonical",
+});
+assert.equal(dictionaryUrl, "/app/study/dictionary?q=reshith&entry=reshith&alphabet=R&theme=genesis-primeval&book=gen&sort=canonical");
+assert.deepEqual(parseStudyUiDictionaryRoute(new URLSearchParams(dictionaryUrl.split("?")[1])), {
+  query: "reshith",
+  entryKey: "reshith",
+  alphabet: "R",
+  themeId: "genesis-primeval",
+  bookId: "gen",
+  sort: "canonical",
+});
 const readerRoute = createStudyUiReaderRoute({ bookId: "gen", chapter: 1, verse: 10, panel: "note" });
 assert.equal(readerRoute.primaryVerseKey, "GEN.1.10");
 assert.equal(getStudyUiReaderVerseNumber(readerRoute), 10);
@@ -91,6 +110,11 @@ assert.equal(buildStudyUiTargetUrl("reader", readerRoute), "/app/read/gen/1?vers
 assert.deepEqual(parseStudyUiRoute("/app/today"), { view: "dashboard" });
 assert.deepEqual(parseStudyUiRoute("/app/library", new URLSearchParams("section=highlights")), { view: "highlights" });
 assert.deepEqual(parseStudyUiRoute("/app/study/dictionary"), { view: "dictionary" });
+assert.deepEqual(parseStudyUiRoute("/app/study/dictionary", new URLSearchParams("entry=reshith&theme=genesis-primeval")), {
+  view: "dictionary",
+  dictionary: { entryKey: "reshith", themeId: "genesis-primeval" },
+});
+assert.equal(parseStudyUiRoute("/app/study/dictionary", new URLSearchParams("entry=%2Fprivate")), null);
 assert.deepEqual(parseStudyUiRoute("/app/read/gen/1", new URLSearchParams("verse=GEN.1.10&panel=note")), {
   view: "reader",
   reader: { bookId: "gen", chapter: 1, primaryVerseKey: "GEN.1.10", panel: "note" },

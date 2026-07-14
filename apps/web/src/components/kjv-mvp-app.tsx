@@ -62,6 +62,7 @@ import {
   shouldOfferDemoDataImport,
 } from "@/lib/auth/local-user-data-migration";
 import { TranslationFeedbackForm } from "@/components/feedback/translation-feedback-form";
+import { HebrewDictionaryWorkspace } from "@/components/hebrew-dictionary-workspace";
 import { PersonalNoteRichTextEditor } from "@/components/personal-note-rich-text-editor";
 import { PersonalNoteCreationDialog } from "@/components/personal-note-creation-dialog";
 import { ReaderHeader, type ReaderTranslationMode } from "@/components/reader-header";
@@ -106,6 +107,7 @@ import type {
   ReadingPlanTemplate,
 } from "@/lib/types";
 import {
+  buildStudyUiDictionaryUrl,
   createStudyUiReaderRoute,
   getStudyUiReaderVerseNumber,
   markdownLiteToPersonalNoteDocument,
@@ -113,6 +115,7 @@ import {
   personalNoteDocumentToMarkdown,
   personalNoteDocumentToText,
   type PersonalNoteDocument,
+  type StudyUiDictionaryRoute,
   type StudyUiReaderRoute,
 } from "@kjv/shared";
 
@@ -120,6 +123,7 @@ export type KjvMvpViewKey = "dashboard" | "reader" | "progress" | "highlights" |
 type ViewKey = KjvMvpViewKey;
 type KjvMvpAppProps = {
   activeView?: ViewKey;
+  dictionaryRoute?: StudyUiDictionaryRoute;
   initialView?: ViewKey;
   navigationMode?: "legacy" | "shell";
   onReaderLocationChange?: (route: StudyUiReaderRoute) => void;
@@ -526,6 +530,7 @@ function compareBibleLocation(left: { bookId: string; chapter: number; verse?: n
 
 export function KjvMvpApp({
   activeView: controlledActiveView,
+  dictionaryRoute,
   initialView = "dashboard",
   navigationMode = "legacy",
   onReaderLocationChange,
@@ -542,6 +547,13 @@ export function KjvMvpApp({
   const readerRouteChapter = readerRoute?.chapter;
   const readerRoutePanel = readerRoute?.panel;
   const readerRouteVerseNumber = getStudyUiReaderVerseNumber(readerRoute);
+  const dictionaryRouteAlphabet = dictionaryRoute?.alphabet;
+  const dictionaryRouteBookId = dictionaryRoute?.bookId;
+  const dictionaryRouteEntryKey = dictionaryRoute?.entryKey;
+  const dictionaryRouteQuery = dictionaryRoute?.query;
+  const dictionaryRouteSort = dictionaryRoute?.sort;
+  const dictionaryRouteThemeId = dictionaryRoute?.themeId;
+  const hasDictionaryRoute = dictionaryRoute !== undefined;
   const books = useMemo(() => getBooks(), []);
   const oldBooks = useMemo(() => getBooks("old"), []);
   const newBooks = useMemo(() => getBooks("new"), []);
@@ -603,12 +615,12 @@ export function KjvMvpApp({
   const [pendingPersonalNoteVerses, setPendingPersonalNoteVerses] = useState<Verse[] | null>(null);
   const [isPersonalNoteInspectorOpen, setIsPersonalNoteInspectorOpen] = useState(true);
   const [personalNoteMobilePane, setPersonalNoteMobilePane] = useState<"list" | "editor">("list");
-  const [dictionaryQuery, setDictionaryQuery] = useState("");
-  const [dictionaryAlphabet, setDictionaryAlphabet] = useState("all");
-  const [dictionaryTheme, setDictionaryTheme] = useState("all");
-  const [dictionaryBookFilter, setDictionaryBookFilter] = useState("all");
-  const [dictionarySort, setDictionarySort] = useState<HebrewDictionarySort>("alphabetical");
-  const [selectedHebrewEntryKey, setSelectedHebrewEntryKey] = useState<string | null>(null);
+  const [dictionaryQuery, setDictionaryQuery] = useState(dictionaryRouteQuery ?? "");
+  const [dictionaryAlphabet, setDictionaryAlphabet] = useState(dictionaryRouteAlphabet ?? "all");
+  const [dictionaryTheme, setDictionaryTheme] = useState(dictionaryRouteThemeId ?? "all");
+  const [dictionaryBookFilter, setDictionaryBookFilter] = useState(dictionaryRouteBookId ?? "all");
+  const [dictionarySort, setDictionarySort] = useState<HebrewDictionarySort>(dictionaryRouteSort ?? "alphabetical");
+  const [selectedHebrewEntryKey, setSelectedHebrewEntryKey] = useState<string | null>(dictionaryRouteEntryKey ?? null);
   const [dictionaryResult, setDictionaryResult] = useState<HebrewDictionarySearchResponse>(() => searchHebrewDictionary());
   const [dictionaryStatus, setDictionaryStatus] = useState<LoadStatus>("ready");
   const [dictionaryError, setDictionaryError] = useState("");
@@ -1206,6 +1218,25 @@ export function KjvMvpApp({
     setIsReaderContextOpen(true);
   }, [isReaderV2, readerRoutePanel]);
 
+  useEffect(() => {
+    if (!hasDictionaryRoute) return;
+
+    setDictionaryQuery(dictionaryRouteQuery ?? "");
+    setDictionaryAlphabet(dictionaryRouteAlphabet ?? "all");
+    setDictionaryTheme(dictionaryRouteThemeId ?? "all");
+    setDictionaryBookFilter(dictionaryRouteBookId ?? "all");
+    setDictionarySort(dictionaryRouteSort ?? "alphabetical");
+    setSelectedHebrewEntryKey(dictionaryRouteEntryKey ?? null);
+  }, [
+    dictionaryRouteAlphabet,
+    dictionaryRouteBookId,
+    dictionaryRouteEntryKey,
+    dictionaryRouteQuery,
+    dictionaryRouteSort,
+    dictionaryRouteThemeId,
+    hasDictionaryRoute,
+  ]);
+
   useEffect(() => () => {
     if (verseLongPressTimerRef.current !== null) {
       window.clearTimeout(verseLongPressTimerRef.current);
@@ -1456,6 +1487,45 @@ export function KjvMvpApp({
       window.clearTimeout(timer);
     };
   }, [dictionaryAlphabet, dictionaryBookFilter, dictionaryQuery, dictionarySort, dictionaryTheme]);
+
+  useEffect(() => {
+    if (dictionaryStatus === "loading" || !selectedHebrewEntryKey) return;
+    if (dictionaryResult.entries.some((entry) => entry.normalizedKey === selectedHebrewEntryKey)) return;
+
+    setSelectedHebrewEntryKey(dictionaryResult.entries[0]?.normalizedKey ?? null);
+  }, [dictionaryResult.entries, dictionaryStatus, selectedHebrewEntryKey]);
+
+  useEffect(() => {
+    if (!mounted || navigationMode !== "shell" || activeView !== "dictionary") return;
+
+    const timer = window.setTimeout(() => {
+      const url = buildStudyUiDictionaryUrl({
+        ...(dictionaryQuery.trim() ? { query: dictionaryQuery } : {}),
+        ...(selectedHebrewEntryKey ? { entryKey: selectedHebrewEntryKey } : {}),
+        ...(dictionaryAlphabet !== "all" ? { alphabet: dictionaryAlphabet } : {}),
+        ...(dictionaryTheme !== "all" ? { themeId: dictionaryTheme } : {}),
+        ...(dictionaryBookFilter !== "all" ? { bookId: dictionaryBookFilter } : {}),
+        sort: dictionarySort,
+      });
+      const currentUrl = `${window.location.pathname}${window.location.search}`;
+      if (currentUrl !== url) {
+        router.replace(url, { scroll: false });
+      }
+    }, 150);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    activeView,
+    dictionaryAlphabet,
+    dictionaryBookFilter,
+    dictionaryQuery,
+    dictionarySort,
+    dictionaryTheme,
+    mounted,
+    navigationMode,
+    router,
+    selectedHebrewEntryKey,
+  ]);
 
   useEffect(() => {
     if (!mounted) {
@@ -4732,127 +4802,33 @@ export function KjvMvpApp({
         ) : null}
 
         {activeView === "dictionary" ? (
-          <section className="panel wide-panel">
+          <section className="panel wide-panel dictionary-workspace-panel">
             <div className="panel-heading">
               <span>히브리어 성경 사전</span>
               <BookOpen size={18} />
             </div>
-            <div className="dictionary-layout">
-              <section className="dictionary-list-pane">
-                <div className="search-panel-controls">
-                  <label className="search-field">
-                    단어 검색
-                    <input
-                      value={dictionaryQuery}
-                      onChange={(event) => setDictionaryQuery(event.target.value)}
-                      placeholder="reshith, 시작, beginning, H7225"
-                      type="search"
-                    />
-                  </label>
-                  <div className="filter-row search-filter-row">
-                    <label>
-                      알파벳
-                      <select value={dictionaryAlphabet} onChange={(event) => setDictionaryAlphabet(event.target.value)}>
-                        <option value="all">전체</option>
-                        {"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((letter) => (
-                          <option key={letter} value={letter}>{letter}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      테마
-                      <select value={dictionaryTheme} onChange={(event) => setDictionaryTheme(event.target.value)}>
-                        <option value="all">전체 테마</option>
-                        {hebrewDictionaryThemes.map((theme) => (
-                          <option key={theme.id} value={theme.id}>{theme.titleKo}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      성경 권
-                      <select value={dictionaryBookFilter} onChange={(event) => setDictionaryBookFilter(event.target.value)}>
-                        <option value="all">전체 구약</option>
-                        {oldBooks.map((book) => (
-                          <option key={book.id} value={book.id}>{book.nameKo}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      정렬
-                      <select value={dictionarySort} onChange={(event) => setDictionarySort(event.target.value as HebrewDictionarySort)}>
-                        <option value="alphabetical">알파벳순</option>
-                        <option value="canonical">성경 출현순</option>
-                        <option value="theme">테마 추천순</option>
-                      </select>
-                    </label>
-                  </div>
-                </div>
-                <div className="search-summary" aria-live="polite">
-                  {dictionaryStatus === "loading"
-                    ? "사전 검색 중"
-                    : `${dictionaryResult.total}개 단어 · 본문 검색과 분리된 사전 검색`}
-                  {dictionaryStatus === "error" ? ` · ${dictionaryError}` : ""}
-                </div>
-                <div className="list-stack dictionary-results">
-                  {dictionaryResult.entries.map((entry) => (
-                    <button
-                      className={selectedHebrewEntry?.normalizedKey === entry.normalizedKey ? "dictionary-card active" : "dictionary-card"}
-                      key={entry.id}
-                      type="button"
-                      onClick={() => setSelectedHebrewEntryKey(entry.normalizedKey)}
-                    >
-                      <strong dir="rtl">{entry.lemmaHe}</strong>
-                      <span>{entry.transliteration} · {entry.pronunciationSymbol} · {entry.pronunciationKo}</span>
-                      <small>{entry.glossKo} · {entry.glossEn}</small>
-                      <em>{entry.firstReference ?? "예시 구절 없음"}</em>
-                    </button>
-                  ))}
-                  {!dictionaryResult.entries.length ? <p className="empty-text">사전 검색 결과가 없습니다.</p> : null}
-                </div>
-              </section>
-              <aside className="dictionary-detail-pane">
-                {selectedHebrewEntry ? (
-                  <>
-                    <div className="dictionary-detail-head">
-                      <strong dir="rtl">{selectedHebrewEntry.lemmaHe}</strong>
-                      <span>{selectedHebrewEntry.strongNumber}</span>
-                    </div>
-                    <p>{selectedHebrewEntry.transliteration} · {selectedHebrewEntry.pronunciationSymbol} · {selectedHebrewEntry.pronunciationKo}</p>
-                    <p><b>{selectedHebrewEntry.glossKo}</b> · {selectedHebrewEntry.glossEn}</p>
-                    <p>{selectedHebrewEntry.definitionKo}</p>
-                    <p>{selectedHebrewEntry.definitionEn}</p>
-                    <p>{selectedHebrewEntry.interpretationNoteKo}</p>
-                    <div className="tag-strip">
-                      {selectedHebrewEntry.themeIds.map((themeId) => {
-                        const theme = hebrewDictionaryThemes.find((item) => item.id === themeId);
-                        return <span className="tag-chip" key={themeId}>{theme?.titleKo ?? themeId}</span>;
-                      })}
-                    </div>
-                    <div className="modal-section">
-                      <strong>예시 구절</strong>
-                      {selectedHebrewEntry.sampleVerses.map((occurrence) => (
-                        <button
-                          className="plain-list-button"
-                          key={occurrence.id}
-                          type="button"
-                          onClick={() => openChapter(occurrence.appBookId, occurrence.chapter, occurrence.verse)}
-                        >
-                          <span>{formatHebrewDictionaryReference(occurrence)} · {occurrence.surfaceHe}</span>
-                          <small>{occurrence.phraseKo ?? occurrence.koMatchText} / {occurrence.phraseEn ?? occurrence.kjvMatchText}</small>
-                        </button>
-                      ))}
-                    </div>
-                    <small>{selectedHebrewEntry.sourceName} · {selectedHebrewEntry.sourceLicense}</small>
-                    <button className="primary-button" type="button" onClick={() => addHebrewEntryToPersonalNote(selectedHebrewEntry)}>
-                      <StickyNote size={16} />
-                      내 노트에 추가
-                    </button>
-                  </>
-                ) : (
-                  <p className="empty-text">단어를 선택하세요.</p>
-                )}
-              </aside>
-            </div>
+            <HebrewDictionaryWorkspace
+              alphabet={dictionaryAlphabet}
+              bookId={dictionaryBookFilter}
+              bookOptions={oldBooks.map((book) => ({ id: book.id, label: book.nameKo }))}
+              error={dictionaryError}
+              onAddToNote={addHebrewEntryToPersonalNote}
+              onAlphabetChange={setDictionaryAlphabet}
+              onBookChange={setDictionaryBookFilter}
+              onOpenOccurrence={openChapter}
+              onQueryChange={setDictionaryQuery}
+              onSelectEntry={setSelectedHebrewEntryKey}
+              onSortChange={setDictionarySort}
+              onThemeChange={setDictionaryTheme}
+              query={dictionaryQuery}
+              result={dictionaryResult}
+              selectedEntry={selectedHebrewEntry}
+              selectedEntryKey={selectedHebrewEntryKey}
+              sort={dictionarySort}
+              status={dictionaryStatus}
+              themeId={dictionaryTheme}
+              themeOptions={hebrewDictionaryThemes.map((theme) => ({ id: theme.id, label: theme.titleKo }))}
+            />
           </section>
         ) : null}
 

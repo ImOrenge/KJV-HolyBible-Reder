@@ -1,7 +1,7 @@
 component:
   id: study-app-shell
-  status: candidate
-  updated_at: 2026-07-13T23:30:00+09:00
+  status: verified
+  updated_at: 2026-07-14T19:40:00+09:00
   owner_scope: study-navigation-shell
   source:
     repo: D:\kjv-educator
@@ -15,12 +15,13 @@ component:
     kind: shell
     change_gate: behavioral-style-contract
   public_api:
-    props: [initialView, user]
-    events: [legacy-view-navigation]
+    props: [initialRoute, readerV2, user]
+    events: [route-view-navigation, reader-navigation, dictionary-route-pass-through]
   dependencies:
     shared:
       - StudyUiWebViewKey
-      - buildLegacyStudyAppUrl
+      - StudyUiRouteState
+      - buildStudyUiTargetUrl
       - getStudyUiAreaForView
     external:
       - lucide-react
@@ -33,7 +34,7 @@ component:
     inline_styles_allowed: false
   state:
     local: [activeView, readerRoute, isSidebarCollapsed, isCommandOpen, commandQuery]
-    route: [view, bookId, chapter, verse, panel, word]
+    route: [view, bookId, chapter, verse, panel, word, q, entry, alphabet, theme, book, sort]
   accessibility:
     keyboard: native-buttons-and-dialog
     aria: aria-current-navigation-and-labeled-icon-buttons

@@ -239,6 +239,7 @@ export function StudyAppShell({ initialRoute, readerV2 = false, user }: StudyApp
         <div className="f-study-shell__content">
           <KjvMvpApp
             activeView={activeView}
+            dictionaryRoute={activeView === "dictionary" ? initialRoute.dictionary ?? {} : undefined}
             navigationMode="shell"
             onReaderLocationChange={rememberReaderLocation}
             onReaderNavigate={navigateReader}

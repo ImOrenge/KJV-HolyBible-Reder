@@ -22,7 +22,7 @@ KJV 리더노트의 웹과 Expo 앱을 기능 나열형 화면에서 `오늘 읽
 
 웹 개편 Shell과 Reader/Notes V2는 기본 활성화하며, 긴급 rollback은 각 `NEXT_PUBLIC_*_V2=false` 환경 변수로 명시한다.
 
-온보딩 기능 커밋 `d7646ffb`는 현재 개발 브랜치의 조상이다. P0 원격 migration/RLS, P2 AppShell, P3 Reader, P4 Notes의 구현 묶음은 개발 브랜치에 누적되어 있으며 다음 큰 화면 단계는 P5 Dictionary/Search/Library다. 실제 Android/iOS 검증과 릴리즈 통합은 P7 게이트에서 수행한다.
+온보딩 기능 커밋 `d7646ffb`는 현재 개발 브랜치의 조상이다. P0 원격 migration/RLS, P2 AppShell, P3 Reader, P4 Notes와 P5 웹 Dictionary의 구현 묶음은 개발 브랜치에 누적되어 있다. P5의 다음 작업은 Expo Dictionary, 통합 검색, 보관함이며 실제 Android/iOS 검증과 릴리즈 통합은 P7 게이트에서 수행한다.
 
 ### 2.2 포함 범위
 
@@ -293,11 +293,16 @@ flowchart LR
 
 ### 10.1 히브리어 사전
 
-- [ ] 웹 검색/필터 list + detail 2-pane을 압축한다.
-- [ ] alphabet/theme/book/sort를 filter bar와 popover로 구성한다.
+- [x] 웹 검색/필터 list + detail 2-pane을 압축한다.
+- [x] alphabet/theme/book/sort를 filter bar와 popover로 구성한다.
+- [x] 웹 `900px` 이하에서 list/detail을 한 번에 하나만 표시한다.
+- [x] 웹 active filter chip과 필터 초기화를 구현한다.
 - [ ] 모바일 list/detail을 별도 stack screen으로 분리한다.
-- [ ] active filter chip과 filter sheet를 구현한다.
+- [ ] 모바일 horizontal active filter chip과 filter sheet를 구현한다.
 - [x] 단어 상세의 출현 구절에서 Reader로 이동하고 동일 사전 route로 복귀하는 stack 계약을 연결한다.
+- [x] 검색어, 선택 단어, alphabet/theme/book/sort를 웹 URL state로 보존한다.
+- [x] 간략 목록에 히브리어, Strong 번호, 발음기호, 한국어 발음, 한영 뜻, 첫 출현 구절을 표시한다.
+- [x] 목록과 상세의 출현형 히브리어를 의미 있는 `mark` 요소로 강조한다.
 - [ ] `내 노트에 추가`에서 현재 `StudyContext`를 유지한다.
 
 ### 10.2 통합 검색
@@ -320,6 +325,8 @@ flowchart LR
 ### 완료 기준
 
 - [ ] 사전 filter 조합이 occurrence 전체 기준으로 동작한다.
+- [x] 웹 사전 상세에서 Reader로 이동하고 브라우저 뒤로 가면 선택 단어와 URL state가 복원된다.
+- [x] 웹 `390px`과 `1440px` 사전 화면에 horizontal overflow가 없다.
 - [ ] 검색 결과 왕복에서 query와 scroll이 유지된다.
 - [ ] 보관함 세 영역의 의미와 저장 action이 겹치지 않는다.
 - [ ] 각 상세 화면에서 Reader와 Note로 이동한 뒤 원래 문맥으로 복귀한다.

@@ -1,0 +1,57 @@
+component:
+  id: hebrew-dictionary-workspace
+  status: verified
+  updated_at: 2026-07-14T19:35:00+09:00
+  owner_scope: hebrew-dictionary-feature
+  source:
+    repo: D:\kjv-educator
+    paths:
+      - apps/web/src/components/hebrew-dictionary-workspace.tsx
+      - apps/web/src/components/kjv-mvp-app.tsx
+      - apps/web/src/app/globals.css
+      - packages/shared/src/study-ui.ts
+    route: /app/study/dictionary
+  classification:
+    kind: screen-section
+    change_gate: behavioral-style-route-contract
+  layout:
+    desktop: [compact-list-pane, detail-pane]
+    compact_900: [list-or-detail]
+  public_api:
+    controlled_state: [query, alphabet, themeId, bookId, sort, selectedEntryKey]
+    events: [search, filter, select-entry, clear-entry, open-occurrence, add-to-note]
+  route_state:
+    allowlist: [q, entry, alphabet, theme, book, sort]
+    defaults_omitted: true
+    private_note_content_allowed: false
+  behavior:
+    summary_fields: [lemma, strongNumber, transliteration, pronunciationSymbol, pronunciationKo, glossKo, glossEn, firstOccurrence]
+    occurrence_highlight: semantic-mark
+    reader_return: next-router-history
+    mobile_web_back: clears-entry-and-shows-list
+  styling:
+    global_css:
+      file: apps/web/src/app/globals.css
+      namespace: f-hebrew-dictionary
+    tokens: [surface, surface-2, text, muted, line, accent, accent-contrast, highlight-yellow]
+    inline_styles_allowed: false
+  accessibility:
+    keyboard: native-search-select-details-and-buttons
+    aria: labeled-list-detail-status-and-pressed-selection
+    emphasis: mark-element-not-color-only
+  validation:
+    required: [typecheck, lint, build, study-ui-contract, lexicon-contract, browser-desktop-mobile, reader-return, horizontal-overflow]
+    evidence:
+      - typecheck: pass
+      - lint: pass
+      - build: pass
+      - study_ui_contract: pass
+      - lexicon_contract: pass
+      - browser_desktop_1440: pass
+      - browser_mobile_390: pass
+      - reader_return_with_entry_state: pass
+      - deep_link_reload: pass
+      - horizontal_overflow: pass
+      - console_errors: none
+      - expo_reader_v2_regression: pass
+    residual: [expo-native-list-detail-stack, add-to-note-study-context, authenticated-remote-dataset-smoke, scroll-position-restore]
