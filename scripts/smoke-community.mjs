@@ -74,7 +74,10 @@ try {
   console.log(JSON.stringify({ ok: true, aPoints: 16, bPoints: 2, comments: 1, helpful: 1, rankingEntries: ranking.rankings.length }));
 } finally {
   if (admin && !allowPublicSignup) {
-    await Promise.all(createdUserIds.map((id) => admin.auth.admin.deleteUser(id, false)));
+    for (const id of createdUserIds) {
+      const { error } = await admin.auth.admin.deleteUser(id, false);
+      if (error) throw new Error(`Smoke user cleanup failed: ${error.message}`);
+    }
   } else if (createdUserIds.length) {
     console.log(JSON.stringify({ manualCleanupSuffix: suffix }));
   }
