@@ -41,6 +41,8 @@ component:
       - settings tab active
       - dashboard today tab
       - dashboard progress tab
+      - dashboard community route entry
+      - independent community screen with stack back navigation
       - dashboard activity tab
       - dashboard study tab
   parity_contract:
@@ -53,12 +55,15 @@ component:
       - 명령 검색
       - 오늘
       - 통독
+      - 커뮤니티
       - 활동
       - 공부
     layout:
       - bottom navigation uses five equal columns with 4px gaps and 48px minimum hit targets
-      - home tab segment uses four equal columns with 4px gaps and 44px minimum hit targets
+      - home tab segment uses five equal columns with 4px gaps and 44px minimum hit targets
       - active items use the surfaceStrong/accentSoft filled state and text color promotion
+      - the community entry pushes /community while the Today bottom item remains active
+      - system back returns from /community to the previous Today route
     intentional_divergence:
       - target: expo-native
         reason: Expo Native keeps local text glyphs while Expo Web uses the SVG icon adapter; label order, hit targets, and active states match.

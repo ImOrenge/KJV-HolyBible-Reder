@@ -1,6 +1,6 @@
 {
   "name": "@kjv/shared",
-  "version": "0.4.0",
+  "version": "0.6.1",
   "private": true,
   "type": "module",
   "exports": {
@@ -11,6 +11,7 @@
     "./bible-data": "./src/bible-data.ts",
     "./bible-repository": "./src/bible-repository.ts",
     "./brand": "./src/brand.ts",
+    "./community": "./src/community.ts",
     "./hebrew-dictionary": "./src/hebrew-dictionary.ts",
     "./korean-search": "./src/korean-search.ts",
     "./onboarding": "./src/onboarding.ts",

@@ -52,6 +52,7 @@ const MOBILE_TAB_DEFAULT_VIEW: Record<StudyUiArea, StudyUiMobileViewKey> = {
 
 const MOBILE_VIEW_PATH: Record<StudyUiMobileViewKey, string> = {
   dashboard: "/(tabs)/today",
+  community: "/community",
   reader: "/(tabs)/read",
   progress: "/progress",
   highlights: "/library/highlights",

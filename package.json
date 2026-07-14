@@ -1,6 +1,6 @@
 {
   "name": "kjv-reader-note-monorepo",
-  "version": "0.4.0",
+  "version": "0.6.1",
   "private": true,
   "workspaces": [
     "apps/*",
@@ -20,6 +20,7 @@
     "capture:mobile-visuals": "node scripts/capture-mobile-visuals.mjs",
     "browser:mobile": "node scripts/verify-mobile-browser-parity.mjs",
     "browser:reader": "node scripts/verify-reader-browser-parity.mjs",
+    "smoke:community": "node scripts/smoke-community.mjs",
     "build": "npm run build -w @kjv/web",
     "typecheck": "npm run typecheck -ws --if-present",
     "lint": "npm run lint -ws --if-present",

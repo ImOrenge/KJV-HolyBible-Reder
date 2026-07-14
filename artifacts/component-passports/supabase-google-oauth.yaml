@@ -1,0 +1,47 @@
+component:
+  id: supabase-google-oauth
+  status: candidate
+  updated_at: 2026-07-14T12:00:00+09:00
+  owner_scope: auth-feature
+  source:
+    repo: D:\kjv-educator
+    paths:
+      - apps/web/src/components/auth/email-auth-form.tsx
+      - apps/web/src/app/auth/actions.ts
+      - apps/web/src/app/auth/callback/route.ts
+      - apps/mobile/App.tsx
+      - apps/web/src/app/globals.css
+    routes:
+      - /auth/login
+      - /auth/sign-up
+      - /auth/callback
+      - expo-auth-entry
+  classification:
+    kind: feature
+    change_gate: compatible-behavioral-style-contract
+  public_api:
+    web_props: [action, mode, next, oauthError]
+    mobile_props: [mode, onGoogleSubmit, onSubmit, onSecondarySubmit, onPrivacyPress]
+  dependencies:
+    internal: [supabase-browser-client, supabase-server-client, first-login-onboarding]
+    external: [supabase-auth, expo-auth-session, expo-web-browser]
+  styling:
+    global_css:
+      file: apps/web/src/app/globals.css
+      namespace: google-auth
+    mobile_style_owner: apps/mobile/App.tsx
+    inline_styles_allowed: false
+  state:
+    local: [oauth-pending, oauth-error, oauth-cancelled]
+    persisted: [supabase-session]
+  accessibility:
+    keyboard: native-button-and-form-controls
+    aria: oauth-error-alert-and-divider
+  security:
+    redirect_allowlist: required
+    internal_next_only: true
+    client_secret_exposure: forbidden
+    token_logging: forbidden
+    expo_go_oauth: blocked
+  validation:
+    required: [typecheck, lint, build, expo-doctor, web-interaction, native-oauth-smoke]

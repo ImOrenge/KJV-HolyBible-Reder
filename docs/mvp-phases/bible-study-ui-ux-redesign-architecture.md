@@ -1,13 +1,13 @@
 # 성경 읽기·공부·기록 중심 UI/UX 개편 아키텍처
 
 > 상태: 개편 기준 문서
-> 기준 릴리즈: `main@99226324` (`v0.5.0`)
+> 기준 릴리즈: `main@c04431ec` (`v0.6.1`)
 > 온보딩 구현 기준: `feat/2026-07-13-first-login-onboarding@d7646ffb`
 > 최종 갱신: 2026-07-14
 
 ## 1. 문서 목적
 
-KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘 읽기 -> 본문 이해 -> 구절 선택 -> 공부/기록 -> 다시 찾기` 흐름 중심 제품으로 개편한다.
+KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘 읽기 -> 본문 이해 -> 구절 선택 -> 공부/기록 또는 QT 나눔 -> 다시 찾기` 흐름 중심 제품으로 개편한다.
 
 이 개편은 기존 성경 데이터, 개인 노트, 히브리어 사전, 검색, 통독 기록과 Supabase 계약을 교체하는 작업이 아니다. 기존 도메인 모델은 유지하고 다음 계층을 단계적으로 교체한다.
 
@@ -18,12 +18,13 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 - 리더의 선택 구절 액션
 - 모바일 노트 목록/편집 화면 분리
 - 검색, 사전, 하이라이트, 저장한 말씀의 재분류
+- QT 커뮤니티의 독립 탐색과 내부 기능 탭
 - 웹·모바일 공통 디자인 token과 상태 계약
 - 거대한 화면 컴포넌트의 feature 단위 분리
 
 ### 1.1 구현 상태
 
-2026-07-14 기준 P0, P1 일부, P2 AppShell 전환, P3 Reader 표시 계층, P4 웹·모바일 Notes 작업 공간과 P5 웹 Dictionary의 첫 묶음이 개발 브랜치에 구현되어 있다.
+2026-07-14 기준 P0, P1 일부, P2 AppShell 전환, P3 Reader 표시 계층, P4 웹·모바일 Notes 작업 공간, P5 웹 Dictionary와 `0.6.1` QT 커뮤니티의 개편 통합 묶음이 개발 브랜치에 구현되어 있다.
 
 | 영역 | 현재 구현 | 다음 경계 |
 | --- | --- | --- |
@@ -33,9 +34,11 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 | 웹 Reader V2 | `readerV2` flag 아래 ReaderHeader/VerseRow/VerseActions, 3-pane, 태블릿 sheet, 모바일 action sheet | ReaderScreen data orchestration과 자동 회귀 테스트 |
 | 웹 Notes V4 | `300px list + editor + 300px inspector`, 생성 단계 template dialog, 900px 이하 목록/편집 분리, revision/backlink/linked verse inspector | feature component 추출, Reader verse anchor 복귀 자동 검증 |
 | 웹 Dictionary V2 | 독립 `HebrewDictionaryWorkspace`, compact 2-pane, filter popover/chip, 출현형 강조, 검색·필터·선택 단어 URL state, Reader 왕복 복원, 900px 이하 list/detail 분리 | `내 노트에 추가` StudyContext, scroll 복원, 원격 전체 데이터 검증 |
+| 웹 QT 커뮤니티 | sidebar 독립 `QT 커뮤니티`, `/app/community?tab=...`, `피드/내 참여/랭킹/설정` 내부 탭, 로그인 gate | authenticated browser smoke, thread detail URL 여부 검토 |
 | 모바일 Shell | `uiShellV2` flag 아래 `오늘/성경/공부/보관함/설정` 5탭, custom route stack adapter, header 명령 검색, Android hardware back | Expo Router 전환, iOS swipe back, screen별 컴포넌트 분리 |
 | 모바일 Reader V2 | `readerV2` flag 아래 native ReaderHeader/VerseRow/VerseActionsSheet, EN/KR/동시 보기, long press 다중 선택, keyboard 회피와 2단계 snap, 전용 Reader controller/TTS hook, route/context 복귀 | Android/iOS 실기기 검증 |
 | 모바일 Notes V4 | 목록/편집기 stack 분리, compact keyboard toolbar, 사용자·노트별 AsyncStorage draft 복구, versioned remote save와 conflict 해결 band | revision/backlink inspector sheet, 장기 offline queue, 실기기 검증 |
+| 모바일 QT 커뮤니티 | 오늘 영역의 커뮤니티 진입, `피드/내 참여/랭킹/설정` 내부 탭, 통독 TTS 완료 증거 연동 | 독립 stack route, 실제 기기 keyboard/auth smoke |
 | 검증 | typecheck, lint, build, Expo Doctor, 구조/스타일 검사, 320/390/768/1024/1440px 웹 smoke, Expo Reader V2 390px interaction smoke | 실제 Android/iOS 검증 |
 
 이 상태는 전체 개편 완료를 뜻하지 않는다. Reader data orchestration, 웹 Notes feature component, 모바일 Notes inspector sheet, Expo Dictionary list/detail screen을 분리하기 전까지 기존 대형 컴포넌트는 legacy adapter 안에서 유지한다.
@@ -52,6 +55,7 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 - [모바일 공부 내비게이션 컴포넌트 패스포트](../../artifacts/component-passports/mobile-study-navigation.yaml)
 - [모바일 개인 노트 화면 컴포넌트 패스포트](../../artifacts/component-passports/mobile-personal-note-screens.yaml)
 - [웹 히브리어 사전 컴포넌트 패스포트](../../artifacts/component-passports/hebrew-dictionary-workspace.yaml)
+- [QT 커뮤니티 컴포넌트 패스포트](../../artifacts/component-passports/community-home-panel.yaml)
 
 ## 2. 현재 구조 진단
 
@@ -108,6 +112,7 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 7. **예측 가능한 뒤로 가기**: 모든 상세 화면은 사용자가 출발한 화면과 위치로 복귀한다.
 8. **점진적 전환**: 기존 데이터와 화면을 유지한 채 feature flag와 adapter로 화면별 교체가 가능해야 한다.
 9. **첫 진입 최소화**: 가입 직후에는 앱 사용에 필요한 최소 프로필만 받고 사용법 안내와 읽기 환경 설정은 실제 문맥에서 점진적으로 제공한다.
+10. **공개 경계 명시**: 개인 노트와 초안은 비공개이며 사용자가 커뮤니티 작성 form에서 직접 게시한 내용만 공개한다.
 
 ## 4. 목표 정보 구조
 
@@ -121,6 +126,11 @@ flowchart TD
   READ --> GLOBAL_SEARCH["통합 검색"]
   STUDY["공부"] --> NOTES["노트"]
   STUDY --> DICTIONARY["히브리어 사전"]
+  TOGETHER["함께"] --> COMMUNITY["QT 커뮤니티"]
+  COMMUNITY --> COMMUNITY_FEED["피드"]
+  COMMUNITY --> COMMUNITY_MINE["내 참여"]
+  COMMUNITY --> COMMUNITY_RANKING["랭킹"]
+  COMMUNITY --> COMMUNITY_SETTINGS["설정"]
   LIBRARY["보관함"] --> HIGHLIGHTS["하이라이트"]
   LIBRARY --> SAVED["저장한 말씀"]
   LIBRARY --> TAGS["태그"]
@@ -157,7 +167,7 @@ flowchart TD
 
 | 순서 | 탭 | 포함 기능 |
 | --- | --- | --- |
-| 1 | 오늘 | 이어 읽기, 오늘 통독, 간략 진행률, 최근 공부 |
+| 1 | 오늘 | 이어 읽기, 오늘 통독, 간략 진행률, 최근 공부, QT 커뮤니티 진입 |
 | 2 | 성경 | 본문 리더, 권·장 선택 |
 | 3 | 공부 | 노트, 히브리어 사전, 최근 단어 연구 |
 | 4 | 보관함 | 하이라이트, 저장한 말씀, 태그 |
@@ -179,6 +189,9 @@ flowchart TD
 공부
   노트
   히브리어 사전
+
+함께
+  QT 커뮤니티
 
 보관함
   하이라이트
@@ -214,6 +227,10 @@ Sidebar 계약:
 | `/app/study/notes/[noteId]` | 노트 편집/읽기 |
 | `/app/study/dictionary` | 히브리어 사전 목록 |
 | `/app/study/dictionary/[entryId]` | 단어 상세 |
+| `/app/community` | QT 커뮤니티 피드 |
+| `/app/community?tab=participating` | 내가 작성하거나 댓글로 참여한 글 |
+| `/app/community?tab=ranking` | 주간·월간·전체 참여 랭킹 |
+| `/app/community?tab=settings` | 표시명, 랭킹 참여, 레벨 공개 설정 |
 | `/app/library` | 보관함 |
 | `/app/progress` | 통독 현황 |
 | `/app/settings` | 설정 |
@@ -253,6 +270,7 @@ onboarding (authenticated entry gate)
 /notes/[noteId]
 /dictionary
 /dictionary/[entryId]
+/community
 /search
 ```
 
@@ -260,6 +278,7 @@ onboarding (authenticated entry gate)
 
 - tab은 최상위 영역만 전환한다.
 - 노트 편집, 단어 상세, 검색 결과는 stack push로 연다.
+- 커뮤니티는 여섯 번째 bottom tab을 만들지 않고 오늘 영역에서 독립 screen으로 push한다.
 - modal은 확인, 짧은 입력, filter에만 사용한다.
 - 긴 본문 편집과 상세 정보는 modal로 열지 않는다.
 - Android back, iOS swipe back, 웹 browser back의 결과를 동일하게 정의한다.
@@ -557,7 +576,36 @@ Note List Screen -> Note Editor Screen -> Linked Verse Sheet
 - 보관함 상단 segmented control로 세 영역을 전환한다.
 - 모든 항목은 원래 절 열기, 노트 연결, 복사 액션을 공유한다.
 
-### 8.8 통독과 설정
+### 8.8 QT 커뮤니티
+
+QT 커뮤니티는 `0.6.1`의 기존 원격 API, RLS, 포인트와 랭킹 계약을 유지하면서 홈의 한 section이 아닌 독립 feature page로 표현한다.
+
+#### 웹
+
+- 좌측 sidebar의 `함께 > QT 커뮤니티`에서 `/app/community`로 연다.
+- 페이지 내부의 2차 탐색은 `피드 / 내 참여 / 랭킹 / 설정` 네 탭으로 제한한다.
+- 내부 탭은 `tab` query로 보존하고 새로고침, browser back과 forward에서 복원한다.
+- `피드`는 현재 본문 작성 form과 최신 구절 나눔, 선택 글 상세와 댓글을 포함한다.
+- `내 참여`는 `participatingThreads`만 표시하고 같은 상세·댓글 surface를 재사용한다.
+- `랭킹`은 주간·월간·전체 기간만 전환하며 랭킹 미참여 상태를 명시한다.
+- `설정`은 표시명, 랭킹 참여, 레벨 공개만 소유한다. 계정 이름과 이메일은 렌더링하지 않는다.
+
+#### 모바일
+
+- 하단 탐색은 `오늘/성경/공부/보관함/설정` 다섯 개를 유지한다.
+- 오늘 영역에서 커뮤니티 screen을 push하고 Android/iOS back으로 오늘의 이전 위치에 복귀한다.
+- 커뮤니티 내부 탭은 웹과 같은 네 가지 의미를 사용하되 한 번에 한 tab panel만 렌더링한다.
+- 작성 keyboard, 댓글 입력과 bottom navigation이 겹치지 않도록 safe-area와 keyboard inset을 적용한다.
+
+#### 데이터와 공개 경계
+
+- `CommunityThread`, `CommunityComment`, reaction, report, profile, ranking API는 `packages/shared/src/community.ts`를 단일 client 계약으로 사용한다.
+- 읽기 완료 포인트는 서버가 검증 가능한 권·장과 허용 method만 수락한다.
+- 개인 노트, 노트 초안, 선택 본문 원문은 커뮤니티 작성 form에 자동 복사하거나 자동 게시하지 않는다.
+- 게시 action은 로그인, 현재 verse reference, 제목과 본문 validation을 모두 통과해야 한다.
+- 비로그인 사용자는 공개 feed를 우회 조회하지 않고 로그인 gate만 본다.
+
+### 8.9 통독과 설정
 
 - 통독 상세는 오늘 화면에서 진입하되 독립 route/screen을 유지한다.
 - 완료 장 grid는 권별 접기와 다음 미완료 장 이동을 우선한다.
@@ -841,6 +889,16 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 - [ ] 보관함에 하이라이트/저장한 말씀/태그를 통합한다.
 - [ ] 모든 result -> detail -> return 흐름에서 scroll을 복원한다.
 
+### Phase UX-04C: QT Community
+
+- [x] `main@c04431ec`의 커뮤니티 API, shared client, migrations와 OAuth를 개편 브랜치에 통합한다.
+- [x] 웹 sidebar에 `함께 > QT 커뮤니티` 독립 route를 추가한다.
+- [x] `/app/community?tab=...` allowlist와 browser history 계약을 추가한다.
+- [x] 웹·Expo 커뮤니티를 `피드/내 참여/랭킹/설정` 내부 탭으로 분리한다.
+- [x] Reader V2 TTS hook 완료 시 통독 포인트 증거를 기록하도록 연결한다.
+- [ ] authenticated web/Expo interaction과 원격 RLS smoke를 재검증한다.
+- [ ] 모바일 커뮤니티 screen의 keyboard, safe area와 back을 실제 기기에서 검증한다.
+
 ### Phase UX-05: Today, Progress, Settings
 
 - [ ] 홈을 오늘 화면으로 재구성한다.
@@ -871,6 +929,8 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 | 절 선택 -> 히브리어 단어 상세 | 최대 2회 action |
 | 검색 결과 -> 원문 -> 검색 복귀 | 검색어와 scroll 100% 보존 |
 | 노트 편집 -> 리더 복귀 | 원래 verse anchor 복원 |
+| sidebar -> QT 커뮤니티 내부 기능 | 1회 이동 후 내부 탭 1회 이하 |
+| 커뮤니티 내부 탭 새로고침 | `tab` query로 동일 탭 복원 |
 | 모바일 reader 본문 시작 | viewport 상단 `140px` 이내 |
 | 모바일 선택 액션 | 현재 viewport 또는 bottom sheet에 즉시 표시 |
 | 웹 전역 navigation | `1024px` 이상에서 줄바꿈 없음 |
@@ -880,7 +940,7 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 
 ## 18. 출시 게이트
 
-- [ ] 오늘 읽기, 리더, 절 선택, 노트, 사전, 저장한 말씀의 핵심 흐름이 연결된다.
+- [ ] 오늘 읽기, 리더, 절 선택, 노트, 사전, 저장한 말씀, QT 커뮤니티의 핵심 흐름이 연결된다.
 - [ ] 첫 로그인 사용자는 profile 완료 전 AppShell로 우회할 수 없다.
 - [ ] 완료 사용자는 웹/모바일 재로그인 시 온보딩을 다시 보지 않는다.
 - [ ] 이름/email은 공개 프로필에 노출되지 않고 nickname/honorific/avatar만 정책대로 표시된다.
@@ -890,6 +950,7 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 - [x] 모바일 note list와 editor가 동시에 한 scroll에 나타나지 않는다.
 - [ ] 웹의 9개 가로 tab과 항상 펼친 50개 장 selector가 제거된다.
 - [ ] 기존 Supabase RLS, revision, note link와 verseKey 계약이 유지된다.
+- [ ] 커뮤니티 RLS, 신고, reaction, reading evidence 검증과 개인 노트 비공개 경계가 유지된다.
 - [ ] 비로그인 local data와 로그인 remote data가 모두 유지된다.
 - [ ] 웹/Expo 회귀, 접근성, 반응형, 실제 기기 검증 evidence가 남는다.
 
@@ -897,7 +958,7 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 
 - 성경 본문 또는 번역 데이터 교체
 - 노트 AI 자동 작성
-- 공개 노트/커뮤니티 UI 통합
+- 개인 노트의 자동 공개 또는 커뮤니티 게시물로의 자동 변환
 - 협업 편집
 - 기존 데이터의 즉시 destructive migration
 - 웹 컴포넌트를 모바일 WebView로 재사용
@@ -920,6 +981,9 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 
 ### 2026-07-14
 
+- `main@c04431ec`의 `0.6.1` QT 커뮤니티, Google OAuth, 버전 계약을 UI/UX 개편 기준선에 통합했다.
+- 웹 `함께 > QT 커뮤니티` sidebar route와 `피드/내 참여/랭킹/설정` 내부 탭 URL 계약을 추가했다.
+- Expo 커뮤니티 내부 탭과 Reader V2 TTS 완료 증거 연동, 개인 노트 비공개 경계를 반영했다.
 - 웹 히브리어 사전을 독립 workspace component, compact 2-pane, filter popover와 active chip으로 개편했다.
 - 검색어·선택 단어·alphabet/theme/book/sort URL 계약과 Reader 왕복 복원을 추가했다.
 - 히브리어 출현형 강조, 한영 뜻·발음 정보 요약, 390px list/detail 단일 pane 검증을 반영했다.

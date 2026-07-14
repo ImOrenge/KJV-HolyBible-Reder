@@ -13,6 +13,8 @@ type UseMobileReaderTtsOptions = {
   voiceIdentifier?: string;
 };
 
+type QueueCompleteCallback = () => void | Promise<void>;
+
 export function useMobileReaderTts({
   autoScroll,
   language,
@@ -28,6 +30,7 @@ export function useMobileReaderTts({
   const speechQueueRef = useRef<ReaderSpeechQueueItem[]>([]);
   const speechIndexRef = useRef(0);
   const speechCancelRef = useRef(false);
+  const queueCompleteRef = useRef<QueueCompleteCallback | null>(null);
   const playbackRequestRef = useRef(0);
   const queueLabelRef = useRef("대기");
   const settingsRef = useRef({ autoScroll, language, repeat, speed, voiceIdentifier });
@@ -65,9 +68,13 @@ export function useMobileReaderTts({
         setSpeakingVerseId(null);
         setTtsPlaybackState("idle");
         setTtsStatus(`${queueLabelRef.current} 완료`);
+        const completeQueue = queueCompleteRef.current;
+        queueCompleteRef.current = null;
+        if (completeQueue) void Promise.resolve(completeQueue()).catch(() => undefined);
       },
       onError: () => {
         if (speechCancelRef.current || playbackRequestId !== playbackRequestRef.current) return;
+        queueCompleteRef.current = null;
         setSpeakingVerseId(null);
         setTtsPlaybackState("idle");
         setTtsStatus("TTS 재생 오류");
@@ -79,6 +86,7 @@ export function useMobileReaderTts({
       },
       onStopped: () => {
         if (speechCancelRef.current || playbackRequestId !== playbackRequestRef.current) return;
+        queueCompleteRef.current = null;
         setSpeakingVerseId(null);
         setTtsPlaybackState("idle");
         setTtsStatus("정지");
@@ -95,10 +103,16 @@ export function useMobileReaderTts({
   useEffect(() => () => {
     playbackRequestRef.current += 1;
     speechCancelRef.current = true;
+    queueCompleteRef.current = null;
     void Speech.stop();
   }, []);
 
-  const playSpeechQueue = useCallback((items: ReaderSpeechQueueItem[], startIndex = 0, label = "재생 목록") => {
+  const playSpeechQueue = useCallback((
+    items: ReaderSpeechQueueItem[],
+    startIndex = 0,
+    label = "재생 목록",
+    onComplete?: QueueCompleteCallback,
+  ) => {
     const queue = items.filter((item) => item.text.trim());
     if (!queue.length) return;
 
@@ -108,6 +122,7 @@ export function useMobileReaderTts({
       if (requestId !== playbackRequestRef.current) return;
       speechCancelRef.current = false;
       speechQueueRef.current = queue;
+      queueCompleteRef.current = onComplete ?? null;
       queueLabelRef.current = `${label} · ${queue.length}개`;
       setTtsQueueLabel(queueLabelRef.current);
       speakQueueAtIndexRef.current(Math.min(Math.max(startIndex, 0), queue.length - 1));
@@ -133,6 +148,7 @@ export function useMobileReaderTts({
   const stopSpeech = useCallback(async () => {
     const requestId = ++playbackRequestRef.current;
     speechCancelRef.current = true;
+    queueCompleteRef.current = null;
     await Speech.stop();
     if (requestId !== playbackRequestRef.current) return;
     speechCancelRef.current = false;

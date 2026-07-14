@@ -44,6 +44,7 @@ import {
   privacyPolicyTitle,
   privacyPolicyUpdatedAt,
   readingPlanOptions,
+  recordCommunityReadingCompletion,
   saveRemoteUserData,
   savePersonalNoteDraft,
   saveUserDataToStorage,
@@ -73,9 +74,11 @@ import {
 } from "@kjv/shared";
 import { createClient as createSupabaseClient, type Session, type User } from "@supabase/supabase-js";
 import * as Clipboard from "expo-clipboard";
+import { makeRedirectUri } from "expo-auth-session";
 import Constants from "expo-constants";
 import * as Speech from "expo-speech";
 import { StatusBar } from "expo-status-bar";
+import * as WebBrowser from "expo-web-browser";
 import { createElement, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -93,6 +96,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { CommunityHomePanel } from "./src/community-home-panel";
 import { PersonalNoteEditorScreen } from "./src/components/notes/personal-note-editor-screen";
 import { PersonalNoteListScreen } from "./src/components/notes/personal-note-list-screen";
 import { ReaderHeader } from "./src/components/reader/reader-header";
@@ -104,6 +108,8 @@ import { useMobileReaderTts } from "./src/hooks/use-mobile-reader-tts";
 import { useMobileStudyNavigation } from "./src/hooks/use-mobile-study-navigation";
 import { OnboardingScreen } from "./src/onboarding-screen";
 import { studyUiFeatureFlags } from "./src/study-ui-feature-flags";
+
+WebBrowser.maybeCompleteAuthSession();
 
 type HomeTab = "today" | "progress" | "activity" | "study";
 type SettingsSectionKey = "account" | "tts" | "text" | "view";
@@ -143,6 +149,7 @@ const iconGlyphs = {
   "log-out-outline": "↩",
   "moon-outline": "◐",
   "pause-circle-outline": "Ⅱ",
+  "people-outline": "◎",
   "person-add-outline": "+",
   "play-circle-outline": "▶",
   "reader-outline": "▤",
@@ -334,6 +341,37 @@ function getConfiguredSupabaseConfig() {
   return { supabaseAnonKey, supabaseUrl };
 }
 
+function getGoogleOAuthRedirectUrl() {
+  if (Platform.OS === "web" && typeof globalThis.location?.origin === "string") {
+    return globalThis.location.origin;
+  }
+
+  const configuredScheme = Constants.expoConfig?.scheme;
+  const scheme = Array.isArray(configuredScheme) ? configuredScheme[0] : configuredScheme;
+  const appScheme = scheme || "kjvreadernote";
+
+  return makeRedirectUri({
+    native: `${appScheme}://google-auth`,
+    scheme: appScheme,
+  });
+}
+
+function isRunningInExpoGo() {
+  return Platform.OS !== "web" && Boolean(Constants.expoVersion);
+}
+
+function readGoogleOAuthCallback(callbackUrl: string) {
+  const url = new URL(callbackUrl);
+  const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""));
+  const readParam = (key: string) => hashParams.get(key) ?? url.searchParams.get(key);
+
+  return {
+    accessToken: readParam("access_token"),
+    error: readParam("error_description") ?? readParam("error"),
+    refreshToken: readParam("refresh_token"),
+  };
+}
+
 function createMobileSupabaseClient(config: { supabaseAnonKey: string; supabaseUrl: string } | null) {
   if (!config) {
     return null;
@@ -342,7 +380,7 @@ function createMobileSupabaseClient(config: { supabaseAnonKey: string; supabaseU
   return createSupabaseClient(config.supabaseUrl, config.supabaseAnonKey, {
     auth: {
       autoRefreshToken: true,
-      detectSessionInUrl: false,
+      detectSessionInUrl: Platform.OS === "web",
       persistSession: true,
       storage: AsyncStorage,
     },
@@ -912,6 +950,17 @@ function AppShell() {
       subscription.unsubscribe();
     };
   }, [supabase]);
+
+  useEffect(() => {
+    if (Platform.OS === "web") {
+      return;
+    }
+
+    void WebBrowser.warmUpAsync();
+    return () => {
+      void WebBrowser.coolDownAsync();
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -2246,6 +2295,13 @@ function AppShell() {
       verses.map((verse) => ({ id: verse.id, label: formatReference(verse), text: getVerseDisplayText(verse, readingLanguage) })),
       0,
       "현재 장",
+      async () => {
+        if (!authSession?.access_token) return;
+        await recordCommunityReadingCompletion(
+          { bookId, chapter, method: "chapter_tts" },
+          { accessToken: authSession.access_token, baseUrl: apiBaseUrl },
+        );
+      },
     );
   };
 
@@ -2263,6 +2319,13 @@ function AppShell() {
         planVerses.map((verse) => ({ id: verse.id, label: formatReference(verse), text: getVerseDisplayText(verse, readingLanguage) })),
         0,
         "오늘 분량",
+        async () => {
+          if (!authSession?.access_token) return;
+          await Promise.all(readingPlanDay.chapters.map((item) => recordCommunityReadingCompletion(
+            { ...item, method: "today_plan_tts" },
+            { accessToken: authSession.access_token, baseUrl: apiBaseUrl },
+          )));
+        },
       );
     } catch {
       setTtsStatus("오늘 분량 재생 실패");
@@ -2441,7 +2504,7 @@ function AppShell() {
 
     if (error) {
       setAuthStatus("error");
-      setAuthMessage(error.message);
+      setAuthMessage("로그인에 실패했습니다. 이메일과 비밀번호를 확인하세요.");
       return;
     }
 
@@ -2469,7 +2532,7 @@ function AppShell() {
 
     if (error) {
       setAuthStatus("error");
-      setAuthMessage(error.message);
+      setAuthMessage("가입 요청을 처리하지 못했습니다. 입력값을 확인하세요.");
       return;
     }
 
@@ -2480,6 +2543,75 @@ function AppShell() {
     setAuthPassword("");
     if (data.session) {
       setShowAuthForm(false);
+    }
+  };
+
+  const signInWithGoogle = async () => {
+    if (!supabase) {
+      setAuthStatus("error");
+      setAuthMessage("Expo Supabase 공개 설정이 없습니다.");
+      return;
+    }
+
+    if (isRunningInExpoGo()) {
+      setAuthStatus("error");
+      setAuthMessage("Google 로그인은 Expo Go에서 지원되지 않습니다. 개발 빌드 또는 설치 앱에서 다시 시도하세요.");
+      return;
+    }
+
+    setAuthStatus("submitting");
+    setAuthMessage("");
+
+    try {
+      const redirectTo = getGoogleOAuthRedirectUrl();
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          queryParams: {
+            prompt: "select_account",
+          },
+          redirectTo,
+          skipBrowserRedirect: Platform.OS !== "web",
+        },
+      });
+
+      if (error || !data.url) {
+        throw new Error("oauth-start-failed");
+      }
+
+      if (Platform.OS === "web") {
+        return;
+      }
+
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+      if (result.type !== "success") {
+        setAuthStatus("idle");
+        setAuthMessage("Google 로그인이 취소되었습니다.");
+        return;
+      }
+
+      const callback = readGoogleOAuthCallback(result.url);
+      if (callback.error || !callback.accessToken || !callback.refreshToken) {
+        throw new Error("oauth-callback-failed");
+      }
+
+      const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+        access_token: callback.accessToken,
+        refresh_token: callback.refreshToken,
+      });
+
+      if (sessionError || !sessionData.session) {
+        throw new Error("oauth-session-failed");
+      }
+
+      setAuthSession(sessionData.session);
+      setAuthUser(sessionData.session.user);
+      setAuthStatus("success");
+      setAuthMessage("Google 계정으로 로그인되었습니다.");
+      setShowAuthForm(false);
+    } catch {
+      setAuthStatus("error");
+      setAuthMessage("Google 로그인을 완료하지 못했습니다. 다시 시도하세요.");
     }
   };
 
@@ -2747,6 +2879,7 @@ function AppShell() {
     },
     { label: "홈 · 오늘", description: "이어 읽기와 오늘 분량", action: () => { setHomeTab("today"); setActiveView("dashboard"); } },
     { label: "홈 · 통독", description: "통독률과 권별 진행", action: () => { setHomeTab("progress"); setActiveView("dashboard"); } },
+    { label: "QT 커뮤니티", description: "묵상 피드, 내 참여, 랭킹, 설정", action: () => pushStudyRoute({ view: "community" }) },
     { label: "홈 · 활동", description: "최근 읽기와 작업", action: () => { setHomeTab("activity"); setActiveView("dashboard"); } },
     { label: "홈 · 공부", description: "노트, 태그, 인용 요약", action: () => { setHomeTab("study"); setActiveView("dashboard"); } },
     { label: "성경 리더", description: "본문 읽기", action: () => openReaderStudyRoute({ bookId, chapter }, "reader") },
@@ -2896,7 +3029,7 @@ function AppShell() {
                     <View>
                       <Text style={styles.authEntryFormTitle}>{credentialMode === "login" ? "로그인" : "회원가입"}</Text>
                       <Text style={styles.authEntryFormCopy}>
-                        {credentialMode === "login" ? "계정으로 통독 기록을 이어갑니다." : "이메일 계정으로 리더노트를 시작합니다."}
+                        {credentialMode === "login" ? "계정으로 통독 기록을 이어갑니다." : "Google 또는 이메일 계정으로 리더노트를 시작합니다."}
                       </Text>
                     </View>
                     <Pressable onPress={returnToWelcome} style={styles.authEntryBackButton}>
@@ -2911,6 +3044,7 @@ function AppShell() {
                     mode={credentialMode}
                     onChangeEmail={setAuthEmail}
                     onChangePassword={setAuthPassword}
+                    onGoogleSubmit={signInWithGoogle}
                     onPrivacyPress={credentialMode === "sign-up" ? () => setShowPrivacyPolicy(true) : undefined}
                     onSubmit={credentialMode === "login" ? signIn : signUp}
                     styles={styles}
@@ -3027,6 +3161,7 @@ function AppShell() {
                 <View style={styles.homeSegment}>
                   <HomeTabButton active={homeTab === "today"} icon="calendar-outline" label="오늘" onPress={() => setHomeTab("today")} styles={styles} />
                   <HomeTabButton active={homeTab === "progress"} icon="stats-chart-outline" label="통독" onPress={() => setHomeTab("progress")} styles={styles} />
+                  <HomeTabButton active={false} icon="people-outline" label="커뮤니티" onPress={() => pushStudyRoute({ view: "community" })} styles={styles} />
                   <HomeTabButton active={homeTab === "activity"} icon="layers-outline" label="활동" onPress={() => setHomeTab("activity")} styles={styles} />
                   <HomeTabButton active={homeTab === "study"} icon="bookmark-outline" label="공부" onPress={() => setHomeTab("study")} styles={styles} />
                 </View>
@@ -3203,6 +3338,47 @@ function AppShell() {
                     </View>
                   </>
                 ) : null}
+              </View>
+            ) : null}
+
+            {activeView === "community" ? (
+              <View style={styles.section}>
+                <CommunityHomePanel
+                  accessToken={authSession?.access_token}
+                  apiBaseUrl={apiBaseUrl}
+                  currentReference={
+                    currentReadingVerse
+                      ? { reference: formatReference(currentReadingVerse), verseKey: currentReadingVerse.verseKey ?? currentReadingVerse.id }
+                      : userData.progress
+                        ? {
+                            reference: `${getBook(userData.progress.bookId)?.nameKo ?? userData.progress.bookId} ${userData.progress.chapter}:${userData.progress.verse}`,
+                            verseKey: `${userData.progress.bookId.toUpperCase()}.${userData.progress.chapter}.${userData.progress.verse}`,
+                          }
+                        : null
+                  }
+                  onLogin={() => {
+                    setShowAuthForm(true);
+                    setEntryMode("login");
+                  }}
+                  onOpenReader={() => {
+                    if (currentReadingVerse) {
+                      openReaderStudyRoute({
+                        bookId: currentReadingVerse.bookId,
+                        chapter: currentReadingVerse.chapter,
+                        verseId: currentReadingVerse.id,
+                      }, "today");
+                      return;
+                    }
+                    openReaderStudyRoute(userData.progress
+                      ? {
+                          bookId: userData.progress.bookId,
+                          chapter: userData.progress.chapter,
+                          verseId: verseIdFromProgress(userData.progress.bookId, userData.progress.chapter, userData.progress.verse),
+                        }
+                      : { bookId, chapter }, "today");
+                  }}
+                  theme={colors}
+                />
               </View>
             ) : null}
 
@@ -4097,6 +4273,7 @@ function AppShell() {
                           mode="login"
                           onChangeEmail={setAuthEmail}
                           onChangePassword={setAuthPassword}
+                          onGoogleSubmit={signInWithGoogle}
                           onSecondarySubmit={signUp}
                           onSubmit={signIn}
                           secondaryIcon="person-add-outline"
@@ -4105,7 +4282,11 @@ function AppShell() {
                           supabaseAvailable={Boolean(supabase)}
                         />
                       ) : null}
-                      {authMessage && (authUser || !showAuthForm) ? <Text style={authStatus === "error" ? styles.errorText : styles.successText}>{authMessage}</Text> : null}
+                      {authMessage && (authUser || !showAuthForm) ? (
+                        <Text style={authStatus === "error" ? styles.errorText : authStatus === "success" ? styles.successText : styles.metaText}>
+                          {authMessage}
+                        </Text>
+                      ) : null}
                     </View>
                   ) : null}
 
@@ -4901,6 +5082,7 @@ function AuthCredentialForm({
   mode,
   onChangeEmail,
   onChangePassword,
+  onGoogleSubmit,
   onPrivacyPress,
   onSecondarySubmit,
   onSubmit,
@@ -4916,6 +5098,7 @@ function AuthCredentialForm({
   mode: AuthCredentialMode;
   onChangeEmail: (value: string) => void;
   onChangePassword: (value: string) => void;
+  onGoogleSubmit: () => void;
   onPrivacyPress?: () => void;
   onSubmit: () => void;
   styles: ReturnType<typeof createStyles>;
@@ -4929,6 +5112,20 @@ function AuthCredentialForm({
 
   return (
     <View style={styles.authForm}>
+      <Pressable
+        accessibilityRole="button"
+        disabled={isSubmitting}
+        onPress={onGoogleSubmit}
+        style={[styles.authGoogleButton, isSubmitting ? styles.actionButtonDisabled : null]}
+      >
+        {isSubmitting ? <ActivityIndicator color="#202124" size="small" /> : <Text style={styles.authGoogleMark}>G</Text>}
+        <Text style={styles.authGoogleButtonText}>{isSubmitting ? "Google 연결 중" : "Google로 계속하기"}</Text>
+      </Pressable>
+      <View accessibilityRole="none" style={styles.authDivider}>
+        <View style={styles.authDividerLine} />
+        <Text style={styles.authDividerText}>또는 이메일</Text>
+        <View style={styles.authDividerLine} />
+      </View>
       <TextInput
         autoCapitalize="none"
         keyboardType="email-address"
@@ -4974,7 +5171,11 @@ function AuthCredentialForm({
         </Pressable>
       ) : null}
       {!supabaseAvailable ? <Text style={styles.errorText}>Supabase 공개 설정이 Expo에 전달되지 않았습니다.</Text> : null}
-      {authMessage ? <Text style={authStatus === "error" ? styles.errorText : styles.successText}>{authMessage}</Text> : null}
+      {authMessage ? (
+        <Text style={authStatus === "error" ? styles.errorText : authStatus === "success" ? styles.successText : styles.metaText}>
+          {authMessage}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -5473,6 +5674,45 @@ function createStyles(colors: typeof lightColors, viewportHeight = 844) {
         fontWeight: "900",
         textDecorationLine: "underline",
       },
+      authGoogleButton: {
+        alignItems: "center",
+        backgroundColor: "#fff",
+        borderColor: "#dadce0",
+        borderRadius: 6,
+        borderWidth: 1,
+        flexDirection: "row",
+        gap: 10,
+        justifyContent: "center",
+        minHeight: 48,
+        paddingHorizontal: 14,
+      },
+      authGoogleButtonText: {
+        color: "#202124",
+        fontSize: 14,
+        fontWeight: "800",
+      },
+      authGoogleMark: {
+        color: "#4285f4",
+        fontFamily: "Arial",
+        fontSize: 18,
+        fontWeight: "900",
+      },
+      authDivider: {
+        alignItems: "center",
+        flexDirection: "row",
+        gap: 10,
+        minHeight: 24,
+      },
+      authDividerLine: {
+        backgroundColor: colors.border,
+        flex: 1,
+        height: 1,
+      },
+      authDividerText: {
+        color: colors.muted,
+        fontSize: 12,
+        fontWeight: "700",
+      },
       header: {
         alignItems: "center",
         borderBottomColor: colors.border,
@@ -5603,14 +5843,14 @@ function createStyles(colors: typeof lightColors, viewportHeight = 844) {
         borderWidth: 1,
         flex: 1,
         flexDirection: "row",
-        gap: 6,
+        gap: 2,
         justifyContent: "center",
         minHeight: 44,
         minWidth: 0,
         outlineColor: "transparent",
         outlineStyle: "solid",
         outlineWidth: 0,
-        paddingHorizontal: 8,
+        paddingHorizontal: 2,
       },
       homeTabButtonActive: {
         backgroundColor: colors.surfaceStrong,
@@ -5618,7 +5858,7 @@ function createStyles(colors: typeof lightColors, viewportHeight = 844) {
       },
       homeTabText: {
         color: colors.muted,
-        fontSize: 12,
+        fontSize: 11,
         fontWeight: "800",
       },
       homeTabTextActive: {

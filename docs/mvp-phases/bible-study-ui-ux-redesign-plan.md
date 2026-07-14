@@ -22,7 +22,7 @@ KJV 리더노트의 웹과 Expo 앱을 기능 나열형 화면에서 `오늘 읽
 
 웹 개편 Shell과 Reader/Notes V2는 기본 활성화하며, 긴급 rollback은 각 `NEXT_PUBLIC_*_V2=false` 환경 변수로 명시한다.
 
-온보딩 기능 커밋 `d7646ffb`는 현재 개발 브랜치의 조상이다. P0 원격 migration/RLS, P2 AppShell, P3 Reader, P4 Notes와 P5 웹 Dictionary의 구현 묶음은 개발 브랜치에 누적되어 있다. P5의 다음 작업은 Expo Dictionary, 통합 검색, 보관함이며 실제 Android/iOS 검증과 릴리즈 통합은 P7 게이트에서 수행한다.
+온보딩 기능 커밋 `d7646ffb`는 현재 개발 브랜치의 조상이다. P0 원격 migration/RLS, P2 AppShell, P3 Reader, P4 Notes와 P5 웹 Dictionary의 구현 묶음은 개발 브랜치에 누적되어 있다. `main@c04431ec`의 `0.6.1` QT 커뮤니티, Google OAuth, 버전 계약도 개발 브랜치에 통합했으며 커뮤니티는 웹 독립 sidebar route와 플랫폼별 내부 탭으로 개편한다.
 
 ### 2.2 포함 범위
 
@@ -32,6 +32,7 @@ KJV 리더노트의 웹과 Expo 앱을 기능 나열형 화면에서 `오늘 읽
 - Reader 본문 우선 레이아웃과 구절 선택 액션
 - 노트 목록/편집 화면 분리와 읽기 문맥 복귀
 - 히브리어 사전, 통합 검색, 보관함 재구성
+- QT 커뮤니티 독립 page, 내부 탭, 통독 포인트와 공개 범위
 - 오늘, 통독, 설정 화면 정리
 - 웹/모바일 공통 semantic token과 `StudyContext`
 - 기존 대형 컴포넌트의 feature 단위 분리
@@ -41,7 +42,7 @@ KJV 리더노트의 웹과 Expo 앱을 기능 나열형 화면에서 `오늘 읽
 
 - 성경 본문과 번역 데이터 교체
 - 노트 AI 자동 작성
-- 공개 노트와 커뮤니티 화면 통합
+- 개인 노트의 자동 공개 또는 커뮤니티 글 자동 생성
 - 협업 편집
 - 여러 단계의 제품 소개 carousel
 - 전체 UI 일괄 rewrite
@@ -67,8 +68,11 @@ flowchart LR
   P2 --> P3["P3 Reader"]
   P3 --> P4["P4 Notes"]
   P3 --> P5["P5 Dictionary Search Library"]
+  P2 --> P5C["P5C QT Community"]
+  P3 --> P5C
   P4 --> P6["P6 Today Progress Settings"]
   P5 --> P6
+  P5C --> P6
   P6 --> P7["P7 안정화와 출시"]
 ```
 
@@ -166,6 +170,7 @@ flowchart LR
 - [x] `1024px` 이상 고정 sidebar, `768~1023px` 접힘 sidebar를 구현한다.
 - [x] `767px` 이하에서 모바일형 하단 탐색으로 전환한다.
 - [x] `오늘 / 성경 / 공부 / 보관함 / 설정` 정보 구조를 적용한다.
+- [x] 웹 sidebar에 `함께 > QT 커뮤니티`를 독립 항목으로 추가한다.
 - [x] 전역 검색/명령 버튼을 top bar에 추가한다.
 - [ ] account, sync 상태, TTS mini player slot을 분리한다.
 - [x] active 항목에 `aria-current`와 비색상 indicator를 적용한다.
@@ -331,6 +336,35 @@ flowchart LR
 - [ ] 보관함 세 영역의 의미와 저장 action이 겹치지 않는다.
 - [ ] 각 상세 화면에서 Reader와 Note로 이동한 뒤 원래 문맥으로 복귀한다.
 
+## 10.5 Phase P5C: QT 커뮤니티 개편
+
+### 목표
+
+`0.6.1`의 커뮤니티 기능과 원격 보안 계약은 유지하고, 홈에 혼합된 긴 화면을 독립 page와 내부 기능 탭으로 재구성한다.
+
+### 태스크
+
+- [x] `main@c04431ec`의 community API, shared client, migrations, OAuth와 `0.6.1` 버전을 개발 브랜치에 통합한다.
+- [x] 웹 sidebar에 `함께 > QT 커뮤니티`를 추가하고 `/app/community`로 연결한다.
+- [x] 웹 내부 탭 `피드/내 참여/랭킹/설정`을 구현한다.
+- [x] `tab=feed|participating|ranking|settings` allowlist, reload, browser back/forward 계약을 추가한다.
+- [x] Expo 커뮤니티를 같은 네 가지 내부 탭으로 분리한다.
+- [x] 개인 노트가 명시적 게시 없이 커뮤니티에 노출되지 않는 UI·문서 경계를 고정한다.
+- [x] Reader V2 TTS queue 완료 callback으로 `chapter_tts`, `today_plan_tts` 읽기 증거를 기록한다.
+- [x] Supabase 공개 설정이 없는 개발 환경에서 로그인·회원가입 page가 예외 없이 상태를 표시하게 한다.
+- [x] 모바일 오늘 영역에서 커뮤니티 독립 screen push와 back 복귀를 완료한다.
+- [ ] authenticated web/Expo에서 작성, 댓글, 도움, 신고, 랭킹 설정을 다시 smoke test한다.
+- [ ] 원격 migration/RLS와 reading evidence validation을 재검증한다.
+- [ ] Android/iOS에서 작성 keyboard, safe area, tab 전환을 검증한다.
+
+### 완료 기준
+
+- [x] 데스크톱 웹에서 커뮤니티는 상단 tab이나 홈 card가 아니라 sidebar 독립 목적지다.
+- [x] 커뮤니티 페이지는 한 번에 하나의 내부 tab panel만 표시한다.
+- [x] 유효하지 않은 `tab` query는 route parser에서 거부한다.
+- [ ] 로그인 사용자의 커뮤니티 핵심 mutation과 RLS 검증이 통과한다.
+- [x] 모바일 하단 탐색은 다섯 개를 넘지 않고 커뮤니티에서 오늘 화면으로 복귀한다.
+
 ## 11. Phase P6: Today, Progress, Settings 개편
 
 ### 목표
@@ -412,9 +446,10 @@ flowchart LR
 | 7 | Reader scroll/return context 통합 | PR 5, 6 | 가능 |
 | 8 | Notes list/editor 분리 | PR 7 | 가능 |
 | 9 | Dictionary/Search/Library 화면 개편 | PR 7 | 기능별 가능 |
-| 10 | Today/Progress/Settings 개편 | PR 8, 9 | 가능 |
-| 11 | 접근성, 반응형, 실제 기기 안정화 | PR 3~10 | 수정 단위 가능 |
-| 12 | legacy 제거와 release gate | 모든 화면 수용 기준 | 제한적 |
+| 10 | QT 커뮤니티 독립 route와 내부 탭 | PR 3, 7 | 가능 |
+| 11 | Today/Progress/Settings 개편 | PR 8~10 | 가능 |
+| 12 | 접근성, 반응형, 실제 기기 안정화 | PR 3~11 | 수정 단위 가능 |
+| 13 | legacy 제거와 release gate | 모든 화면 수용 기준 | 제한적 |
 
 한 PR에서 웹 Shell, 모바일 Shell, Reader, Notes를 동시에 바꾸지 않는다. 공유 계약 변경과 플랫폼 UI 변경을 가능한 한 분리한다.
 
@@ -432,6 +467,7 @@ apps/web/src/
   features/dictionary/
   features/search/
   features/library/
+  features/community/
 
 apps/mobile/
   app/ 또는 navigation root
@@ -441,6 +477,7 @@ apps/mobile/
   src/features/dictionary/
   src/features/search/
   src/features/library/
+  src/features/community/
 ```
 
 금지 경계:
@@ -461,6 +498,7 @@ apps/mobile/
 | 사전 탐색 | 2-pane | list/detail | search RPC | filter name |
 | 통합 검색 | URL state | view state | 엔진별 API | result heading |
 | 보관함 | segmented view | segmented screen | highlight/favorite/tag | color+label |
+| QT 커뮤니티 | sidebar + nested tabs | today entry + nested tabs | thread/comment/reaction/ranking/RLS | tab semantics/live status |
 
 ## 16. 위험과 대응
 
@@ -490,6 +528,8 @@ apps/mobile/
 
 - [ ] 첫 로그인과 재로그인 흐름이 웹/모바일에서 일관된다.
 - [ ] 오늘, 성경, 공부, 보관함, 설정의 정보 구조가 적용된다.
+- [x] 웹 QT 커뮤니티가 sidebar 독립 route와 내부 기능 탭으로 분리된다.
+- [x] 모바일 QT 커뮤니티가 5-tab을 늘리지 않고 오늘 영역에서 push/pop 된다.
 - [ ] Reader 첫 viewport가 조작 UI보다 본문을 우선한다.
 - [ ] 구절 선택 후 2회 action 안에 노트, 하이라이트, 저장을 시작한다.
 - [ ] 노트, 사전, 검색 상세에서 원래 읽기 문맥으로 복귀한다.
@@ -499,5 +539,6 @@ apps/mobile/
 - [ ] keyboard, screen reader, 큰 글꼴, reduced motion을 검증했다.
 - [ ] 기존 개인 데이터 손실이 0건이다.
 - [ ] Supabase RLS와 계정 격리 검증을 통과했다.
+- [ ] 커뮤니티 RLS, 신고, reaction, reading evidence와 개인 노트 비공개 경계를 검증했다.
 - [ ] typecheck, lint, build, Expo Doctor, 브라우저/실기기 smoke를 통과했다.
 - [ ] legacy 제거 및 rollback 근거가 release report에 남아 있다.

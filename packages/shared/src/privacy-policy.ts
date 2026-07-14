@@ -3,7 +3,7 @@ export type PrivacyPolicySection = {
   body: string[];
 };
 
-export const privacyPolicyUpdatedAt = "2026-07-09";
+export const privacyPolicyUpdatedAt = "2026-07-14";
 
 export const privacyPolicyTitle = "개인정보 처리방침";
 
@@ -15,6 +15,7 @@ export const privacyPolicySections: PrivacyPolicySection[] = [
     title: "1. 수집하는 정보",
     body: [
       "회원가입 및 로그인 시 이메일 주소, Supabase 인증 식별자, 인증 처리에 필요한 최소 계정 메타데이터를 처리합니다.",
+      "Google 로그인을 선택하면 Google 계정 식별자, 이메일, 표시 이름, 프로필 이미지 URL 등 Google이 제공하는 기본 계정 메타데이터를 Supabase Auth를 통해 처리할 수 있습니다.",
       "서비스 이용 중 읽기 진행률, 마지막 읽은 위치, 장 완료 기록, 하이라이트, 노트, 인용 목록, 태그, 설정값, 번역 피드백과 같은 리더노트 데이터를 저장할 수 있습니다.",
       "서비스 보안과 장애 대응을 위해 접속 시각, 요청 로그, 기기 및 브라우저 정보, 앱 버전, 오류 진단 정보가 호스팅 및 인증 인프라에 의해 처리될 수 있습니다.",
     ],
@@ -38,7 +39,8 @@ export const privacyPolicySections: PrivacyPolicySection[] = [
   {
     title: "4. 제3자 처리 및 제공",
     body: [
-      "KJV 리더노트는 인증, 데이터 저장, 배포, 호스팅을 위해 Supabase, 앱 배포 플랫폼, 웹 호스팅 인프라와 같은 외부 처리자를 사용할 수 있습니다.",
+      "KJV 리더노트는 인증, 데이터 저장, 배포, 호스팅을 위해 Supabase, Google OAuth, 앱 배포 플랫폼, 웹 호스팅 인프라와 같은 외부 처리자를 사용할 수 있습니다.",
+      "Google 로그인은 사용자가 선택한 경우에만 사용하며, Google 계정 비밀번호를 KJV 리더노트가 수집하거나 저장하지 않습니다.",
       "사용자의 리더노트 데이터를 광고 목적으로 판매하지 않습니다.",
       "성경 본문 출처 및 라이선스 표시는 콘텐츠 출처 고지를 위한 것이며, 개인정보 제공을 의미하지 않습니다.",
     ],

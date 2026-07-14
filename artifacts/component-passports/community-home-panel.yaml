@@ -1,0 +1,68 @@
+component:
+  id: community-home-panel
+  status: candidate
+  owner_scope: qt-community-ranking
+  source:
+    web: apps/web/src/components/community/community-home-panel.tsx
+    expo: apps/mobile/src/community-home-panel.tsx
+    shared_contract: packages/shared/src/community.ts
+    style: apps/web/src/app/globals.css
+  component_kind: feature
+  change_gate:
+    type: behavioral
+    summary: Adds an independent QT Community page with nested feed, participation, ranking, and settings tabs across web and mobile.
+  public_api:
+    props:
+      - initialTab (web)
+      - currentReference
+      - user or accessToken
+      - apiBaseUrl
+      - onLogin
+      - onOpenReader
+    routes:
+      web: /app/community?tab=feed|participating|ranking|settings
+      mobile: /community
+  state:
+    required:
+      - guest login gate
+      - loading and error
+      - active nested tab
+      - deep-link tab restore and browser back
+      - composer ready and disabled
+      - populated and empty feed
+      - populated and empty participating thread list
+      - selected thread and comments
+      - ranking opt-in and opt-out
+      - weekly monthly all-time ranking
+      - profile and privacy settings
+  accessibility_contract:
+    - native buttons and pressables keep explicit labels or visible command text
+    - status messages are announced on web
+    - web nested navigation exposes tablist, tab, and tabpanel semantics
+    - active nested tabs expose selected state on web and mobile
+    - ranking period controls expose pressed state on web
+  privacy_contract:
+    - personal Bible notes are private by default
+    - only content explicitly entered in the community composer is published
+    - linked verse references do not copy personal note bodies
+  css_contract:
+    namespace: community-
+    global_css: apps/web/src/app/globals.css
+    tokens:
+      - --surface
+      - --surface-2
+      - --line
+      - --text
+      - --muted
+      - --accent
+  validation:
+    required:
+      - typecheck
+      - lint
+      - build
+      - route parser validation for every nested tab and invalid values
+      - browser back and direct-link tab restoration
+      - authenticated API smoke
+      - web mobile screenshot at 390px
+      - web desktop screenshot at 1440px
+      - Expo typecheck and interaction smoke

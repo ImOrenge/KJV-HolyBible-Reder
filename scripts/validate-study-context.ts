@@ -3,10 +3,12 @@ import assert from "node:assert/strict";
 import {
   parseStudyContextQuery,
   parseStudyContextPanel,
+  parseStudyUiCommunityRoute,
   parseStudyUiDictionaryRoute,
   parseStudyUiRoute,
   parseStudyUiWebView,
   buildLegacyStudyAppUrl,
+  buildStudyUiCommunityUrl,
   buildStudyUiDictionaryUrl,
   buildStudyUiTargetUrl,
   createStudyUiReaderRoute,
@@ -86,6 +88,9 @@ assert.equal(buildLegacyStudyAppUrl("dashboard"), "/app");
 assert.equal(buildLegacyStudyAppUrl("notes"), "/app?view=notes");
 assert.equal(buildStudyUiTargetUrl("notes"), "/app/study/notes");
 assert.equal(buildStudyUiTargetUrl("highlights"), "/app/library?section=highlights");
+assert.equal(buildStudyUiCommunityUrl({ tab: "ranking" }), "/app/community?tab=ranking");
+assert.deepEqual(parseStudyUiCommunityRoute(new URLSearchParams("tab=participating")), { tab: "participating" });
+assert.equal(parseStudyUiCommunityRoute(new URLSearchParams("tab=private")), null);
 const dictionaryUrl = buildStudyUiDictionaryUrl({
   query: "reshith",
   entryKey: "reshith",
@@ -108,6 +113,12 @@ assert.equal(readerRoute.primaryVerseKey, "GEN.1.10");
 assert.equal(getStudyUiReaderVerseNumber(readerRoute), 10);
 assert.equal(buildStudyUiTargetUrl("reader", readerRoute), "/app/read/gen/1?verse=GEN.1.10&panel=note");
 assert.deepEqual(parseStudyUiRoute("/app/today"), { view: "dashboard" });
+assert.deepEqual(parseStudyUiRoute("/app/community"), { view: "community" });
+assert.deepEqual(parseStudyUiRoute("/app/community", new URLSearchParams("tab=ranking")), {
+  view: "community",
+  community: { tab: "ranking" },
+});
+assert.equal(parseStudyUiRoute("/app/community", new URLSearchParams("tab=private")), null);
 assert.deepEqual(parseStudyUiRoute("/app/library", new URLSearchParams("section=highlights")), { view: "highlights" });
 assert.deepEqual(parseStudyUiRoute("/app/study/dictionary"), { view: "dictionary" });
 assert.deepEqual(parseStudyUiRoute("/app/study/dictionary", new URLSearchParams("entry=reshith&theme=genesis-primeval")), {
@@ -123,6 +134,7 @@ assert.equal(parseStudyUiRoute("/app/read/gen/51"), null);
 assert.equal(parseStudyUiRoute("/app/read/exo/1", new URLSearchParams("verse=GEN.1.10")), null);
 assert.throws(() => createStudyUiReaderRoute({ bookId: "gen", chapter: 51 }));
 assert.equal(getStudyUiAreaForView("highlights"), "library");
+assert.equal(getStudyUiAreaForView("community"), "today");
 assert.deepEqual(
   createStudyUiNavigationEvent({ source: "read", destination: "study", bookId: "gen", chapter: 1, verseCount: 2 }),
   { name: "study_navigation", source: "read", destination: "study", bookId: "gen", chapter: 1, verseCount: 2 },
@@ -157,6 +169,7 @@ const mobileNoteRoute = createMobileStudyRoute({
   },
 });
 assert.equal(mobileNoteRoute.path.startsWith("/notes/note-1?"), true);
+assert.equal(createMobileStudyRoute({ view: "community" }).path, "/community");
 
 let mobileNavigation = createMobileStudyNavigationState();
 mobileNavigation = pushMobileStudyRoute(mobileNavigation, mobileReaderRoute);

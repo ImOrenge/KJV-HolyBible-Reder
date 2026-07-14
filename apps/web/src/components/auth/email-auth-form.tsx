@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
-import type { AuthActionState } from "@/app/auth/actions";
+import { signInWithGoogle, type AuthActionState } from "@/app/auth/actions";
 
 type AuthMode = "login" | "sign-up" | "reset-password" | "update-password";
 
@@ -13,6 +13,8 @@ type EmailAuthFormProps = {
   action: (state: AuthActionState, formData: FormData) => Promise<AuthActionState>;
   mode: AuthMode;
   next?: string;
+  oauthError?: string;
+  supabaseAvailable?: boolean;
 };
 
 const initialAuthActionState: AuthActionState = {
@@ -29,12 +31,12 @@ const modeContent: Record<
   }
 > = {
   login: {
-    description: "Supabase 이메일 계정으로 학습 데이터를 분리해 저장합니다.",
+    description: "Supabase 계정으로 학습 데이터를 분리해 저장합니다.",
     submitLabel: "로그인",
     title: "로그인",
   },
   "sign-up": {
-    description: "메일 확인 후 같은 계정으로 읽기 진행도와 인용 목록을 이어갑니다.",
+    description: "Google 또는 이메일 계정으로 읽기 진행도와 인용 목록을 이어갑니다.",
     submitLabel: "가입",
     title: "계정 만들기",
   },
@@ -50,18 +52,29 @@ const modeContent: Record<
   },
 };
 
-function SubmitButton({ label }: { label: string }) {
+function SubmitButton({ disabled = false, label }: { disabled?: boolean; label: string }) {
   const { pending } = useFormStatus();
 
   return (
-    <button className="primary-button auth-submit" disabled={pending} type="submit">
+    <button className="primary-button auth-submit" disabled={disabled || pending} type="submit">
       {pending ? <Loader2 aria-hidden="true" size={16} /> : <ArrowRight aria-hidden="true" size={16} />}
       {pending ? "처리 중" : label}
     </button>
   );
 }
 
-export function EmailAuthForm({ action, mode, next }: EmailAuthFormProps) {
+function GoogleSubmitButton({ disabled = false }: { disabled?: boolean }) {
+  const { pending } = useFormStatus();
+
+  return (
+    <button className="google-auth-button" disabled={disabled || pending} type="submit">
+      {pending ? <Loader2 aria-hidden="true" size={18} /> : <span className="google-auth-mark" aria-hidden="true">G</span>}
+      {pending ? "Google 연결 중" : "Google로 계속하기"}
+    </button>
+  );
+}
+
+export function EmailAuthForm({ action, mode, next, oauthError, supabaseAvailable = true }: EmailAuthFormProps) {
   const [state, formAction] = useActionState(action, initialAuthActionState);
   const content = modeContent[mode];
   const needsEmail = mode !== "update-password";
@@ -78,32 +91,47 @@ export function EmailAuthForm({ action, mode, next }: EmailAuthFormProps) {
           <p>{content.description}</p>
         </div>
 
+        {mode === "login" || mode === "sign-up" ? (
+          <>
+            <form action={signInWithGoogle} className="oauth-form">
+              <input name="mode" type="hidden" value={mode} />
+              <input name="next" type="hidden" value={next ?? "/app"} />
+              <GoogleSubmitButton disabled={!supabaseAvailable} />
+            </form>
+            <div className="auth-divider" role="separator">
+              <span>또는 이메일</span>
+            </div>
+          </>
+        ) : null}
+
         <form action={formAction} className="auth-form">
           {next ? <input name="next" type="hidden" value={next} /> : null}
 
           {needsEmail ? (
             <label>
               이메일
-              <input autoComplete="email" name="email" required type="email" />
+              <input autoComplete="email" disabled={!supabaseAvailable} name="email" required type="email" />
             </label>
           ) : null}
 
           {needsPassword ? (
             <label>
               비밀번호
-              <input autoComplete={mode === "login" ? "current-password" : "new-password"} minLength={8} name="password" required type="password" />
+              <input autoComplete={mode === "login" ? "current-password" : "new-password"} disabled={!supabaseAvailable} minLength={8} name="password" required type="password" />
             </label>
           ) : null}
 
           {needsConfirmation ? (
             <label>
               비밀번호 확인
-              <input autoComplete="new-password" minLength={8} name="confirmPassword" required type="password" />
+              <input autoComplete="new-password" disabled={!supabaseAvailable} minLength={8} name="confirmPassword" required type="password" />
             </label>
           ) : null}
 
+          {oauthError ? <p className="form-status error" role="alert">{oauthError}</p> : null}
+          {!supabaseAvailable ? <p className="form-status error" role="alert">이 개발 환경에는 Supabase 공개 설정이 없어 로그인할 수 없습니다.</p> : null}
           {state.message ? <p className={`form-status ${state.status}`}>{state.message}</p> : null}
-          <SubmitButton label={content.submitLabel} />
+          <SubmitButton disabled={!supabaseAvailable} label={content.submitLabel} />
         </form>
 
         <div className="auth-links">

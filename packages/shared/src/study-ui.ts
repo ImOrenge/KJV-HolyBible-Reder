@@ -13,6 +13,7 @@ export const STUDY_CONTEXT_PANELS = ["note", "dictionary", "links", "saved"] as 
 
 export const STUDY_UI_WEB_VIEW_KEYS = [
   "dashboard",
+  "community",
   "reader",
   "progress",
   "highlights",
@@ -42,6 +43,13 @@ export type StudyUiReaderRoute = {
 export const STUDY_UI_DICTIONARY_SORTS = ["alphabetical", "canonical", "theme"] as const;
 export type StudyUiDictionarySort = (typeof STUDY_UI_DICTIONARY_SORTS)[number];
 
+export const STUDY_UI_COMMUNITY_TABS = ["feed", "participating", "ranking", "settings"] as const;
+export type StudyUiCommunityTab = (typeof STUDY_UI_COMMUNITY_TABS)[number];
+
+export type StudyUiCommunityRoute = {
+  tab?: StudyUiCommunityTab;
+};
+
 export type StudyUiDictionaryRoute = {
   alphabet?: string;
   bookId?: string;
@@ -52,6 +60,7 @@ export type StudyUiDictionaryRoute = {
 };
 
 export type StudyUiRouteState = {
+  community?: StudyUiCommunityRoute;
   dictionary?: StudyUiDictionaryRoute;
   reader?: StudyUiReaderRoute;
   view: StudyUiWebViewKey;
@@ -187,6 +196,7 @@ export const STUDY_UI_LAYOUT_TOKENS = {
 
 export const STUDY_UI_TARGET_ROUTES: Record<StudyUiWebViewKey, string> = {
   dashboard: "/app/today",
+  community: "/app/community",
   reader: "/app/read",
   progress: "/app/progress",
   highlights: "/app/library?section=highlights",
@@ -223,7 +233,7 @@ export function parseStudyUiWebView(value: string | null | undefined): StudyUiWe
 }
 
 export function getStudyUiAreaForView(view: StudyUiWebViewKey): StudyUiArea {
-  if (view === "dashboard" || view === "progress") return "today";
+  if (view === "dashboard" || view === "community" || view === "progress") return "today";
   if (view === "reader" || view === "search") return "read";
   if (view === "notes" || view === "dictionary") return "study";
   if (view === "highlights" || view === "favorites") return "library";
@@ -299,6 +309,20 @@ export function buildStudyUiDictionaryUrl(route: StudyUiDictionaryRoute = {}) {
   return queryString ? `/app/study/dictionary?${queryString}` : "/app/study/dictionary";
 }
 
+export function buildStudyUiCommunityUrl(route: StudyUiCommunityRoute = {}) {
+  const params = new URLSearchParams();
+  if (route.tab && route.tab !== "feed") params.set("tab", route.tab);
+  const queryString = params.toString();
+  return queryString ? `/app/community?${queryString}` : "/app/community";
+}
+
+export function parseStudyUiCommunityRoute(params: URLSearchParams): StudyUiCommunityRoute | null {
+  const rawTab = params.get("tab")?.trim();
+  const tab = STUDY_UI_COMMUNITY_TABS.find((candidate) => candidate === rawTab);
+  if (rawTab && !tab) return null;
+  return tab && tab !== "feed" ? { tab } : {};
+}
+
 export function parseStudyUiDictionaryRoute(params: URLSearchParams): StudyUiDictionaryRoute | null {
   const query = params.get("q")?.trim().slice(0, 120) || undefined;
   const entryKey = params.get("entry")?.trim() || undefined;
@@ -331,6 +355,11 @@ export function parseStudyUiRoute(pathname: string, params = new URLSearchParams
   if (segments.length === 1) return { view: parseStudyUiWebView(params.get("view")) };
   if (segments.length === 2) {
     if (segments[1] === "today") return { view: "dashboard" };
+    if (segments[1] === "community") {
+      const community = parseStudyUiCommunityRoute(params);
+      if (!community) return null;
+      return Object.keys(community).length ? { view: "community", community } : { view: "community" };
+    }
     if (segments[1] === "read") return { view: "reader" };
     if (segments[1] === "search") return { view: "search" };
     if (segments[1] === "progress") return { view: "progress" };

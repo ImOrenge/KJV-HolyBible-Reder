@@ -15,6 +15,7 @@ import {
   Settings,
   StickyNote,
   UserRound,
+  Users,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -62,6 +63,7 @@ const sidebarSections: Array<{ label: string; items: ShellNavItem[] }> = [
       { icon: BookOpenText, label: "히브리어 사전", view: "dictionary" },
     ],
   },
+  { label: "함께", items: [{ icon: Users, label: "QT 커뮤니티", view: "community" }] },
   {
     label: "보관함",
     items: [
@@ -82,6 +84,7 @@ const mobileNavigation: Array<{ area: StudyUiArea; icon: LucideIcon; label: stri
 
 const viewLabels: Record<StudyUiWebViewKey, string> = {
   dashboard: "오늘",
+  community: "QT 커뮤니티",
   reader: "성경",
   progress: "통독 현황",
   highlights: "하이라이트",
@@ -239,6 +242,7 @@ export function StudyAppShell({ initialRoute, readerV2 = false, user }: StudyApp
         <div className="f-study-shell__content">
           <KjvMvpApp
             activeView={activeView}
+            communityRoute={activeView === "community" ? initialRoute.community ?? {} : undefined}
             dictionaryRoute={activeView === "dictionary" ? initialRoute.dictionary ?? {} : undefined}
             navigationMode="shell"
             onReaderLocationChange={rememberReaderLocation}

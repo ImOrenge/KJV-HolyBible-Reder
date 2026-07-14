@@ -33,6 +33,7 @@ import {
   Tags,
   Type,
   UserRound,
+  Users,
   Volume2,
   X,
 } from "lucide-react";
@@ -70,6 +71,8 @@ import { ReaderVerseActions, type ReaderContextTab } from "@/components/reader-v
 import { ReaderVerseRow } from "@/components/reader-verse-row";
 import { createClient as createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { ContinueReadingPanel, ProgressMetricPanel } from "@/components/app-preview-panels";
+import { CommunityHomePanel } from "@/components/community/community-home-panel";
+import { recordCommunityReadingCompletion } from "@kjv/shared/community";
 import {
   clearUserData,
   createInitialUserData,
@@ -115,14 +118,16 @@ import {
   personalNoteDocumentToMarkdown,
   personalNoteDocumentToText,
   type PersonalNoteDocument,
+  type StudyUiCommunityRoute,
   type StudyUiDictionaryRoute,
   type StudyUiReaderRoute,
 } from "@kjv/shared";
 
-export type KjvMvpViewKey = "dashboard" | "reader" | "progress" | "highlights" | "favorites" | "notes" | "dictionary" | "search" | "settings";
+export type KjvMvpViewKey = "dashboard" | "community" | "reader" | "progress" | "highlights" | "favorites" | "notes" | "dictionary" | "search" | "settings";
 type ViewKey = KjvMvpViewKey;
 type KjvMvpAppProps = {
   activeView?: ViewKey;
+  communityRoute?: StudyUiCommunityRoute;
   dictionaryRoute?: StudyUiDictionaryRoute;
   initialView?: ViewKey;
   navigationMode?: "legacy" | "shell";
@@ -133,7 +138,7 @@ type KjvMvpAppProps = {
   readerRoute?: StudyUiReaderRoute;
   user: AppUser;
 };
-type MobileHomeTab = "today" | "progress" | "activity" | "study";
+type MobileHomeTab = "today" | "progress" | "community" | "activity" | "study";
 type SettingsSectionKey = "account" | "tts" | "text" | "view";
 type LoadStatus = "idle" | "loading" | "ready" | "error";
 type TtsPlaybackState = "idle" | "playing" | "paused" | "error";
@@ -146,6 +151,7 @@ type VerseNoteSummary = { id: string; title: string; excerpt: string; source: st
 
 const tabs: Array<{ key: ViewKey; label: string; icon: React.ComponentType<{ size?: number }> }> = [
   { key: "dashboard", label: "홈", icon: Home },
+  { key: "community", label: "커뮤니티", icon: Users },
   { key: "reader", label: "성경", icon: BookOpen },
   { key: "progress", label: "통독", icon: BarChart3 },
   { key: "highlights", label: "강조", icon: Highlighter },
@@ -159,6 +165,7 @@ const tabs: Array<{ key: ViewKey; label: string; icon: React.ComponentType<{ siz
 const mobileHomeTabs: Array<{ key: MobileHomeTab; label: string; icon: React.ComponentType<{ size?: number }> }> = [
   { key: "today", label: "오늘", icon: CalendarDays },
   { key: "progress", label: "통독", icon: BarChart3 },
+  { key: "community", label: "커뮤니티", icon: Users },
   { key: "activity", label: "활동", icon: Layers },
   { key: "study", label: "공부", icon: StickyNote },
 ];
@@ -530,6 +537,7 @@ function compareBibleLocation(left: { bookId: string; chapter: number; verse?: n
 
 export function KjvMvpApp({
   activeView: controlledActiveView,
+  communityRoute,
   dictionaryRoute,
   initialView = "dashboard",
   navigationMode = "legacy",
@@ -739,7 +747,7 @@ export function KjvMvpApp({
     return completedKeys.has(chapterKey(bookId, chapter));
   }, [completedKeys]);
 
-  const markChapterCompleted = useCallback((bookId: string, chapter: number, announce = false) => {
+  const markChapterCompleted = useCallback((bookId: string, chapter: number, announce = false, method?: "scroll" | "chapter_tts" | "today_plan_tts") => {
     if (completedKeys.has(chapterKey(bookId, chapter))) {
       return;
     }
@@ -767,7 +775,10 @@ export function KjvMvpApp({
     if (announce) {
       setCopyStatus(`${getChapterLabel(bookId, chapter)} 읽음 완료`);
     }
-  }, [completedKeys, user.id]);
+    if (method && user.isAuthenticated) {
+      void recordCommunityReadingCompletion({ bookId, chapter, method }, {}).catch(() => undefined);
+    }
+  }, [completedKeys, user.id, user.isAuthenticated]);
 
   const isLastVerseInLoadedChapter = useCallback((verse: Verse) => {
     const lastVerse = chapterVerses.at(-1);
@@ -799,7 +810,7 @@ export function KjvMvpApp({
         return;
       }
 
-      markChapterCompleted(verse.bookId, verse.chapter, true);
+      markChapterCompleted(verse.bookId, verse.chapter, true, "scroll");
     }, 2000);
   }, [clearAutoCompleteTimer, isChapterCompleted, isLastVerseInLoadedChapter, markChapterCompleted]);
 
@@ -815,7 +826,12 @@ export function KjvMvpApp({
       return;
     }
 
-    markChapterCompleted(verse.bookId, verse.chapter, true);
+    markChapterCompleted(
+      verse.bookId,
+      verse.chapter,
+      true,
+      queueMode === "today-plan" ? "today_plan_tts" : "chapter_tts",
+    );
   }, [isFinalQueuedVerseForChapter, markChapterCompleted]);
 
   const highlightsByVerse = useMemo(
@@ -3632,7 +3648,13 @@ export function KjvMvpApp({
                     className={mobileHomeTab === tab.key ? "mobile-home-tab active" : "mobile-home-tab"}
                     key={tab.key}
                     type="button"
-                    onClick={() => setMobileHomeTab(tab.key)}
+                    onClick={() => {
+                      if (tab.key === "community") {
+                        setActiveView("community");
+                        return;
+                      }
+                      setMobileHomeTab(tab.key);
+                    }}
                   >
                     <Icon size={16} />
                     <span>{tab.label}</span>
@@ -3859,6 +3881,28 @@ export function KjvMvpApp({
             </section>
             </div>
           </section>
+        ) : null}
+
+        {activeView === "community" ? (
+          <CommunityHomePanel
+            currentReference={
+              currentReadingVerse
+                ? { reference: formatReference(currentReadingVerse), verseKey: currentReadingVerse.verseKey ?? currentReadingVerse.id }
+                : userData.progress
+                  ? {
+                      reference: `${getChapterLabel(userData.progress.bookId, userData.progress.chapter)} ${userData.progress.verse}절`,
+                      verseKey: `${userData.progress.bookId.toUpperCase()}.${userData.progress.chapter}.${userData.progress.verse}`,
+                    }
+                  : null
+            }
+            initialTab={communityRoute?.tab}
+            onLogin={() => router.push("/auth/login?next=%2Fapp%2Fcommunity")}
+            onOpenReader={() => {
+              if (userData.progress) openChapter(userData.progress.bookId, userData.progress.chapter, userData.progress.verse);
+              else setActiveView("reader");
+            }}
+            user={user}
+          />
         ) : null}
 
         {activeView === "reader" ? (

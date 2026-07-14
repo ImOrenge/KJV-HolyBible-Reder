@@ -5,7 +5,7 @@ const config: ExpoConfig = {
   owner: "nicholas0913",
   slug: "kjv-reader-note",
   scheme: "kjvreadernote",
-  version: "0.4.0",
+  version: "0.6.1",
   orientation: "portrait",
   userInterfaceStyle: "automatic",
   extra: {
@@ -21,12 +21,18 @@ const config: ExpoConfig = {
   },
   android: {
     package: "com.kjvreader",
-    versionCode: 4,
+    versionCode: 6,
   },
   web: {
     bundler: "metro",
   },
   plugins: [
+    [
+      "expo-web-browser",
+      {
+        experimentalLauncherActivity: false,
+      },
+    ],
     [
       "expo-image-picker",
       {

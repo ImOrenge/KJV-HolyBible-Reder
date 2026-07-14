@@ -31,11 +31,50 @@ function validatePassword(password: string) {
 function readSafeNextPath(formData: FormData) {
   const nextPath = String(formData.get("next") ?? "").trim();
 
-  if (!nextPath || !nextPath.startsWith("/") || nextPath.startsWith("//")) {
+  if (!nextPath || !nextPath.startsWith("/") || nextPath.startsWith("//") || nextPath.includes("\\")) {
     return "/app";
   }
 
   return nextPath;
+}
+
+function readOAuthMode(formData: FormData) {
+  return formData.get("mode") === "sign-up" ? "sign-up" : "login";
+}
+
+function getOAuthFailurePath(mode: "login" | "sign-up", nextPath: string) {
+  const params = new URLSearchParams({
+    next: nextPath,
+    oauthError: "start",
+  });
+
+  return `/auth/${mode}?${params.toString()}`;
+}
+
+export async function signInWithGoogle(formData: FormData) {
+  const nextPath = readSafeNextPath(formData);
+  const mode = readOAuthMode(formData);
+  const origin = await getSiteOrigin();
+  const callbackUrl = new URL("/auth/callback", origin);
+  callbackUrl.searchParams.set("next", nextPath);
+  callbackUrl.searchParams.set("mode", mode);
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: callbackUrl.toString(),
+      queryParams: {
+        prompt: "select_account",
+      },
+    },
+  });
+
+  if (error || !data.url) {
+    redirect(getOAuthFailurePath(mode, nextPath));
+  }
+
+  redirect(data.url);
 }
 
 export async function signInWithEmail(_: AuthActionState, formData: FormData): Promise<AuthActionState> {
