@@ -10,7 +10,7 @@ import {
 } from "@kjv/shared";
 import { RichText, TenTapStartKit, useBridgeState, useEditorBridge, useEditorContent } from "@10play/tentap-editor";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 const textColors = [
   ["ink", "#17202a"],
@@ -205,6 +205,7 @@ type Props = {
 };
 
 export function PersonalNoteRichTextEditor({ document, onAddVerseReference, onChange }: Props) {
+  const [advancedToolsOpen, setAdvancedToolsOpen] = useState(false);
   const [textSize, setTextSize] = useState<MobileTextSize>("md");
   const [textAlign, setTextAlign] = useState<MobileTextAlign>(() => {
     const value = document.content.find((node) => node.attrs?.textAlign)?.attrs?.textAlign;
@@ -215,6 +216,7 @@ export function PersonalNoteRichTextEditor({ document, onAddVerseReference, onCh
     bridgeExtensions: mobileEditorBridges,
     initialContent: initialDocument,
     autofocus: false,
+    avoidIosKeyboard: true,
     dynamicHeight: false,
     theme: {
       webview: { backgroundColor: "#ffffff" },
@@ -293,36 +295,7 @@ export function PersonalNoteRichTextEditor({ document, onAddVerseReference, onCh
   };
 
   return (
-    <View style={styles.root}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.toolbar} keyboardShouldPersistTaps="handled">
-        <Tool label="↶" onPress={() => editor.undo()} />
-        <Tool label="↷" onPress={() => editor.redo()} />
-        <Tool label="B" onPress={() => editor.toggleBold()} textStyle={styles.bold} />
-        <Tool label="I" onPress={() => editor.toggleItalic()} textStyle={styles.italic} />
-        <Tool label="U" onPress={() => editor.toggleUnderline()} textStyle={styles.underline} />
-        <Tool label="H1" onPress={() => editor.toggleHeading(1)} />
-        <Tool label="H2" onPress={() => editor.toggleHeading(2)} />
-        <Tool label="•" onPress={() => editor.toggleBulletList()} />
-        <Tool label="1." onPress={() => editor.toggleOrderedList()} />
-        <Tool label="☑" onPress={() => editor.toggleTaskList()} />
-        <Tool label="❝" onPress={() => editor.toggleBlockquote()} />
-      </ScrollView>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.swatches} keyboardShouldPersistTaps="handled">
-        <Text style={styles.swatchLabel}>글자</Text>
-        {textColors.map(([token, color]) => <ColorTool key={token} color={color} label={`글자색 ${token}`} onPress={() => editor.setColor(color)} />)}
-        <Text style={styles.swatchLabel}>형광</Text>
-        {highlightColors.map(([token, color]) => <ColorTool key={token} color={color} label={`형광색 ${token}`} onPress={() => editor.setHighlight(color)} />)}
-      </ScrollView>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.documentTools} keyboardShouldPersistTaps="handled">
-        <Text style={styles.swatchLabel}>본문 전체</Text>
-        <Tool accessibilityLabel="본문 글자 작게" label="가-" onPress={() => setTextSize("sm")} />
-        <Tool accessibilityLabel="본문 글자 기본" label="가" onPress={() => setTextSize("md")} />
-        <Tool accessibilityLabel="본문 글자 크게" label="가+" onPress={() => setTextSize("lg")} />
-        <Tool accessibilityLabel="본문 시작 정렬" label="≡←" onPress={() => setTextAlign("start")} />
-        <Tool accessibilityLabel="본문 가운데 정렬" label="≡↔" onPress={() => setTextAlign("center")} />
-        <Tool accessibilityLabel="본문 끝 정렬" label="→≡" onPress={() => setTextAlign("end")} />
-        <Tool accessibilityLabel="본문 양쪽 정렬" label="☰" onPress={() => setTextAlign("justify")} />
-      </ScrollView>
+    <View style={[styles.root, advancedToolsOpen ? styles.rootAdvanced : null]}>
       <View style={styles.editorFrame}>
         <RichText editor={editor} style={styles.editor} />
       </View>
@@ -336,19 +309,79 @@ export function PersonalNoteRichTextEditor({ document, onAddVerseReference, onCh
           ))}
         </View>
       ) : null}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.templates}>
-        {builtInPersonalNoteTemplates.map((template) => (
-          <Pressable key={template.id} onPress={() => applyTemplate(template.document)} style={styles.templateButton}>
-            <Text style={styles.templateText}>{template.name}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.toolbarDock}
+      >
+        {advancedToolsOpen ? (
+          <ScrollView
+            accessibilityLabel="노트 고급 서식 도구"
+            accessibilityRole="toolbar"
+            contentContainerStyle={styles.advancedToolbar}
+            horizontal
+            keyboardShouldPersistTaps="handled"
+            showsHorizontalScrollIndicator={false}
+          >
+            <Tool accessibilityLabel="제목 1" active={editorState.headingLevel === 1} disabled={!editorState.isReady} label="H1" onPress={() => editor.toggleHeading(1)} />
+            <Tool accessibilityLabel="제목 2" active={editorState.headingLevel === 2} disabled={!editorState.isReady} label="H2" onPress={() => editor.toggleHeading(2)} />
+            <Tool accessibilityLabel="글머리 기호 목록" active={editorState.isBulletListActive} disabled={!editorState.isReady} label="•" onPress={() => editor.toggleBulletList()} />
+            <Tool accessibilityLabel="번호 목록" active={editorState.isOrderedListActive} disabled={!editorState.isReady} label="1." onPress={() => editor.toggleOrderedList()} />
+            <Tool accessibilityLabel="체크 목록" active={editorState.isTaskListActive} disabled={!editorState.isReady} label="☑" onPress={() => editor.toggleTaskList()} />
+            <Tool accessibilityLabel="인용" active={editorState.isBlockquoteActive} disabled={!editorState.isReady} label="❝" onPress={() => editor.toggleBlockquote()} />
+            <View style={styles.toolDivider} />
+            <Tool accessibilityLabel="본문 글자 작게" active={textSize === "sm"} label="가-" onPress={() => setTextSize("sm")} />
+            <Tool accessibilityLabel="본문 글자 기본" active={textSize === "md"} label="가" onPress={() => setTextSize("md")} />
+            <Tool accessibilityLabel="본문 글자 크게" active={textSize === "lg"} label="가+" onPress={() => setTextSize("lg")} />
+            <Tool accessibilityLabel="본문 시작 정렬" active={textAlign === "start"} label="≡←" onPress={() => setTextAlign("start")} />
+            <Tool accessibilityLabel="본문 가운데 정렬" active={textAlign === "center"} label="≡↔" onPress={() => setTextAlign("center")} />
+            <Tool accessibilityLabel="본문 끝 정렬" active={textAlign === "end"} label="→≡" onPress={() => setTextAlign("end")} />
+            <Tool accessibilityLabel="본문 양쪽 정렬" active={textAlign === "justify"} label="☰" onPress={() => setTextAlign("justify")} />
+            <View style={styles.toolDivider} />
+            {textColors.map(([token, color]) => <ColorTool key={`text-${token}`} color={color} label={`글자색 ${token}`} onPress={() => editor.setColor(color)} />)}
+            <View style={styles.toolDivider} />
+            {highlightColors.map(([token, color]) => <ColorTool key={`highlight-${token}`} color={color} label={`형광색 ${token}`} onPress={() => editor.setHighlight(color)} />)}
+            <View style={styles.toolDivider} />
+            {builtInPersonalNoteTemplates.map((template) => (
+              <Pressable accessibilityLabel={`노트 템플릿 ${template.name}`} accessibilityRole="button" key={template.id} onPress={() => applyTemplate(template.document)} style={styles.templateButton}>
+                <Text style={styles.templateText}>{template.name}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        ) : null}
+        <ScrollView
+          accessibilityLabel="노트 기본 서식 도구"
+          accessibilityRole="toolbar"
+          contentContainerStyle={styles.primaryToolbar}
+          horizontal
+          keyboardShouldPersistTaps="handled"
+          showsHorizontalScrollIndicator={false}
+        >
+          <Tool accessibilityLabel="실행 취소" disabled={!editorState.canUndo} label="↶" onPress={() => editor.undo()} />
+          <Tool accessibilityLabel="다시 실행" disabled={!editorState.canRedo} label="↷" onPress={() => editor.redo()} />
+          <Tool accessibilityLabel="굵게" active={editorState.isBoldActive} disabled={!editorState.canToggleBold} label="B" onPress={() => editor.toggleBold()} textStyle={styles.bold} />
+          <Tool accessibilityLabel="기울임" active={editorState.isItalicActive} disabled={!editorState.canToggleItalic} label="I" onPress={() => editor.toggleItalic()} textStyle={styles.italic} />
+          <Tool accessibilityLabel="밑줄" active={editorState.isUnderlineActive} disabled={!editorState.canToggleUnderline} label="U" onPress={() => editor.toggleUnderline()} textStyle={styles.underline} />
+          <ColorTool color={highlightToCss.yellow} label="노란색 형광" onPress={() => editor.setHighlight(highlightToCss.yellow)} />
+          <Tool accessibilityLabel={advancedToolsOpen ? "노트 고급 서식 닫기" : "노트 서식 더보기"} active={advancedToolsOpen} label="•••" onPress={() => setAdvancedToolsOpen((open) => !open)} />
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
 
-function Tool({ accessibilityLabel, label, onPress, textStyle }: { accessibilityLabel?: string; label: string; onPress: () => void; textStyle?: object }) {
-  return <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? label} onPress={onPress} style={styles.tool}><Text style={[styles.toolText, textStyle]}>{label}</Text></Pressable>;
+function Tool({ accessibilityLabel, active = false, disabled = false, label, onPress, textStyle }: { accessibilityLabel?: string; active?: boolean; disabled?: boolean; label: string; onPress: () => void; textStyle?: object }) {
+  return (
+    <Pressable
+      accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityRole="button"
+      accessibilityState={{ disabled, selected: active }}
+      disabled={disabled}
+      onPress={onPress}
+      style={[styles.tool, active ? styles.toolActive : null, disabled ? styles.toolDisabled : null]}
+    >
+      <Text style={[styles.toolText, active ? styles.toolTextActive : null, textStyle]}>{label}</Text>
+    </Pressable>
+  );
 }
 
 function ColorTool({ color, label, onPress }: { color: string; label: string; onPress: () => void }) {
@@ -356,24 +389,27 @@ function ColorTool({ color, label, onPress }: { color: string; label: string; on
 }
 
 const styles = StyleSheet.create({
-  root: { borderWidth: 1, borderColor: "#d9d5cc", borderRadius: 8, overflow: "hidden", backgroundColor: "#fff" },
-  toolbar: { minHeight: 44, alignItems: "center", gap: 6, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: "#ebe7df" },
-  swatches: { minHeight: 38, alignItems: "center", gap: 7, paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: "#ebe7df" },
-  documentTools: { minHeight: 42, alignItems: "center", gap: 6, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: "#ebe7df" },
-  tool: { width: 34, height: 34, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#d8d3c9", borderRadius: 6, backgroundColor: "#fff" },
+  root: { backgroundColor: "#fff", borderColor: "#d9d5cc", borderRadius: 8, borderWidth: 1, overflow: "hidden", paddingBottom: 50, position: "relative" },
+  rootAdvanced: { paddingBottom: 100 },
+  toolbarDock: { backgroundColor: "#fff", bottom: 0, left: 0, position: "absolute", right: 0, width: "100%" },
+  primaryToolbar: { alignItems: "center", borderTopColor: "#d9d5cc", borderTopWidth: 1, gap: 6, minHeight: 50, paddingHorizontal: 8 },
+  advancedToolbar: { alignItems: "center", backgroundColor: "#f8f6f1", borderTopColor: "#ebe7df", borderTopWidth: 1, gap: 6, minHeight: 50, paddingHorizontal: 8 },
+  tool: { alignItems: "center", backgroundColor: "#fff", borderColor: "#d8d3c9", borderRadius: 6, borderWidth: 1, height: 44, justifyContent: "center", width: 44 },
+  toolActive: { backgroundColor: "#e8f2ee", borderColor: "#176f63" },
+  toolDisabled: { opacity: 0.4 },
   toolText: { color: "#292d32", fontSize: 15 },
+  toolTextActive: { color: "#176f63" },
   bold: { fontWeight: "700" },
   italic: { fontStyle: "italic" },
   underline: { textDecorationLine: "underline" },
-  swatchLabel: { color: "#66635d", fontSize: 12, fontWeight: "600" },
-  colorTool: { width: 24, height: 24, borderRadius: 4, borderWidth: 1, borderColor: "#bbb6ac" },
+  toolDivider: { backgroundColor: "#d8d3c9", height: 24, marginHorizontal: 2, width: 1 },
+  colorTool: { borderColor: "#8f8a80", borderRadius: 5, borderWidth: 1, height: 44, width: 44 },
   editorFrame: { height: 280, backgroundColor: "#fff" },
   editor: { flex: 1, backgroundColor: "#fff" },
   suggestions: { borderTopWidth: 1, borderTopColor: "#e6e0d7", backgroundColor: "#fff" },
   suggestion: { minHeight: 48, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#f0ece5" },
   suggestionTitle: { color: "#252a2f", fontSize: 15, fontWeight: "700" },
   suggestionMeta: { color: "#6d6a64", fontSize: 12, marginTop: 2 },
-  templates: { gap: 8, padding: 8, borderTopWidth: 1, borderTopColor: "#ebe7df" },
-  templateButton: { paddingHorizontal: 10, paddingVertical: 7, borderWidth: 1, borderColor: "#d8d3c9", borderRadius: 6, backgroundColor: "#f8f6f1" },
+  templateButton: { alignItems: "center", backgroundColor: "#fff", borderColor: "#d8d3c9", borderRadius: 6, borderWidth: 1, justifyContent: "center", minHeight: 44, paddingHorizontal: 10 },
   templateText: { color: "#3a3e42", fontSize: 12, fontWeight: "600" },
 });

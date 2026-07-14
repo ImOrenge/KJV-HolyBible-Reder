@@ -912,11 +912,53 @@ async function verifyMobileNoteStackFlow(cdp, name) {
   }
 
   const editorState = await evaluate(cdp, () => ({
+    advancedToolbar: document.querySelectorAll('[aria-label="노트 고급 서식 도구"]').length,
     editor: document.querySelectorAll('[aria-label="노트 편집 화면"]').length,
     list: document.querySelectorAll('[aria-label="노트 목록 화면"]').length,
+    pageOverflow: Math.max(0, document.documentElement.scrollWidth - window.innerWidth),
+    primaryToolbar: document.querySelectorAll('[aria-label="노트 기본 서식 도구"]').length,
   }));
-  if (editorState.editor !== 1 || editorState.list !== 0) {
+  if (editorState.editor !== 1 || editorState.list !== 0 || editorState.primaryToolbar !== 1 || editorState.advancedToolbar !== 0 || editorState.pageOverflow > 1) {
     failures.push(`${name}.noteStack.editorExclusive: ${JSON.stringify(editorState)}`);
+  }
+
+  if (!(await clickAccessibilityLabel(cdp, "노트 서식 더보기"))) {
+    failures.push(`${name}.noteStack.toolbarMore: compact toolbar more button missing`);
+  } else if (!(await waitForAccessibilityLabel(cdp, "노트 고급 서식 도구"))) {
+    failures.push(`${name}.noteStack.toolbarAdvanced: advanced toolbar did not open`);
+  } else {
+    const expandedToolbarState = await evaluate(cdp, () => {
+      const advancedToolbar = document.querySelector('[aria-label="노트 고급 서식 도구"]');
+      const primaryToolbar = document.querySelector('[aria-label="노트 기본 서식 도구"]');
+      const rect = (element) => {
+        if (!element) return null;
+        const bounds = element.getBoundingClientRect();
+        return { height: Math.round(bounds.height), left: Math.round(bounds.left), right: Math.round(bounds.right), width: Math.round(bounds.width) };
+      };
+      return {
+        advancedRect: rect(advancedToolbar),
+        advancedToolbar: document.querySelectorAll('[aria-label="노트 고급 서식 도구"]').length,
+        editor: document.querySelectorAll('[aria-label="노트 편집 화면"]').length,
+        list: document.querySelectorAll('[aria-label="노트 목록 화면"]').length,
+        pageOverflow: Math.max(0, document.documentElement.scrollWidth - window.innerWidth),
+        primaryRect: rect(primaryToolbar),
+        primaryToolbar: document.querySelectorAll('[aria-label="노트 기본 서식 도구"]').length,
+        viewportWidth: window.innerWidth,
+      };
+    });
+    const toolbarRectsFit = [expandedToolbarState.primaryRect, expandedToolbarState.advancedRect].every((rect) =>
+      Boolean(rect && rect.height >= 44 && rect.left >= -1 && rect.right <= expandedToolbarState.viewportWidth + 1),
+    );
+    if (expandedToolbarState.advancedToolbar !== 1 || expandedToolbarState.primaryToolbar !== 1 || expandedToolbarState.editor !== 1 || expandedToolbarState.list !== 0 || expandedToolbarState.pageOverflow > 1 || !toolbarRectsFit) {
+      failures.push(`${name}.noteStack.toolbarExclusive: ${JSON.stringify(expandedToolbarState)}`);
+    }
+    if (!(await clickAccessibilityLabel(cdp, "노트 고급 서식 닫기"))) {
+      failures.push(`${name}.noteStack.toolbarClose: advanced toolbar close button missing`);
+    } else {
+      await sleep(250);
+      const advancedToolbarStillOpen = await evaluate(cdp, () => document.querySelectorAll('[aria-label="노트 고급 서식 도구"]').length);
+      if (advancedToolbarStillOpen !== 0) failures.push(`${name}.noteStack.toolbarCloseState: advanced toolbar remained open`);
+    }
   }
 
   if (!(await clickAccessibilityLabel(cdp, "노트 편집기 이전 화면"))) {

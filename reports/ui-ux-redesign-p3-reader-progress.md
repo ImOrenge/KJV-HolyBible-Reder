@@ -37,6 +37,8 @@
 - `PersonalNoteListScreen`과 `PersonalNoteEditorScreen`은 noteId route에 따라 상호 배타 렌더링된다.
 - Reader -> 노트 목록 -> 새 노트 편집기 -> 목록 -> Reader stack 복귀를 자동 검증한다.
 - TenTap CSS 주입은 bridge `isReady` 이후에만 실행해 Expo Web/느린 WebView 초기화 race를 방지한다.
+- 모바일 노트 편집기의 세 줄 toolbar를 compact primary toolbar와 opt-in advanced toolbar로 분리했다.
+- TenTap `avoidIosKeyboard`와 전용 `KeyboardAvoidingView`를 연결해 toolbar와 마지막 편집 줄의 keyboard 회피 계약을 추가했다.
 
 Expo Web `390x844` 검증:
 
@@ -48,6 +50,7 @@ Expo Web `390x844` 검증:
 - 선택 mode에서 1절과 3절을 누르면 1~3절이 연속 범위로 선택된다.
 - Reader의 명령 검색에서 검색 화면을 push하고 이전 버튼으로 창세기 1장에 복귀한다.
 - Reader에서 노트 목록과 새 편집기를 왕복할 때 목록과 편집기가 동시에 렌더링되지 않는다.
+- 노트 기본 toolbar에서 advanced toolbar를 열고 닫아도 편집 화면과 route stack이 유지된다.
 - 증거: `reports/ui-ux-redesign-screenshots/expo-reader-v2-mobile-390.png`
 
 ## 브라우저 검증
@@ -82,8 +85,9 @@ Expo Web `390x844` 검증:
 Reader orchestration 검증:
 
 - `npm run reader:validate`: 진입 target, 역방향 범위 선택, 읽기 line 계산, 선택 mode 자동 scroll 억제, TTS queue/index 경계를 검증한다.
-- `npm run typecheck`, `npm run structure:mobile`, `npm run style:mobile`: 통과.
-- `npm run browser:reader -- --single=true --port=9352`: Reader -> Search -> Reader stack 복귀를 포함해 통과.
+- `npm run typecheck`, `npm run lint`, `npm run build`, `npm run structure:mobile`, `npm run style:mobile`: 통과.
+- `npm run expo:doctor`: 20/20 checks 통과.
+- `npm run browser:reader -- --single=true --port=9354`: Reader -> Search -> Reader와 Reader -> Notes -> compact/advanced toolbar -> Reader stack 복귀를 포함해 통과.
 
 ## 남은 작업
 

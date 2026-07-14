@@ -28,7 +28,7 @@ const groups = [
   },
   {
     name: "personal-note-stack-screens",
-    labels: ["노트 목록 화면", "노트 편집 화면", "노트 편집기 이전 화면", "새 노트"],
+    labels: ["노트 목록 화면", "노트 편집 화면", "노트 편집기 이전 화면", "새 노트", "노트 기본 서식 도구", "노트 서식 더보기", "노트 고급 서식 도구", "노트 고급 서식 닫기"],
   },
     {
       name: "reader-actions",
@@ -103,6 +103,7 @@ async function main() {
     "apps/mobile/src/hooks/use-mobile-study-navigation.ts",
     "apps/mobile/src/components/notes/personal-note-list-screen.tsx",
     "apps/mobile/src/components/notes/personal-note-editor-screen.tsx",
+    "apps/mobile/src/components/personal-note-rich-text-editor.tsx",
     "packages/shared/src/mobile-study-navigation.ts",
   ].map((file) => readFile(file, "utf8")));
   const source = sources.join("\n");

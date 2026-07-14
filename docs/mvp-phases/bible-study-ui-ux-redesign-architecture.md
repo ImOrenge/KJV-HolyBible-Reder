@@ -808,7 +808,7 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 - [ ] 웹 note list/editor/inspector 구조를 구현한다.
 - [ ] 구절 노트, 장 노트, 성경노트 표시 개념을 통합한다.
 - [ ] template 선택을 note 생성 단계로 이동한다.
-- [ ] 모바일 toolbar를 keyboard 위 compact toolbar로 전환한다.
+- [x] 모바일 toolbar를 keyboard 위 compact toolbar로 전환한다.
 - [ ] 리더 복귀 문맥과 local draft를 검증한다.
 
 ### Phase UX-04: Dictionary, Search, Library

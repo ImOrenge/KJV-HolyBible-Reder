@@ -42,20 +42,20 @@
 - [ ] `PersonalNotesView` 컴포넌트를 만든다.
 - [x] `PersonalNoteListScreen` 컴포넌트를 만든다.
 - [x] `PersonalNoteEditorScreen` 컴포넌트를 만든다.
-- [ ] `NoteEditorToolbar` 컴포넌트를 만든다.
-- [ ] 제목 입력 필드를 구현한다.
-- [ ] 본문 `textarea` 편집 영역을 구현한다.
+- [x] `PersonalNoteRichTextEditor`에 compact primary/advanced toolbar를 구현한다.
+- [x] 제목 입력 필드를 구현한다.
+- [x] 본문을 TenTap 기반 `PersonalNoteDocument` rich-text 편집 영역으로 구현한다.
 - [ ] Markdown-lite preview 전환을 구현한다.
-- [ ] 굵게 toolbar 동작을 구현한다.
-- [ ] 기울임 toolbar 동작을 구현한다.
-- [ ] 인용 toolbar 동작을 구현한다.
-- [ ] 목록 toolbar 동작을 구현한다.
-- [ ] 체크리스트 toolbar 동작을 구현한다.
-- [ ] 저장 버튼을 구현한다.
+- [x] 굵게 toolbar 동작을 구현한다.
+- [x] 기울임 toolbar 동작을 구현한다.
+- [x] 인용 toolbar 동작을 구현한다.
+- [x] 목록 toolbar 동작을 구현한다.
+- [x] 체크리스트 toolbar 동작을 구현한다.
+- [x] 저장 버튼을 구현한다.
 - [ ] 저장됨, 저장 중, 저장 실패 상태를 표시한다.
 - [ ] local draft debounce 저장을 구현한다.
-- [ ] 새 노트 생성 흐름을 구현한다.
-- [ ] 노트 삭제 흐름을 구현한다.
+- [x] 새 노트 생성 흐름을 구현한다.
+- [x] 노트 삭제 흐름을 구현한다.
 
 ### 완료 기준
 
