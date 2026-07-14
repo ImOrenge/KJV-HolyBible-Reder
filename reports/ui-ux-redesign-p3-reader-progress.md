@@ -96,7 +96,7 @@ Reader orchestration 검증:
 - `npm run note-draft:validate`: 사용자/노트 key 격리, 최신 draft 복구, 저장 완료 draft 정리, 손상 JSON 무시를 통과.
 - `npm run note-client:validate`, `npm run note-snapshot:validate`: bearer payload, typed 409 conflict, permanent delete URL과 snapshot 보존 SQL 불변식을 통과.
 - `npm run db:smoke-notes`: 원격 revision save, snapshot 보존, note/revision/link 교차 계정 RLS 격리를 통과.
-- `npm run browser:reader -- --single=true --port=9361`: Reader -> Search -> Reader와 Reader -> Notes -> local draft 저장/복구 -> Reader stack 복귀를 포함해 통과.
+- `npm run browser:reader -- --single=true --port=9366 --mobile-url=http://127.0.0.1:8083 --web-url=http://127.0.0.1:3002/app`: 격리 worktree에서 Reader -> Search -> Reader와 Reader -> Notes -> local draft 저장/복구 -> Reader stack 복귀를 포함해 통과.
 
 ## 남은 작업
 

@@ -66,10 +66,10 @@ component:
     - inline verse autocomplete continues to call the existing verse-link callback
   test_surface:
     static: [npm run typecheck, npm run structure:mobile, npm run note-draft:validate, npm run note-client:validate, npm run note-privacy:validate, npm run note-snapshot:validate]
-    runtime: [npm run browser:reader -- --single=true --port=9361, npm run db:smoke-notes]
+    runtime: [npm run browser:reader -- --single=true --port=9366 --mobile-url=http://127.0.0.1:8083 --web-url=http://127.0.0.1:3002/app, npm run db:smoke-notes]
   evidence:
     - type: browser-interaction
-      command: npm run browser:reader -- --single=true --port=9361
+      command: npm run browser:reader -- --single=true --port=9366 --mobile-url=http://127.0.0.1:8083 --web-url=http://127.0.0.1:3002/app
       result: pass
       findings:
         - Reader command search pushes the personal note list

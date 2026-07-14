@@ -79,13 +79,25 @@ export function PersonalNoteEditorScreen({
             {saveStatus || `마지막 저장 ${formatUpdatedAt(note.lastSavedAt ?? note.updatedAt)}`}
           </Text>
         </View>
-        <Pressable accessibilityRole="button" disabled={saveDisabled} onPress={onSave} style={[styles.saveButton, saveDisabled ? styles.saveButtonDisabled : null]}>
+        <Pressable
+          accessibilityLabel="노트 저장"
+          accessibilityRole="button"
+          accessibilityState={{ disabled: saveDisabled }}
+          disabled={saveDisabled}
+          onPress={onSave}
+          style={[styles.saveButton, saveDisabled ? styles.saveButtonDisabled : null]}
+        >
           <Text style={styles.saveButtonText}>저장</Text>
         </Pressable>
       </View>
 
       {conflictRevision ? (
-        <View accessibilityLabel={`노트 저장 충돌: 서버 버전 ${conflictRevision}`} accessibilityRole="alert" style={styles.conflictBand}>
+        <View
+          accessibilityLabel={`노트 저장 충돌: 서버 버전 ${conflictRevision}`}
+          accessibilityLiveRegion="assertive"
+          accessibilityRole="alert"
+          style={styles.conflictBand}
+        >
           <Text style={styles.conflictTitle}>다른 기기에서 수정된 내용이 있습니다</Text>
           <Text style={styles.conflictText}>서버 버전 {conflictRevision}을 사용하거나, 현재 초안을 유지한 뒤 다시 저장하세요.</Text>
           <View style={styles.conflictActions}>
