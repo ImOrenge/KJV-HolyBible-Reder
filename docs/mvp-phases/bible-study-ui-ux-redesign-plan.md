@@ -12,15 +12,17 @@ KJV 리더노트의 웹과 Expo 앱을 기능 나열형 화면에서 `오늘 읽
 
 | 항목 | 기준 |
 | --- | --- |
-| 출시 기준 | `main@99226324`, `v0.5.0` |
-| 온보딩 구현 | `feat/2026-07-13-first-login-onboarding@d7646ffb` |
-| 온보딩 문서 통합 | `develop/2026-07-13-first-login-onboarding@45a99d7d` |
+| 출시 기준 | `main@c04431ec`, `v0.6.1` |
+| 온보딩 구현 | `develop/2026-07-13-first-login-onboarding`에 `d7646ffb` 포함 |
+| UI/UX 개편 작업 | `D:\kjv-educator-worktrees\personal-note-conflict`, `develop/2026-07-13-first-login-onboarding` |
 | 웹 주요 진입점 | `apps/web/src/components/kjv-mvp-app.tsx` |
 | 모바일 주요 진입점 | `apps/mobile/App.tsx` |
 | 공통 도메인 | `packages/shared` |
 | 원격 저장소 | Supabase Auth, Postgres, Storage, RLS |
 
-온보딩 기능 커밋 `d7646ffb`는 현재 `develop/2026-07-13-first-login-onboarding@45a99d7d`의 조상이다. 기능과 UI/UX 아키텍처 문서의 개발 브랜치 통합은 완료되었으며, 다음 게이트는 원격 migration/RLS 검증과 릴리즈 통합이다.
+웹 개편 Shell과 Reader/Notes V2는 기본 활성화하며, 긴급 rollback은 각 `NEXT_PUBLIC_*_V2=false` 환경 변수로 명시한다.
+
+온보딩 기능 커밋 `d7646ffb`는 현재 개발 브랜치의 조상이다. P0 원격 migration/RLS, P2 AppShell, P3 Reader, P4 Notes의 구현 묶음은 개발 브랜치에 누적되어 있으며 다음 큰 화면 단계는 P5 Dictionary/Search/Library다. 실제 Android/iOS 검증과 릴리즈 통합은 P7 게이트에서 수행한다.
 
 ### 2.2 포함 범위
 
@@ -160,6 +162,7 @@ flowchart LR
 ### 7.1 웹 태스크
 
 - [x] `WebAppShell`과 route content slot을 추가한다.
+- [x] 일반 웹 개발 실행에서 V2 Shell을 기본 활성화하고 명시적 `false` rollback을 유지한다.
 - [x] `1024px` 이상 고정 sidebar, `768~1023px` 접힘 sidebar를 구현한다.
 - [x] `767px` 이하에서 모바일형 하단 탐색으로 전환한다.
 - [x] `오늘 / 성경 / 공부 / 보관함 / 설정` 정보 구조를 적용한다.
@@ -266,15 +269,15 @@ flowchart LR
 
 - [ ] `StudyNote` legacy read adapter와 `PersonalNote` write 정책을 고정한다.
 - [ ] 리더의 구절/장 노트 action을 하나의 `노트` action으로 통합한다.
-- [ ] 웹 list `300px` + editor + inspector 구조를 구현한다.
+- [x] 웹 list `300px` + editor + inspector 구조를 구현한다.
 - [x] 모바일 Note List와 Note Editor를 별도 stack screen으로 분리한다.
 - [x] rich-text toolbar를 모바일 keyboard 위에 고정한다.
 - [x] 기본 toolbar와 더보기 toolbar의 도구를 분리한다.
-- [ ] verse autocomplete의 `#창`, `#창 1:10` 흐름을 유지한다.
+- [x] verse autocomplete의 `#창`, `#창 1:10` 흐름을 유지한다.
 - [x] local draft와 remote save 상태를 editor header에 표시한다.
 - [x] revision conflict 상태와 `서버 버전 사용`/`내 초안 유지` action을 editor header에 표시한다.
-- [ ] template 선택을 새 노트 생성 단계로 이동한다.
-- [ ] revision, backlink, linked verse를 inspector/sheet로 이동한다.
+- [x] 웹 template 선택을 새 노트 생성 단계로 이동한다.
+- [x] 웹 revision, backlink, linked verse를 inspector로 이동한다.
 - [ ] 노트에서 Reader로 돌아갈 때 verse anchor를 복원한다.
 - [x] note body가 toast, log, URL에 노출되지 않는지 검증한다.
 

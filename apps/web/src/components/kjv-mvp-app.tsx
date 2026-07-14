@@ -6,6 +6,7 @@ import {
   BookOpen,
   CalendarDays,
   CheckCircle2,
+  ChevronLeft,
   ChevronDown,
   Command,
   Copy,
@@ -19,6 +20,7 @@ import {
   LogOut,
   Moon,
   Pause,
+  PanelRight,
   Play,
   RotateCcw,
   Search,
@@ -61,6 +63,7 @@ import {
 } from "@/lib/auth/local-user-data-migration";
 import { TranslationFeedbackForm } from "@/components/feedback/translation-feedback-form";
 import { PersonalNoteRichTextEditor } from "@/components/personal-note-rich-text-editor";
+import { PersonalNoteCreationDialog } from "@/components/personal-note-creation-dialog";
 import { ReaderHeader, type ReaderTranslationMode } from "@/components/reader-header";
 import { ReaderVerseActions, type ReaderContextTab } from "@/components/reader-verse-actions";
 import { ReaderVerseRow } from "@/components/reader-verse-row";
@@ -278,18 +281,6 @@ function formatReference(verse: Verse) {
 
 function getVerseKey(verse: Verse) {
   return verse.verseKey ?? verse.id;
-}
-
-function markdownLiteToText(value: string) {
-  return value
-    .replace(/^#{1,3}\s+/gm, "")
-    .replace(/\*\*([^*]+)\*\*/g, "$1")
-    .replace(/\*([^*]+)\*/g, "$1")
-    .replace(/^- \[[ x]\]\s+/gim, "")
-    .replace(/^[->] ?/gm, "")
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 function mergeById<T extends { id: string }>(remote: T[], local: T[]) {
@@ -609,6 +600,9 @@ export function KjvMvpApp({
   const [personalNoteConflict, setPersonalNoteConflict] = useState<PersonalNote | null>(null);
   const [selectedVerseNoteReferences, setSelectedVerseNoteReferences] = useState<VerseNoteSummary[]>([]);
   const [personalTemplateName, setPersonalTemplateName] = useState("");
+  const [pendingPersonalNoteVerses, setPendingPersonalNoteVerses] = useState<Verse[] | null>(null);
+  const [isPersonalNoteInspectorOpen, setIsPersonalNoteInspectorOpen] = useState(true);
+  const [personalNoteMobilePane, setPersonalNoteMobilePane] = useState<"list" | "editor">("list");
   const [dictionaryQuery, setDictionaryQuery] = useState("");
   const [dictionaryAlphabet, setDictionaryAlphabet] = useState("all");
   const [dictionaryTheme, setDictionaryTheme] = useState("all");
@@ -2397,17 +2391,25 @@ export function KjvMvpApp({
     };
   }
 
-  function createPersonalNoteFromVerses(verses: Verse[], body = "") {
+  function createPersonalNoteFromVerses(
+    verses: Verse[],
+    body = "",
+    initialDocument?: PersonalNoteDocument,
+    titleHint?: string,
+  ) {
     const now = new Date().toISOString();
     const firstVerse = verses[0];
-    const title = firstVerse ? `${formatReference(firstVerse)} 노트` : "새 성경노트";
-    const bodyDocument = markdownLiteToPersonalNoteDocument(body);
+    const title = firstVerse ? `${formatReference(firstVerse)} 노트` : titleHint || "새 성경노트";
+    const bodyDocument = initialDocument
+      ? normalizePersonalNoteDocument(initialDocument)
+      : markdownLiteToPersonalNoteDocument(body);
+    const bodyMarkdown = personalNoteDocumentToMarkdown(bodyDocument);
     const note: PersonalNote = {
       id: createId("personal-note"),
       userId: user.id,
       title,
-      bodyMarkdown: body,
-      bodyText: markdownLiteToText(body),
+      bodyMarkdown,
+      bodyText: personalNoteDocumentToText(bodyDocument),
       bodyDocument,
       editorFormat: "rich-text-v1",
       status: "active",
@@ -2425,6 +2427,7 @@ export function KjvMvpApp({
       personalNoteVerseLinks: [...links, ...current.personalNoteVerseLinks],
     }));
     setSelectedPersonalNoteId(note.id);
+    setPersonalNoteMobilePane("editor");
     setActiveView("notes");
     setPersonalNoteSaveStatus("새 노트 생성됨");
     void postPersonalNoteToServer(note, links)
@@ -2437,7 +2440,12 @@ export function KjvMvpApp({
   }
 
   function createBlankPersonalNote() {
-    createPersonalNoteFromVerses([]);
+    setPendingPersonalNoteVerses([]);
+  }
+
+  function completePersonalNoteCreation(selection: { title: string; document?: PersonalNoteDocument }) {
+    createPersonalNoteFromVerses(pendingPersonalNoteVerses ?? [], "", selection.document, selection.title);
+    setPendingPersonalNoteVerses(null);
   }
 
   function savePersonalNote() {
@@ -2518,7 +2526,7 @@ export function KjvMvpApp({
 
   function addSelectedVerseToNewPersonalNote() {
     const verses = selectedVerses.length ? selectedVerses : selectedVerse ? [selectedVerse] : [];
-    createPersonalNoteFromVerses(verses);
+    setPendingPersonalNoteVerses(verses);
   }
 
   function appendSelectedVersesToPersonalNote(noteId: string) {
@@ -4492,12 +4500,17 @@ export function KjvMvpApp({
         ) : null}
 
         {activeView === "notes" ? (
-          <section className="panel wide-panel">
+          <section className="panel wide-panel note-workspace-panel">
             <div className="panel-heading">
               <span>성경노트</span>
               <StickyNote size={18} />
             </div>
-            <div className={personalNoteFocusMode ? "note-workspace focus-mode" : "note-workspace"}>
+            <div className={[
+              "note-workspace",
+              personalNoteFocusMode ? "focus-mode" : "",
+              selectedPersonalNote && isPersonalNoteInspectorOpen ? "has-inspector" : "",
+              personalNoteMobilePane === "list" ? "mobile-list-mode" : "mobile-editor-mode",
+            ].filter(Boolean).join(" ")}>
               <aside className="note-list-pane">
                 <div className="filter-row">
                   <label>
@@ -4542,7 +4555,10 @@ export function KjvMvpApp({
                         className={selectedPersonalNote?.id === note.id ? "plain-list-button active" : "plain-list-button"}
                         key={note.id}
                         type="button"
-                        onClick={() => setSelectedPersonalNoteId(note.id)}
+                        onClick={() => {
+                          setSelectedPersonalNoteId(note.id);
+                          setPersonalNoteMobilePane("editor");
+                        }}
                       >
                         <span>{note.title}</span>
                         <small>
@@ -4557,6 +4573,10 @@ export function KjvMvpApp({
               <section className="note-editor-pane">
                 {selectedPersonalNote ? (
                   <>
+                    <button className="note-mobile-list-back" onClick={() => setPersonalNoteMobilePane("list")} type="button">
+                      <ChevronLeft size={17} />
+                      노트 목록
+                    </button>
                     <div className="note-editor-head">
                       <label>
                         제목
@@ -4570,21 +4590,16 @@ export function KjvMvpApp({
                           placeholder="창조, 묵상"
                         />
                       </label>
-                    </div>
-                    <div className="linked-verse-strip">
-                      {(personalNoteLinksByNote.get(selectedPersonalNote.id) ?? []).map((link) => (
-                        <span className="chip chip-ink note-link-chip" key={link.id}>
-                          <button type="button" onClick={() => openChapter(link.bookId, link.chapter, link.verse)}>
-                            {formatHebrewDictionaryReference({ appBookId: link.bookId, chapter: link.chapter, verse: link.verse })}
-                          </button>
-                          <button aria-label="연결 구절 제거" onClick={() => removePersonalNoteVerseLink(link.id)} title="연결 구절 제거" type="button"><X size={13} /></button>
-                        </span>
-                      ))}
-                      {selectedVerse ? (
-                        <button className="small-button" type="button" onClick={() => appendSelectedVersesToPersonalNote(selectedPersonalNote.id)}>
-                          선택 구절 연결
-                        </button>
-                      ) : null}
+                      <button
+                        aria-label={isPersonalNoteInspectorOpen ? "노트 정보 닫기" : "노트 정보 열기"}
+                        aria-pressed={isPersonalNoteInspectorOpen}
+                        className="icon-button note-inspector-toggle"
+                        onClick={() => setIsPersonalNoteInspectorOpen((current) => !current)}
+                        title={isPersonalNoteInspectorOpen ? "노트 정보 닫기" : "노트 정보 열기"}
+                        type="button"
+                      >
+                        <PanelRight size={18} />
+                      </button>
                     </div>
                     <PersonalNoteRichTextEditor
                       focusMode={personalNoteFocusMode}
@@ -4626,34 +4641,6 @@ export function KjvMvpApp({
                         </div>
                       </div>
                     ) : null}
-                    <div className="note-workspace-tools">
-                      <section>
-                        <strong>내 템플릿</strong>
-                        <div className="note-template-create">
-                          <input onChange={(event) => setPersonalTemplateName(event.target.value)} placeholder="템플릿 이름" value={personalTemplateName} />
-                          <button className="small-button" onClick={() => void saveCurrentNoteAsTemplate()} type="button">현재 노트 저장</button>
-                        </div>
-                        {userData.personalNoteTemplates.slice(0, 6).map((template) => (
-                          <button className="plain-list-button" key={template.id} onClick={() => setPersonalNoteDocumentDraft(template.bodyDocument)} type="button">
-                            <span>{template.name}</span><small>{template.description}</small>
-                          </button>
-                        ))}
-                      </section>
-                      <section>
-                        <strong>버전 기록</strong>
-                        {selectedPersonalNoteRevisions.length ? selectedPersonalNoteRevisions.map((revision) => (
-                          <button className="plain-list-button" key={revision.id} onClick={() => void restorePersonalNoteRevision(revision.revision)} type="button">
-                            <span>버전 {revision.revision}</span><small>{formatDate(revision.createdAt)} · {revision.snapshotReason}</small>
-                          </button>
-                        )) : <small>저장된 이전 버전이 없습니다.</small>}
-                      </section>
-                      <section>
-                        <strong>이 노트를 참조하는 노트</strong>
-                        {selectedPersonalNoteBacklinks.length ? selectedPersonalNoteBacklinks.map((note) => (
-                          <button className="plain-list-button" key={note.id} onClick={() => setSelectedPersonalNoteId(note.id)} type="button"><span>{note.title}</span><small>{note.bodyText.slice(0, 90)}</small></button>
-                        )) : <small>역링크가 없습니다.</small>}
-                      </section>
-                    </div>
                     <div className="modal-actions">
                       <span className="save-status">{personalNoteSaveStatus || (selectedPersonalNote.lastSavedAt ? `마지막 저장 ${formatDate(selectedPersonalNote.lastSavedAt)}` : "")}</span>
                       {selectedPersonalNote.status === "archived" ? (
@@ -4673,6 +4660,73 @@ export function KjvMvpApp({
                   </div>
                 )}
               </section>
+              {selectedPersonalNote && isPersonalNoteInspectorOpen ? (
+                <aside aria-label="노트 정보" className="note-inspector-pane">
+                  <div className="note-inspector-heading">
+                    <div>
+                      <span className="eyebrow">노트 정보</span>
+                      <strong>연결과 기록</strong>
+                    </div>
+                    <button aria-label="노트 정보 닫기" className="icon-button" onClick={() => setIsPersonalNoteInspectorOpen(false)} type="button">
+                      <X size={17} />
+                    </button>
+                  </div>
+
+                  <section className="note-inspector-section">
+                    <div className="note-inspector-section__heading">
+                      <strong>연결 구절</strong>
+                      <span>{(personalNoteLinksByNote.get(selectedPersonalNote.id) ?? []).length}</span>
+                    </div>
+                    <div className="linked-verse-strip">
+                      {(personalNoteLinksByNote.get(selectedPersonalNote.id) ?? []).map((link) => (
+                        <span className="chip chip-ink note-link-chip" key={link.id}>
+                          <button type="button" onClick={() => openChapter(link.bookId, link.chapter, link.verse)}>
+                            {formatHebrewDictionaryReference({ appBookId: link.bookId, chapter: link.chapter, verse: link.verse })}
+                          </button>
+                          <button aria-label="연결 구절 제거" onClick={() => removePersonalNoteVerseLink(link.id)} title="연결 구절 제거" type="button"><X size={13} /></button>
+                        </span>
+                      ))}
+                    </div>
+                    {selectedVerse ? (
+                      <button className="small-button" type="button" onClick={() => appendSelectedVersesToPersonalNote(selectedPersonalNote.id)}>
+                        선택 구절 연결
+                      </button>
+                    ) : null}
+                    {!(personalNoteLinksByNote.get(selectedPersonalNote.id) ?? []).length ? <small>본문에서 구절을 선택하거나 편집기에 #구절을 입력하세요.</small> : null}
+                  </section>
+
+                  <details className="note-inspector-section" open>
+                    <summary>버전 기록 <span>{selectedPersonalNoteRevisions.length}</span></summary>
+                    <div className="note-inspector-list">
+                      {selectedPersonalNoteRevisions.length ? selectedPersonalNoteRevisions.map((revision) => (
+                        <button className="plain-list-button" key={revision.id} onClick={() => void restorePersonalNoteRevision(revision.revision)} type="button">
+                          <span>버전 {revision.revision}</span><small>{formatDate(revision.createdAt)} · {revision.snapshotReason}</small>
+                        </button>
+                      )) : <small>저장된 이전 버전이 없습니다.</small>}
+                    </div>
+                  </details>
+
+                  <details className="note-inspector-section">
+                    <summary>역링크 <span>{selectedPersonalNoteBacklinks.length}</span></summary>
+                    <div className="note-inspector-list">
+                      {selectedPersonalNoteBacklinks.length ? selectedPersonalNoteBacklinks.map((note) => (
+                        <button className="plain-list-button" key={note.id} onClick={() => setSelectedPersonalNoteId(note.id)} type="button">
+                          <span>{note.title}</span><small>{note.bodyText.slice(0, 90)}</small>
+                        </button>
+                      )) : <small>이 노트를 참조하는 노트가 없습니다.</small>}
+                    </div>
+                  </details>
+
+                  <details className="note-inspector-section">
+                    <summary>내 템플릿</summary>
+                    <div className="note-template-create">
+                      <input aria-label="새 템플릿 이름" onChange={(event) => setPersonalTemplateName(event.target.value)} placeholder="템플릿 이름" value={personalTemplateName} />
+                      <button className="small-button" onClick={() => void saveCurrentNoteAsTemplate()} type="button">현재 노트 저장</button>
+                    </div>
+                    <small>저장한 템플릿은 다음 새 노트 생성 시 선택할 수 있습니다.</small>
+                  </details>
+                </aside>
+              ) : null}
             </div>
           </section>
         ) : null}
@@ -5103,6 +5157,15 @@ export function KjvMvpApp({
           <span>설정</span>
         </button>
       </nav> : null}
+
+      {pendingPersonalNoteVerses ? (
+        <PersonalNoteCreationDialog
+          linkedVerseCount={pendingPersonalNoteVerses.length}
+          onClose={() => setPendingPersonalNoteVerses(null)}
+          onCreate={completePersonalNoteCreation}
+          personalTemplates={userData.personalNoteTemplates}
+        />
+      ) : null}
 
       {isChapterPickerOpen ? (
         <div className="modal-backdrop chapter-picker-backdrop" role="presentation">

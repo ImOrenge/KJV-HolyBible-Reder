@@ -15,7 +15,6 @@ import {
   AlignRight,
   Bold,
   BookOpen,
-  Eraser,
   Highlighter,
   Italic,
   List,
@@ -33,7 +32,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, 
 
 import {
   PERSONAL_NOTE_DOCUMENT_VERSION,
-  builtInPersonalNoteTemplates,
   findVerseReferenceTrigger,
   type PersonalNoteDocument,
   type PersonalNoteVerseLink,
@@ -363,12 +361,6 @@ export function PersonalNoteRichTextEditor(props: PersonalNoteRichTextEditorProp
           <ToolbarButton active={editor.isActive("taskList")} label="체크리스트" onClick={() => editor.chain().focus().toggleTaskList().run()}><ListChecks size={17} /></ToolbarButton>
         </div>
         <ToolbarButton label={props.focusMode ? "집중 모드 종료" : "집중 모드"} onClick={() => props.onFocusModeChange(!props.focusMode)}>{props.focusMode ? <Minimize2 size={17} /> : <Maximize2 size={17} />}</ToolbarButton>
-      </div>
-
-      <div className="f-personal-note-editor__template-row">
-        <Eraser size={15} />
-        <span>템플릿</span>
-        {builtInPersonalNoteTemplates.map((template) => <button key={template.id} onClick={() => editor.commands.setContent(template.document)} title={template.description} type="button">{template.name}</button>)}
       </div>
 
       <EditorContent editor={editor} />

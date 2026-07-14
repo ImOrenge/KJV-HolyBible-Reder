@@ -40,6 +40,9 @@
 - [ ] 데스크톱 내비게이션에서 노트 화면 진입점을 추가한다.
 - [ ] 모바일 진입점을 빠른이동 또는 공부 영역에 추가한다.
 - [ ] `PersonalNotesView` 컴포넌트를 만든다.
+- [x] 웹 `300px 목록 + 편집기 + 300px 인스펙터` 작업공간을 구현한다.
+- [x] 웹 `PersonalNoteCreationDialog`에서 빈 노트, 기본 템플릿, 내 템플릿을 선택한다.
+- [x] 웹 900px 이하에서 노트 목록과 편집기를 분리하고 목록 복귀 동작을 구현한다.
 - [x] `PersonalNoteListScreen` 컴포넌트를 만든다.
 - [x] `PersonalNoteEditorScreen` 컴포넌트를 만든다.
 - [x] `PersonalNoteRichTextEditor`에 compact primary/advanced toolbar를 구현한다.
@@ -56,6 +59,8 @@
 - [x] local draft debounce 저장을 구현한다.
 - [x] revision conflict와 서버 버전/내 초안 해결 흐름을 구현한다.
 - [x] 새 노트 생성 흐름을 구현한다.
+- [x] 템플릿 적용을 편집기 상시 도구에서 새 노트 생성 단계로 이동한다.
+- [x] 웹 revision, backlink, linked verse를 inspector로 이동한다.
 - [x] 노트 삭제 흐름을 구현한다.
 
 ### 완료 기준

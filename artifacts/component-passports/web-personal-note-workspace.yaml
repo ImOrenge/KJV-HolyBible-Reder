@@ -1,0 +1,38 @@
+component:
+  id: web-personal-note-workspace
+  status: candidate
+  updated_at: 2026-07-14T18:30:00+09:00
+  owner_scope: personal-note-feature
+  source:
+    repo: D:\kjv-educator
+    paths:
+      - apps/web/src/components/kjv-mvp-app.tsx
+      - apps/web/src/components/personal-note-creation-dialog.tsx
+      - apps/web/src/components/personal-note-rich-text-editor.tsx
+      - apps/web/src/app/globals.css
+    route: /app/study/notes
+  classification:
+    kind: screen
+    change_gate: behavioral-style-contract
+  layout:
+    desktop_1440: [list-300, editor-fluid, inspector-300]
+    tablet_1024: [list-300, editor-fluid, inspector-under-editor]
+    compact_900: [list-or-editor, inspector-under-editor]
+  state:
+    parent: [selectedNote, mobilePane, inspectorOpen, pendingCreationVerses]
+    dialog: [templateSelection, linkedVerseCount]
+  behavior:
+    creation: template-selection-before-editor
+    inspector: [linkedVerses, revisions, backlinks, save-as-template]
+    rollback: NEXT_PUBLIC_UI_SHELL_V2=false
+  styling:
+    global_css:
+      file: apps/web/src/app/globals.css
+      namespaces: [note-workspace, note-inspector, f-note-create-dialog]
+    inline_styles_allowed: false
+  accessibility:
+    keyboard: native-controls-dialog-escape-and-focus
+    aria: labeled-dialog-inspector-complementary-and-pressed-toggle
+  validation:
+    required: [typecheck, lint, build, browser-interaction, 1440-1024-390-layout, horizontal-overflow]
+    residual: [authenticated-two-device-save-conflict, screen-reader-manual]

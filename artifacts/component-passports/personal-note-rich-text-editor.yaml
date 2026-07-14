@@ -1,7 +1,7 @@
 component:
   id: personal-note-rich-text-editor
   status: candidate
-  updated_at: 2026-07-12T22:10:00+09:00
+  updated_at: 2026-07-14T18:30:00+09:00
   owner_scope: personal-note-feature
   source:
     repo: D:\kjv-educator
@@ -42,6 +42,9 @@ component:
   state:
     controlled: [document, focusMode]
     local: [referenceQuery, noteQuery, suggestions, activeSuggestion, mobileTextSize, mobileTextAlign]
+  behavior:
+    template_application: new-note-creation-dialog
+    inline_reference_triggers: ["#book", "#book chapter:verse", "[[note title]]"]
   accessibility:
     keyboard: native-toolbar-controls-and-editor
     aria: toolbar-listbox-options-and-labeled-editor

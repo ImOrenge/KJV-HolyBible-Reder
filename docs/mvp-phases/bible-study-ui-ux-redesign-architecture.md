@@ -23,20 +23,21 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 
 ### 1.1 구현 상태
 
-2026-07-14 기준 P0, P1 일부, P2 AppShell 전환, P3 Reader 표시 계층과 P4 모바일 Notes 작업 공간의 첫 묶음이 개발 브랜치에 구현되어 있다.
+2026-07-14 기준 P0, P1 일부, P2 AppShell 전환, P3 Reader 표시 계층과 P4 웹·모바일 Notes 작업 공간의 첫 묶음이 개발 브랜치에 구현되어 있다.
 
 | 영역 | 현재 구현 | 다음 경계 |
 | --- | --- | --- |
 | 공통 계약 | `StudyContext`, semantic token, feature flag, 목표/legacy route mapping, Reader route parser, 개인정보 제외 navigation event allowlist, 모바일 route serializer/stack transition | safe-area/elevation token |
-| 웹 Shell | `uiShellV2` flag 아래 232/72px sidebar, top bar, account slot, 명령 검색, 5영역 모바일 nav | sync/TTS slot |
+| 웹 Shell | 기본 활성화된 `uiShellV2` 아래 232/72px sidebar, top bar, account slot, 명령 검색, 5영역 모바일 nav. `NEXT_PUBLIC_UI_SHELL_V2=false`로 legacy rollback | sync/TTS slot |
 | 웹 legacy adapter | 기존 `KjvMvpApp`을 controlled `activeView`로 열고 `/app/...` history 및 Reader 권·장·절 deep link와 연결 | 화면별 feature component 교체 |
 | 웹 Reader V2 | `readerV2` flag 아래 ReaderHeader/VerseRow/VerseActions, 3-pane, 태블릿 sheet, 모바일 action sheet | ReaderScreen data orchestration과 자동 회귀 테스트 |
+| 웹 Notes V4 | `300px list + editor + 300px inspector`, 생성 단계 template dialog, 900px 이하 목록/편집 분리, revision/backlink/linked verse inspector | feature component 추출, Reader verse anchor 복귀 자동 검증 |
 | 모바일 Shell | `uiShellV2` flag 아래 `오늘/성경/공부/보관함/설정` 5탭, custom route stack adapter, header 명령 검색, Android hardware back | Expo Router 전환, iOS swipe back, screen별 컴포넌트 분리 |
 | 모바일 Reader V2 | `readerV2` flag 아래 native ReaderHeader/VerseRow/VerseActionsSheet, EN/KR/동시 보기, long press 다중 선택, keyboard 회피와 2단계 snap, 전용 Reader controller/TTS hook, route/context 복귀 | Android/iOS 실기기 검증 |
 | 모바일 Notes V4 | 목록/편집기 stack 분리, compact keyboard toolbar, 사용자·노트별 AsyncStorage draft 복구, versioned remote save와 conflict 해결 band | revision/backlink inspector sheet, 장기 offline queue, 실기기 검증 |
 | 검증 | typecheck, lint, build, Expo Doctor, 구조/스타일 검사, 320/390/768/1024/1440px 웹 smoke, Expo Reader V2 390px interaction smoke | 실제 Android/iOS 검증 |
 
-이 상태는 P2 완료를 뜻하지 않는다. Reader data orchestration, Notes inspector/keyboard toolbar, Dictionary Detail을 독립 screen/pane 책임으로 분리하기 전까지 기존 대형 컴포넌트는 legacy adapter 안에서 유지한다.
+이 상태는 전체 개편 완료를 뜻하지 않는다. Reader data orchestration, 웹 Notes feature component, 모바일 Notes inspector sheet, Dictionary Detail을 독립 screen/pane 책임으로 분리하기 전까지 기존 대형 컴포넌트는 legacy adapter 안에서 유지한다.
 
 관련 문서:
 
@@ -194,6 +195,7 @@ Sidebar 계약:
 - account와 설정은 sidebar 하단에 고정
 - active 항목은 색상뿐 아니라 indicator와 `aria-current`로 표현
 - 항목 수가 늘어나도 두 줄로 감기지 않음
+- 개편 브랜치와 일반 개발 실행에서는 V2 Shell을 기본으로 사용하고 `NEXT_PUBLIC_UI_SHELL_V2=false`를 명시한 경우에만 legacy 상단 tab으로 rollback
 
 ## 5. 탐색과 URL 계약
 
@@ -474,6 +476,8 @@ Secondary actions:
 - list에는 검색, 고정, 최근, 태그, 권 필터만 둔다.
 - template은 새 노트 생성 dialog에서 선택한다.
 - revision과 backlink는 editor 하단 고정 영역이 아니라 inspector tab으로 이동한다.
+- `1440px`에서는 3영역을 동시에 표시하고 `1024px`에서는 list/editor 2열 아래 inspector를 배치한다.
+- `900px` 이하에서는 list와 editor를 동시에 표시하지 않고 editor 상단의 `노트 목록`으로 복귀한다.
 
 #### 모바일
 
@@ -783,7 +787,7 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 
 ### Phase UX-01: App Shell과 Navigation
 
-- [ ] 웹 sidebar와 top bar를 구현한다.
+- [x] 웹 sidebar와 top bar를 구현하고 V2 Shell을 기본 활성화한다.
 - [x] 모바일 5개 bottom tab을 구현한다.
 - [x] global search/command entry를 shell에 추가한다.
 - [x] browser/Android back과 return target을 연결한다.
@@ -807,9 +811,9 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 ### Phase UX-03: Notes 개편
 
 - [x] 모바일 note list와 editor를 별도 screen으로 분리한다.
-- [ ] 웹 note list/editor/inspector 구조를 구현한다.
+- [x] 웹 note list/editor/inspector 구조와 900px 이하 list/editor 분리를 구현한다.
 - [ ] 구절 노트, 장 노트, 성경노트 표시 개념을 통합한다.
-- [ ] template 선택을 note 생성 단계로 이동한다.
+- [x] 웹 template 선택을 note 생성 단계로 이동한다.
 - [x] 모바일 toolbar를 keyboard 위 compact toolbar로 전환한다.
 - [x] 리더 복귀 문맥과 local draft를 검증한다.
 

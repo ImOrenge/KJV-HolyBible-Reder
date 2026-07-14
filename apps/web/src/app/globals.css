@@ -1699,7 +1699,29 @@ kbd {
   font-weight: 700;
 }
 
-.note-workspace,
+.note-workspace {
+  display: grid;
+  gap: 14px;
+  grid-template-areas: "list editor";
+  grid-template-columns: minmax(260px, 300px) minmax(480px, 1fr);
+}
+
+.note-workspace-panel {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+.note-workspace-panel > .panel-heading {
+  padding-inline: 2px;
+}
+
+.note-workspace.has-inspector {
+  grid-template-areas: "list editor inspector";
+  grid-template-columns: minmax(260px, 300px) minmax(480px, 1fr) minmax(260px, 300px);
+}
+
 .dictionary-layout {
   display: grid;
   gap: 14px;
@@ -1708,6 +1730,7 @@ kbd {
 
 .note-list-pane,
 .note-editor-pane,
+.note-inspector-pane,
 .dictionary-list-pane,
 .dictionary-detail-pane {
   border: 1px solid var(--line);
@@ -1715,6 +1738,25 @@ kbd {
   display: grid;
   gap: 12px;
   padding: 14px;
+}
+
+.note-list-pane {
+  align-content: start;
+  align-self: start;
+  grid-area: list;
+}
+
+.note-editor-pane {
+  grid-area: editor;
+}
+
+.note-inspector-pane {
+  align-content: start;
+  grid-area: inspector;
+  max-height: calc(100dvh - 160px);
+  overflow-y: auto;
+  position: sticky;
+  top: 84px;
 }
 
 .note-list {
@@ -1730,7 +1772,25 @@ kbd {
 .note-editor-head {
   display: grid;
   gap: 10px;
-  grid-template-columns: minmax(0, 1fr) minmax(180px, 0.45fr);
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 0.45fr) auto;
+}
+
+.note-inspector-toggle {
+  align-self: end;
+  margin-bottom: 1px;
+}
+
+.note-mobile-list-back {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  display: none;
+  font-weight: 800;
+  gap: 5px;
+  justify-self: start;
+  min-height: 40px;
+  padding: 0;
 }
 
 .linked-verse-strip,
@@ -1799,8 +1859,6 @@ kbd {
 }
 
 .verse-note-backlinks,
-.note-workspace-tools,
-.note-workspace-tools section,
 .note-conflict-banner {
   display: grid;
   gap: 8px;
@@ -1823,20 +1881,58 @@ kbd {
 }
 
 .verse-note-backlinks small,
-.note-workspace-tools small,
 .note-conflict-banner span {
   color: var(--muted);
 }
 
-.note-workspace-tools {
+.note-inspector-heading,
+.note-inspector-section__heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.note-inspector-heading > div {
+  display: grid;
+  gap: 3px;
+}
+
+.note-inspector-section {
   border-top: 1px solid var(--line);
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: grid;
+  gap: 9px;
   padding-top: 12px;
 }
 
-.note-workspace-tools section {
-  align-content: start;
+.note-inspector-section > summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  font-weight: 800;
+  justify-content: space-between;
+  list-style: none;
+}
+
+.note-inspector-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+.note-inspector-section > summary span,
+.note-inspector-section__heading span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.note-inspector-list {
+  display: grid;
+  gap: 7px;
   min-width: 0;
+}
+
+.note-inspector-section small,
+.note-inspector-list small {
+  color: var(--muted);
+  line-height: 1.45;
 }
 
 .note-template-create input {
@@ -1848,6 +1944,63 @@ kbd {
   background: color-mix(in srgb, var(--accent-3) 13%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--accent-3) 55%, var(--line));
   padding: 12px;
+}
+
+.f-note-create-dialog {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 18px;
+  max-height: min(760px, calc(100dvh - 32px));
+  max-width: 680px;
+  overflow-y: auto;
+  padding: 20px;
+  width: min(680px, calc(100% - 24px));
+}
+
+.f-note-create-dialog__description {
+  color: var(--muted);
+  margin: 0;
+}
+
+.f-note-create-dialog__section,
+.f-note-create-dialog__options {
+  display: grid;
+  gap: 8px;
+}
+
+.f-note-create-dialog__options {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.f-note-create-dialog__option {
+  align-items: start;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 22px minmax(0, 1fr);
+  min-height: 72px;
+  padding: 12px;
+  text-align: left;
+}
+
+.f-note-create-dialog__option:hover,
+.f-note-create-dialog__option:focus-visible {
+  border-color: var(--accent);
+}
+
+.f-note-create-dialog__option span {
+  display: grid;
+  gap: 4px;
+}
+
+.f-note-create-dialog__option small {
+  color: var(--muted);
+  line-height: 1.4;
 }
 
 .f-personal-note-editor {
@@ -1952,23 +2105,6 @@ kbd {
 .f-personal-note-editor__swatches button[data-highlight="rose"] { background: #f8ccd4; }
 .f-personal-note-editor__swatches button[data-highlight="lavender"] { background: #e2d6f5; }
 
-.f-personal-note-editor__template-row {
-  align-items: center;
-  color: var(--muted);
-  display: flex;
-  flex-wrap: wrap;
-  font-size: 0.78rem;
-  gap: 6px;
-}
-
-.f-personal-note-editor__template-row button {
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  color: var(--text);
-  min-height: 30px;
-  padding: 0 9px;
-}
-
 .f-personal-note-editor__content {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -2064,10 +2200,12 @@ kbd {
 }
 
 .note-workspace.focus-mode {
+  grid-template-areas: "editor";
   grid-template-columns: minmax(0, 1fr);
 }
 
 .note-workspace.focus-mode .note-list-pane,
+.note-workspace.focus-mode .note-inspector-pane,
 .note-workspace.focus-mode .note-editor-head {
   display: none;
 }
@@ -2100,6 +2238,54 @@ kbd {
   line-height: 1.65;
 }
 
+@media (max-width: 1380px) {
+  .note-workspace.has-inspector {
+    grid-template-areas:
+      "list editor"
+      "list inspector";
+    grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
+  }
+
+  .note-inspector-pane {
+    max-height: none;
+    position: static;
+  }
+}
+
+@media (max-width: 900px) {
+  .note-workspace,
+  .note-workspace.has-inspector {
+    grid-template-areas:
+      "list"
+      "editor"
+      "inspector";
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .note-workspace.mobile-list-mode {
+    grid-template-areas: "list";
+  }
+
+  .note-workspace.mobile-list-mode .note-editor-pane,
+  .note-workspace.mobile-list-mode .note-inspector-pane {
+    display: none;
+  }
+
+  .note-workspace.mobile-editor-mode {
+    grid-template-areas:
+      "editor"
+      "inspector";
+  }
+
+  .note-workspace.mobile-editor-mode .note-list-pane {
+    display: none;
+  }
+
+  .note-mobile-list-back {
+    display: inline-flex;
+  }
+}
+
 @media (max-width: 720px) {
   .f-personal-note-editor__toolbar {
     flex-wrap: nowrap;
@@ -2111,26 +2297,11 @@ kbd {
     flex: 0 0 auto;
   }
 
-  .f-personal-note-editor__template-row {
-    align-items: stretch;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .f-personal-note-editor__template-row button:first-of-type {
-    grid-column: 1 / -1;
-  }
-
-  .f-personal-note-editor__template-row svg,
-  .f-personal-note-editor__template-row span {
-    display: none;
-  }
-
   .f-personal-note-editor__content {
     min-height: 46vh;
   }
 
-  .note-workspace-tools {
+  .f-note-create-dialog__options {
     grid-template-columns: minmax(0, 1fr);
   }
 }
@@ -2140,9 +2311,9 @@ kbd {
   .desktop-nav,
   .mobile-bottom-nav,
   .note-list-pane,
+  .note-inspector-pane,
+  .note-inspector-toggle,
   .f-personal-note-editor__toolbar,
-  .f-personal-note-editor__template-row,
-  .note-workspace-tools,
   .modal-actions,
   .linked-verse-strip,
   .panel-heading {
