@@ -3,7 +3,7 @@
 > 상태: 개편 기준 문서
 > 기준 릴리즈: `main@99226324` (`v0.5.0`)
 > 온보딩 구현 기준: `feat/2026-07-13-first-login-onboarding@d7646ffb`
-> 최종 갱신: 2026-07-13
+> 최종 갱신: 2026-07-14
 
 ## 1. 문서 목적
 
@@ -23,16 +23,16 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 
 ### 1.1 구현 상태
 
-2026-07-13 기준 P0, P1 일부, P2 AppShell 전환과 P3 Reader 표시 계층의 첫 묶음이 개발 브랜치에 구현되어 있다.
+2026-07-14 기준 P0, P1 일부, P2 AppShell 전환과 P3 Reader 표시 계층 및 모바일 문맥 stack의 첫 묶음이 개발 브랜치에 구현되어 있다.
 
 | 영역 | 현재 구현 | 다음 경계 |
 | --- | --- | --- |
-| 공통 계약 | `StudyContext`, semantic token, feature flag, 목표/legacy route mapping, Reader route parser, 개인정보 제외 navigation event allowlist | 모바일 route params와 safe-area/elevation token |
+| 공통 계약 | `StudyContext`, semantic token, feature flag, 목표/legacy route mapping, Reader route parser, 개인정보 제외 navigation event allowlist, 모바일 route serializer/stack transition | safe-area/elevation token |
 | 웹 Shell | `uiShellV2` flag 아래 232/72px sidebar, top bar, account slot, 명령 검색, 5영역 모바일 nav | sync/TTS slot |
 | 웹 legacy adapter | 기존 `KjvMvpApp`을 controlled `activeView`로 열고 `/app/...` history 및 Reader 권·장·절 deep link와 연결 | 화면별 feature component 교체 |
 | 웹 Reader V2 | `readerV2` flag 아래 ReaderHeader/VerseRow/VerseActions, 3-pane, 태블릿 sheet, 모바일 action sheet | ReaderScreen data orchestration과 자동 회귀 테스트 |
-| 모바일 Shell | `uiShellV2` flag 아래 `오늘/성경/공부/보관함/설정` 5탭과 header 명령 검색 | tab/stack router와 Android/iOS 복귀 계약 |
-| 모바일 Reader V2 | `readerV2` flag 아래 native ReaderHeader/VerseRow/VerseActionsSheet, EN/KR/동시 보기, long press 다중 선택, keyboard 회피와 2단계 snap, 전용 Reader controller/TTS hook | route/context 복귀, Android/iOS 실기기 검증 |
+| 모바일 Shell | `uiShellV2` flag 아래 `오늘/성경/공부/보관함/설정` 5탭, custom route stack adapter, header 명령 검색, Android hardware back | Expo Router 전환, iOS swipe back, screen별 컴포넌트 분리 |
+| 모바일 Reader V2 | `readerV2` flag 아래 native ReaderHeader/VerseRow/VerseActionsSheet, EN/KR/동시 보기, long press 다중 선택, keyboard 회피와 2단계 snap, 전용 Reader controller/TTS hook, route/context 복귀 | Android/iOS 실기기 검증 |
 | 검증 | typecheck, lint, build, Expo Doctor, 구조/스타일 검사, 320/390/768/1024/1440px 웹 smoke, Expo Reader V2 390px interaction smoke | 실제 Android/iOS 검증 |
 
 이 상태는 P2 완료를 뜻하지 않는다. Reader, Notes, Dictionary Detail을 독립 screen/pane으로 분리하기 전까지 기존 대형 컴포넌트는 legacy adapter 안에서 유지한다.
@@ -46,6 +46,7 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 - [첫 로그인 온보딩 컴포넌트 패스포트](../../artifacts/component-passports/first-login-onboarding.yaml)
 - [웹 Reader V2 컴포넌트 패스포트](../../artifacts/component-passports/reader-v2-surface.yaml)
 - [모바일 Reader V2 컴포넌트 패스포트](../../artifacts/component-passports/reader-v2-native-surface.yaml)
+- [모바일 공부 내비게이션 컴포넌트 패스포트](../../artifacts/component-passports/mobile-study-navigation.yaml)
 
 ## 2. 현재 구조 진단
 
@@ -56,8 +57,8 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 | 웹 | `apps/web/src/components/kjv-mvp-app.tsx` | 약 5,100줄에 shell, 화면, modal, 데이터 흐름이 집중됨 |
 | 모바일 | `apps/mobile/App.tsx` | 약 6,600줄에 인증, 탭, reader, note, dictionary, modal이 집중됨 |
 | 웹 탐색 | `activeView: ViewKey` 조건부 렌더링 | URL, 브라우저 뒤로 가기, deep link와 분리됨 |
-| 모바일 탐색 | `activeView`와 quick move modal | screen stack과 복귀 문맥이 없음 |
-| 공통 | `packages/shared` 도메인 로직 | UI 문맥과 화면 전환 계약은 아직 공유하지 않음 |
+| 모바일 탐색 | custom route stack이 기존 `activeView` 렌더러를 단방향 adapter로 구동 | 실제 screen 파일 분리와 iOS swipe back이 남음 |
+| 공통 | `packages/shared` 도메인 로직과 `StudyContext`, 모바일 route transition | 플랫폼 navigation API는 각 앱 adapter가 소유함 |
 | 첫 로그인 | 웹 route gate와 모바일 auth-entry gate가 기능 브랜치에 구현됨 | AppShell 개편 전에 프로필 완료 상태와 진입 순서를 고정해야 함 |
 | 사용자 프로필 | private `user_profiles`와 public profile이 분리됨 | 이름, 닉네임, 호칭, 아바타의 공개 범위를 UI에서도 일관되게 표현해야 함 |
 
@@ -224,7 +225,7 @@ Sidebar 계약:
 
 ### 5.2 모바일 route stack
 
-목표 구조는 Expo Router 또는 동등한 React Navigation stack을 사용한다.
+최종 목표는 Expo Router 또는 동등한 React Navigation stack을 사용한다. 전환 단계에서는 `packages/shared/src/mobile-study-navigation.ts`가 route 생성·검증·직렬화·push/pop을, `apps/mobile/src/hooks/use-mobile-study-navigation.ts`가 React state와 Android `BackHandler`를 소유한다. 기존 `activeView` 조건부 렌더러는 이 stack의 active route만 입력받는 호환 adapter로 유지한다.
 
 ```text
 onboarding (authenticated entry gate)
@@ -249,6 +250,15 @@ onboarding (authenticated entry gate)
 - 긴 본문 편집과 상세 정보는 modal로 열지 않는다.
 - Android back, iOS swipe back, 웹 browser back의 결과를 동일하게 정의한다.
 - 온보딩은 tab/stack보다 앞선 auth-entry screen이며 완료 전 임의 dismiss를 허용하지 않는다.
+
+현재 전환 계약:
+
+- tab 선택은 stack을 해당 영역 root 한 개로 초기화한다.
+- 검색, 노트, 사전 상세, 보관함에서 Reader를 열 때 `StudyContext.returnTarget`을 함께 push한다.
+- Reader route는 `bookId/chapter/primaryVerseKey`를 복원하고 `selectedText`는 path/query에 직렬화하지 않는다.
+- Android hardware back과 화면의 이전 버튼은 같은 `popMobileStudyRoute` transition을 사용한다.
+- Expo Web에서는 지원되지 않는 `BackHandler`를 등록하지 않는다.
+- iOS swipe gesture와 프로세스 재시작 후 stack 복원은 Expo Router 전환 단계에서 구현한다.
 
 ## 6. 읽기 문맥 계약
 
@@ -618,6 +628,7 @@ apps/mobile/
 
 - `StudyContext`
 - route/navigation parameter 타입
+- 모바일 route serializer와 순수 stack transition
 - 성경·노트·사전 view model 변환
 - design token 이름과 semantic value
 - 검색 highlight와 reference formatter
@@ -750,7 +761,7 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 - [ ] 현재 주요 흐름의 click 수와 scroll 위치를 기록한다.
 - [x] `StudyContext`, route parameter, semantic token 타입을 정의한다.
 - [ ] 기존 component passport를 새 taxonomy로 분류한다.
-- [ ] `/app`과 모바일 `activeView` 호환 adapter를 설계한다.
+- [x] `/app`과 모바일 `activeView` 호환 adapter를 설계한다.
 - [x] UI 개편 feature flag를 추가한다.
 
 ### Phase UX-00A: 첫 로그인 온보딩 통합
@@ -769,9 +780,10 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 ### Phase UX-01: App Shell과 Navigation
 
 - [ ] 웹 sidebar와 top bar를 구현한다.
-- [ ] 모바일 5개 bottom tab을 구현한다.
-- [ ] global search/command entry를 shell에 추가한다.
-- [ ] browser/mobile back과 return target을 연결한다.
+- [x] 모바일 5개 bottom tab을 구현한다.
+- [x] global search/command entry를 shell에 추가한다.
+- [x] browser/Android back과 return target을 연결한다.
+- [ ] iOS swipe back을 연결한다.
 - [ ] TTS mini player와 sync indicator를 shell slot으로 이동한다.
 - [ ] onboarding 완료 profile을 AppShell account slot의 단일 source로 사용한다.
 
@@ -785,6 +797,7 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 - [x] 원어 context -> dictionary -> Reader return 흐름을 구현한다.
 - [x] chapter/verse route와 context tab 복원을 구현한다.
 - [x] Expo Reader data/selection/scroll/TTS orchestration과 shared 회귀 테스트를 분리한다.
+- [x] Expo Reader와 검색·노트·사전·보관함의 route context push/pop을 연결한다.
 - [ ] 웹 ReaderScreen data orchestration을 `KjvMvpApp`에서 분리한다.
 
 ### Phase UX-03: Notes 개편
@@ -880,6 +893,13 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 이 네 항목은 데이터 모델 변경 없이도 가장 큰 사용성 문제를 해결한다. 이후 `StudyContext`를 기준으로 사전, 검색, 보관함과 오늘 화면을 순차 연결한다.
 
 ## 21. 문서 갱신 이력
+
+### 2026-07-14
+
+- 모바일 route serializer와 custom stack transition, Android hardware back adapter를 현재 구현으로 반영했다.
+- Reader 명령 검색에서 Search를 push하고 이전 버튼으로 같은 Reader context를 복원하는 검증을 추가했다.
+- 사전 출현 구절에서 Reader를 열고 동일 사전 route로 복귀하는 계약을 반영했다.
+- iOS swipe back과 screen별 파일 분리는 다음 경계로 유지했다.
 
 ### 2026-07-13
 

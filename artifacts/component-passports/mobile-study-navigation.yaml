@@ -1,0 +1,54 @@
+component:
+  id: mobile-study-navigation
+  name: Mobile Study Navigation
+  kind: navigation-controller
+  status: verified
+  owner_scope: mobile-app-shell
+  source:
+    shared_model: packages/shared/src/mobile-study-navigation.ts
+    expo_adapter: apps/mobile/src/hooks/use-mobile-study-navigation.ts
+    integration: apps/mobile/App.tsx
+  owns:
+    - mobile tab root route creation and stack reset
+    - validated route creation for Reader, Search, Notes, Dictionary, Library, Progress, and Settings
+    - push, replace, and pop transitions
+    - Reader book, chapter, primary verse, source, return route, and scroll anchor context
+    - Android hardware back integration
+  does_not_own:
+    - feature screen data and remote persistence
+    - private note body or selected verse text
+    - iOS swipe gesture integration
+    - process restart navigation persistence
+  privacy_contract:
+    - selectedText is removed before route serialization
+    - note body is never accepted as a route input
+    - note and dictionary identifiers use a bounded identifier pattern
+  transition_contract:
+    - selecting a primary tab resets the stack to one tab root
+    - opening a secondary study surface pushes a route
+    - the visible back button and Android hardware back use the same pop transition
+    - a Reader route restores book, chapter, and primary verse through the Reader controller
+    - Expo Web does not register React Native BackHandler
+  test_surface:
+    static: [npm run typecheck, npm run structure:mobile]
+    contract: [npm run study-ui:validate]
+    runtime: [npm run browser:reader -- --single=true --port=9352]
+  evidence:
+    - type: contract
+      command: npm run study-ui:validate
+      result: pass
+      findings:
+        - Reader route serializes source, return route, anchor, and verse context
+        - selected text is absent from the route
+        - push, pop, and tab reset preserve the expected active route
+    - type: browser-interaction
+      command: npm run browser:reader -- --single=true --port=9352
+      result: pass
+      findings:
+        - Reader command search opens the Search screen through a stack push
+        - the visible back action restores Genesis 1 Reader context
+        - Reader layout, chapter navigation, context sheet, and selection checks remain green
+  residual_risk:
+    - The current adapter still renders legacy activeView branches instead of independent Expo Router screen files.
+    - iOS swipe back and cold-start stack restoration require a later Expo Router phase.
+    - Android hardware back requires release-device verification.

@@ -13,6 +13,7 @@
     "types": ["node"]
   },
   "include": [
+    "../packages/shared/src/mobile-study-navigation.ts",
     "../packages/shared/src/study-ui.ts",
     "validate-study-context.ts"
   ]

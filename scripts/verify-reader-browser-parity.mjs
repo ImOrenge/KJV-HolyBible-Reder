@@ -616,7 +616,17 @@ function findAccessibilityCenter(label) {
   const target = [...document.querySelectorAll("[aria-label]")].find((el) => {
     const rect = el.getBoundingClientRect();
     const style = getComputedStyle(el);
-    return el.getAttribute("aria-label") === label && rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+    return (
+      el.getAttribute("aria-label") === label &&
+      rect.width > 0 &&
+      rect.height > 0 &&
+      rect.bottom > 0 &&
+      rect.right > 0 &&
+      rect.top < window.innerHeight &&
+      rect.left < window.innerWidth &&
+      style.display !== "none" &&
+      style.visibility !== "hidden"
+    );
   });
   if (!target) {
     return null;
@@ -633,6 +643,17 @@ async function clickAccessibilityLabel(cdp, label) {
   await cdp.send("Input.dispatchMouseEvent", { button: "left", buttons: 1, clickCount: 1, type: "mousePressed", x: center.x, y: center.y });
   await cdp.send("Input.dispatchMouseEvent", { button: "left", buttons: 0, clickCount: 1, type: "mouseReleased", x: center.x, y: center.y });
   return true;
+}
+
+async function scrollAccessibilityLabelIntoView(cdp, label) {
+  return evaluate(cdp, (targetLabel) => {
+    const target = [...document.querySelectorAll("[aria-label]")].find(
+      (element) => element.getAttribute("aria-label") === targetLabel,
+    );
+    if (!target) return false;
+    target.scrollIntoView({ block: "center", inline: "nearest" });
+    return true;
+  }, label);
 }
 
 async function clickFirstVerse(cdp) {
@@ -761,6 +782,72 @@ async function verifyChapterNavigationFlow(cdp, name) {
   return failures;
 }
 
+async function verifyMobileStackFlow(cdp, name) {
+  if (name !== "mobile") return [];
+  const failures = [];
+  await evaluate(cdp, () => {
+    window.scrollTo(0, 0);
+    if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
+    for (const element of document.querySelectorAll("*")) {
+      if (element instanceof HTMLElement && element.scrollHeight > element.clientHeight) {
+        element.scrollTop = 0;
+      }
+    }
+  });
+  await sleep(250);
+  if (!(await clickAccessibilityLabel(cdp, "명령 검색"))) {
+    failures.push(`${name}.stack.command: command button missing`);
+    return failures;
+  }
+  await waitForText(cdp, "빠른 이동", 5_000).catch((error) => {
+    failures.push(`${name}.stack.commandSheet: ${error.message}`);
+  });
+  if (!(await scrollAccessibilityLabelIntoView(cdp, "명령: 검색"))) {
+    failures.push(`${name}.stack.searchPush: search command missing`);
+    return failures;
+  }
+  await sleep(250);
+  if (!(await clickAccessibilityLabel(cdp, "명령: 검색"))) {
+    failures.push(`${name}.stack.searchPush: search command missing`);
+    return failures;
+  }
+  await waitForText(cdp, ["본문 검색", "키워드"], 5_000).catch((error) => {
+    failures.push(`${name}.stack.searchScreen: ${error.message}`);
+  });
+  await evaluate(cdp, () => {
+    window.scrollTo(0, 0);
+    if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
+    for (const element of document.querySelectorAll("*")) {
+      if (element instanceof HTMLElement && element.scrollHeight > element.clientHeight) {
+        element.scrollTop = 0;
+      }
+    }
+  });
+  await sleep(250);
+  if (!(await clickAccessibilityLabel(cdp, "이전 화면"))) {
+    const backButtonDebug = await evaluate(cdp, () =>
+      [...document.querySelectorAll('[aria-label="이전 화면"]')].map((element) => {
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return {
+          display: style.display,
+          height: rect.height,
+          left: rect.left,
+          top: rect.top,
+          visibility: style.visibility,
+          width: rect.width,
+        };
+      }),
+    );
+    failures.push(`${name}.stack.back: back button missing ${JSON.stringify(backButtonDebug)}`);
+    return failures;
+  }
+  await waitForText(cdp, "창세기 1장", 8_000).catch((error) => {
+    failures.push(`${name}.stack.readerRestore: ${error.message}`);
+  });
+  return failures;
+}
+
 async function verifySelectionFlow(cdp, name) {
   const failures = [];
   if (!(await evaluate(cdp, dispatchFirstVersePointer, "down"))) {
@@ -875,9 +962,10 @@ async function verifyReader(cdp, name, threshold) {
   const layoutFailures = verifyReaderLayout(name, metrics, threshold);
   const chapterNavigationFailures = await verifyChapterNavigationFlow(cdp, name);
   const chapterPickerFailures = await verifyChapterPickerFlow(cdp, name, threshold);
+  const stackFailures = await verifyMobileStackFlow(cdp, name);
   const contextFailures = await verifyV2ContextFlow(cdp, name);
   const selectionFailures = await verifySelectionFlow(cdp, name);
-  return { chapterNavigationFailures, chapterPickerFailures, contextFailures, layoutFailures, metrics, name, selectionFailures };
+  return { chapterNavigationFailures, chapterPickerFailures, contextFailures, layoutFailures, metrics, name, selectionFailures, stackFailures };
 }
 
 async function main() {
@@ -920,7 +1008,8 @@ async function main() {
           mobileResult.chapterPickerFailures.length === 0 &&
           mobileResult.contextFailures.length === 0 &&
           mobileResult.layoutFailures.length === 0 &&
-          mobileResult.selectionFailures.length === 0,
+          mobileResult.selectionFailures.length === 0 &&
+          mobileResult.stackFailures.length === 0,
       };
       console.log(JSON.stringify(report, null, 2));
       if (!report.passed) {
@@ -948,11 +1037,13 @@ async function main() {
         webResult.contextFailures.length === 0 &&
         webResult.layoutFailures.length === 0 &&
         webResult.selectionFailures.length === 0 &&
+        webResult.stackFailures.length === 0 &&
         mobileResult.chapterNavigationFailures.length === 0 &&
         mobileResult.chapterPickerFailures.length === 0 &&
         mobileResult.contextFailures.length === 0 &&
         mobileResult.layoutFailures.length === 0 &&
-        mobileResult.selectionFailures.length === 0,
+        mobileResult.selectionFailures.length === 0 &&
+        mobileResult.stackFailures.length === 0,
       web: webResult,
     };
 

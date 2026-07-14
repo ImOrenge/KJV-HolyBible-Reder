@@ -18,6 +18,16 @@ import {
   validateStudyContext,
   type StudyContext,
 } from "../packages/shared/src/study-ui";
+import {
+  canPopMobileStudyRoute,
+  createMobileStudyNavigationState,
+  createMobileStudyRoute,
+  getActiveMobileStudyRoute,
+  getMobileReaderLocation,
+  popMobileStudyRoute,
+  pushMobileStudyRoute,
+  selectMobileStudyTab,
+} from "../packages/shared/src/mobile-study-navigation";
 
 const validContext: StudyContext = {
   source: "reader",
@@ -95,4 +105,44 @@ assert.deepEqual(
 );
 assert.equal("selectedText" in createStudyUiNavigationEvent({ source: "read", destination: "study" }), false);
 
-console.log("study UI contract validation passed: context, routes, event privacy, flags, semantic tokens");
+const mobileReaderRoute = createMobileStudyRoute({
+  view: "reader",
+  context: {
+    source: "search",
+    bookId: "gen",
+    chapter: 1,
+    verseKeys: ["GEN.1.10"],
+    primaryVerseKey: "GEN.1.10",
+    returnTarget: { route: "/search", scrollAnchor: "result-GEN.1.10" },
+  },
+});
+assert.equal(mobileReaderRoute.path, "/read/gen/1?verse=GEN.1.10&source=search&return=%2Fsearch&anchor=result-GEN.1.10");
+assert.equal(mobileReaderRoute.path.includes("selectedText"), false);
+assert.deepEqual(getMobileReaderLocation(mobileReaderRoute), { bookId: "gen", chapter: 1, primaryVerseKey: "GEN.1.10" });
+
+const mobileNoteRoute = createMobileStudyRoute({
+  view: "notes",
+  noteId: "note-1",
+  context: {
+    source: "reader",
+    bookId: "gen",
+    chapter: 1,
+    verseKeys: ["GEN.1.10"],
+    primaryVerseKey: "GEN.1.10",
+    returnTarget: { route: mobileReaderRoute.path, scrollAnchor: "verse-GEN.1.10" },
+  },
+});
+assert.equal(mobileNoteRoute.path.startsWith("/notes/note-1?"), true);
+
+let mobileNavigation = createMobileStudyNavigationState();
+mobileNavigation = pushMobileStudyRoute(mobileNavigation, mobileReaderRoute);
+mobileNavigation = pushMobileStudyRoute(mobileNavigation, mobileNoteRoute);
+assert.equal(getActiveMobileStudyRoute(mobileNavigation).view, "notes");
+assert.equal(canPopMobileStudyRoute(mobileNavigation), true);
+mobileNavigation = popMobileStudyRoute(mobileNavigation);
+assert.equal(getActiveMobileStudyRoute(mobileNavigation).path, mobileReaderRoute.path);
+mobileNavigation = selectMobileStudyTab(mobileNavigation, "library");
+assert.equal(getActiveMobileStudyRoute(mobileNavigation).view, "favorites");
+assert.equal(canPopMobileStudyRoute(mobileNavigation), false);
+
+console.log("study UI contract validation passed: context, web/mobile routes, stack return, event privacy, flags, semantic tokens");

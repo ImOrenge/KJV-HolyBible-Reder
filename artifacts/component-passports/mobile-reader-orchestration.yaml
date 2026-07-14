@@ -9,6 +9,7 @@ component:
     tts: apps/mobile/src/hooks/use-mobile-reader-tts.ts
     shared_model: packages/shared/src/reader-orchestration.ts
     integration: apps/mobile/App.tsx
+    navigation: apps/mobile/src/hooks/use-mobile-study-navigation.ts
   owns:
     - chapter loading and stale request rejection
     - reader entry target and first verse focus
@@ -46,3 +47,4 @@ component:
   residual_risk:
     - The local development fixture has no Genesis 2 verses, so first-verse focus is browser-verified on return to Genesis 1 and contract-tested for arbitrary chapters.
     - Android and iOS device speech and keyboard behavior still require release-device verification.
+    - Reader route restoration is owned by the mobile-study-navigation passport and still needs Android/iOS device verification.

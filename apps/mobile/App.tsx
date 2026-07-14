@@ -14,6 +14,7 @@ import {
   getBooks,
   getChapters,
   getLocalDateKey,
+  getMobileReaderLocation,
   getReadingPlanDay,
   getStudyUiAreaForView,
   getTotalChapterCount,
@@ -55,7 +56,8 @@ import {
   type UserDataState,
   type UserOnboardingProfile,
   type Verse,
-  type StudyUiMobileViewKey,
+  type StudyContextSource,
+  type StudyReturnTarget,
 } from "@kjv/shared";
 import { createClient as createSupabaseClient, type Session, type User } from "@supabase/supabase-js";
 import * as Clipboard from "expo-clipboard";
@@ -86,10 +88,10 @@ import { ReaderVerseActionsSheet } from "./src/components/reader/reader-verse-ac
 import { ReaderVerseRow } from "./src/components/reader/reader-verse-row";
 import { useMobileReaderController } from "./src/hooks/use-mobile-reader-controller";
 import { useMobileReaderTts } from "./src/hooks/use-mobile-reader-tts";
+import { useMobileStudyNavigation } from "./src/hooks/use-mobile-study-navigation";
 import { OnboardingScreen } from "./src/onboarding-screen";
 import { studyUiFeatureFlags } from "./src/study-ui-feature-flags";
 
-type ViewKey = StudyUiMobileViewKey;
 type HomeTab = "today" | "progress" | "activity" | "study";
 type SettingsSectionKey = "account" | "tts" | "text" | "view";
 type SearchSelectKey = "language" | "sort" | "testament" | "book";
@@ -387,7 +389,16 @@ function AppShell() {
   const supabase = useMemo(() => createMobileSupabaseClient(supabaseConfig), [supabaseConfig]);
   const [apiBaseUrl, setApiBaseUrl] = useState(getConfiguredApiBaseUrl);
   const apiClient = useMemo(() => createBibleApiClient({ baseUrl: apiBaseUrl }), [apiBaseUrl]);
-  const [activeView, setActiveView] = useState<ViewKey>("dashboard");
+  const {
+    activeRoute,
+    activeView,
+    canGoBack,
+    goBack,
+    pushStudyRoute,
+    replaceStudyRoute,
+    selectStudyTab,
+    setActiveView,
+  } = useMobileStudyNavigation();
   const [homeTab, setHomeTab] = useState<HomeTab>("today");
   const [isQuickMoveOpen, setIsQuickMoveOpen] = useState(false);
   const [commandQuery, setCommandQuery] = useState("");
@@ -508,6 +519,29 @@ function AppShell() {
     progress: userData.progress,
     setUserData,
   });
+  useEffect(() => {
+    const location = getMobileReaderLocation(activeRoute);
+    if (!location) return;
+    openReaderLocation({
+      bookId: location.bookId,
+      chapter: location.chapter,
+      verseId: location.primaryVerseKey,
+    });
+  }, [activeRoute, openReaderLocation]);
+  useEffect(() => {
+    if (activeView !== "reader") return;
+    if (activeRoute.context?.bookId === bookId && activeRoute.context.chapter === chapter) return;
+    replaceStudyRoute({
+      view: "reader",
+      context: {
+        source: activeRoute.context?.source ?? "reader",
+        bookId,
+        chapter,
+        verseKeys: [],
+        returnTarget: activeRoute.context?.returnTarget ?? { route: activeRoute.path },
+      },
+    });
+  }, [activeRoute, activeView, bookId, chapter, replaceStudyRoute]);
   const currentBook = getBook(bookId) ?? books[0];
   const chapterPickerBook = getBook(chapterPickerBookId) ?? currentBook;
   const knownVerses = useMemo(
@@ -647,6 +681,12 @@ function AppShell() {
         .filter((link) => link.noteId === selectedPersonalNote.id)
         .sort((left, right) => left.linkOrder - right.linkOrder)
     : [];
+  useEffect(() => {
+    if (activeRoute.view === "notes" && activeRoute.noteId) setSelectedPersonalNoteId(activeRoute.noteId);
+    if (activeRoute.view === "dictionary" && activeRoute.dictionaryEntryId) {
+      setSelectedDictionaryEntryId(activeRoute.dictionaryEntryId);
+    }
+  }, [activeRoute.dictionaryEntryId, activeRoute.noteId, activeRoute.view]);
   const activePrimaryArea = activeView === "quickMove" ? null : getStudyUiAreaForView(activeView);
   const filteredHighlights = useMemo(
     () =>
@@ -1108,6 +1148,26 @@ function AppShell() {
     }));
   };
 
+  const openReaderStudyRoute = (
+    location: { bookId: string; chapter: number; verseId?: string | null },
+    source: StudyContextSource,
+    returnTarget: StudyReturnTarget = { route: activeRoute.path },
+  ) => {
+    const primaryVerseKey = location.verseId ? normalizeVerseId(location.verseId) : undefined;
+    openReaderLocation(location);
+    pushStudyRoute({
+      view: "reader",
+      context: {
+        source,
+        bookId: location.bookId,
+        chapter: location.chapter,
+        verseKeys: primaryVerseKey ? [primaryVerseKey] : [],
+        primaryVerseKey,
+        returnTarget,
+      },
+    });
+  };
+
   const openChapterPicker = () => {
     setChapterPickerBookId(bookId);
     setIsChapterPickerBookMenuOpen(false);
@@ -1174,8 +1234,11 @@ function AppShell() {
   }, [executeSearch, query]);
 
   const openVerse = (verse: Verse) => {
-    openReaderLocation({ bookId: verse.bookId, chapter: verse.chapter, verseId: verse.id });
-    setActiveView("reader");
+    openReaderStudyRoute(
+      { bookId: verse.bookId, chapter: verse.chapter, verseId: verse.id },
+      "search",
+      { route: activeRoute.path, scrollAnchor: `result-${normalizeVerseId(verse.id)}` },
+    );
   };
 
   const createFavoriteList = (name: string, now = new Date().toISOString()): FavoriteList => ({
@@ -1592,7 +1655,26 @@ function AppShell() {
     setPersonalNoteTitle(title);
     setPersonalNoteDocument(markdownLiteToPersonalNoteDocument(bodyMarkdown));
     setPersonalNoteTagInput(initial?.tagInput ?? "");
-    setActiveView("notes");
+    const primaryVerseKey = linkedVerses[0] ? normalizeVerseId(linkedVerses[0].id) : undefined;
+    pushStudyRoute({
+      view: "notes",
+      noteId,
+      ...(linkedVerses[0]
+        ? {
+            context: {
+              source: activeView === "reader" ? "reader" : "note",
+              bookId: linkedVerses[0].bookId,
+              chapter: linkedVerses[0].chapter,
+              verseKeys: linkedVerses.map((verse) => normalizeVerseId(verse.id)),
+              primaryVerseKey,
+              returnTarget: {
+                route: activeRoute.path,
+                ...(primaryVerseKey ? { scrollAnchor: `verse-${primaryVerseKey}` } : {}),
+              },
+            },
+          }
+        : {}),
+    });
     setReaderSelectionMode(false);
   };
 
@@ -1906,39 +1988,34 @@ function AppShell() {
       return;
     }
 
-    openReaderLocation(readingPlanTargetChapter);
-    setActiveView("reader");
+    openReaderStudyRoute(readingPlanTargetChapter, "today");
   };
 
   const openFirstIncompleteChapter = (targetBookId: string) => {
     const firstIncompleteChapter = getChapters(targetBookId).find((item) => !completedKeys.has(chapterKey(targetBookId, item)))
       ?? getChapters(targetBookId)[0]
       ?? 1;
-    openReaderLocation({ bookId: targetBookId, chapter: firstIncompleteChapter });
-    setActiveView("reader");
+    openReaderStudyRoute({ bookId: targetBookId, chapter: firstIncompleteChapter }, "today");
   };
 
   const openActivityTarget = (target: { bookId: string; chapter: number; verse?: number }) => {
-    openReaderLocation({
+    openReaderStudyRoute({
       bookId: target.bookId,
       chapter: target.chapter,
       verseId: target.verse ? verseIdFromProgress(target.bookId, target.chapter, target.verse) : null,
-    });
-    setActiveView("reader");
+    }, "today");
   };
 
   const openStudyNote = (note: UserDataState["studyNotes"][number]) => {
-    openReaderLocation({ bookId: note.bookId, chapter: note.chapter, verseId: note.verseId });
+    openReaderStudyRoute({ bookId: note.bookId, chapter: note.chapter, verseId: note.verseId }, "note");
     if (note.scope === "verse" && note.verseId) {
       setNoteDraft(note.note);
       setShowVerseNote(true);
-      setActiveView("reader");
       return;
     }
 
     setChapterNoteDraft(note.note);
     setShowChapterNote(true);
-    setActiveView("reader");
   };
 
   const markReadingPlanDayComplete = () => {
@@ -2231,15 +2308,14 @@ function AppShell() {
       description: userData.progress ? `${getBook(userData.progress.bookId)?.nameKo ?? userData.progress.bookId} ${userData.progress.chapter}장` : "창세기 1장",
       action: () => {
         if (userData.progress) {
-          openReaderLocation({
+          openReaderStudyRoute({
             bookId: userData.progress.bookId,
             chapter: userData.progress.chapter,
             verseId: verseIdFromProgress(userData.progress.bookId, userData.progress.chapter, userData.progress.verse),
-          });
+          }, "today");
         } else {
-          openReaderLocation({ bookId: "gen", chapter: 1 });
+          openReaderStudyRoute({ bookId: "gen", chapter: 1 }, "today");
         }
-        setActiveView("reader");
       },
     },
     {
@@ -2252,14 +2328,14 @@ function AppShell() {
     { label: "홈 · 통독", description: "통독률과 권별 진행", action: () => { setHomeTab("progress"); setActiveView("dashboard"); } },
     { label: "홈 · 활동", description: "최근 읽기와 작업", action: () => { setHomeTab("activity"); setActiveView("dashboard"); } },
     { label: "홈 · 공부", description: "노트, 태그, 인용 요약", action: () => { setHomeTab("study"); setActiveView("dashboard"); } },
-    { label: "성경 리더", description: "본문 읽기", action: () => setActiveView("reader") },
+    { label: "성경 리더", description: "본문 읽기", action: () => openReaderStudyRoute({ bookId, chapter }, "reader") },
     { label: "장 선택", description: `${currentBook.nameKo} ${chapter}장`, action: () => { setActiveView("reader"); openChapterPicker(); } },
     { label: "통독 진척도", description: "권별 진행률", action: () => setActiveView("progress") },
-    { label: "강조 구절", description: "색상별 표시", action: () => setActiveView("highlights") },
-    { label: "인용 보관함", description: "목록과 복사", action: () => setActiveView("favorites") },
-    { label: "검색", description: "KJV 본문 검색", action: () => setActiveView("search") },
-    { label: "성경노트", description: "개인 노트와 구절 링크", action: () => setActiveView("notes") },
-    { label: "히브리어 사전", description: "원어, 발음, 한영 뜻, 출현 구절", action: () => setActiveView("dictionary") },
+    { label: "강조 구절", description: "색상별 표시", action: () => pushStudyRoute({ view: "highlights" }) },
+    { label: "인용 보관함", description: "목록과 복사", action: () => pushStudyRoute({ view: "favorites" }) },
+    { label: "검색", description: "KJV 본문 검색", action: () => pushStudyRoute({ view: "search" }) },
+    { label: "성경노트", description: "개인 노트와 구절 링크", action: () => pushStudyRoute({ view: "notes" }) },
+    { label: "히브리어 사전", description: "원어, 발음, 한영 뜻, 출현 구절", action: () => pushStudyRoute({ view: "dictionary" }) },
     { label: "설정", description: "읽기와 TTS", action: () => setActiveView("settings") },
     { label: "현재 장 노트", description: `${currentBook.nameKo} ${chapter}장`, action: () => { setActiveView("reader"); setShowChapterNote(true); } },
   ].filter((command) => {
@@ -2490,7 +2566,12 @@ function AppShell() {
         <StatusBar style={isDark ? "light" : "dark"} />
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.root}>
           <View style={styles.header}>
-            <View>
+            <View style={styles.headerIdentity}>
+              {canGoBack ? (
+                <Pressable accessibilityLabel="이전 화면" onPress={goBack} style={styles.headerIconButton}>
+                  <Icon color={colors.text} name="chevron-back" size={18} />
+                </Pressable>
+              ) : null}
               <Text style={styles.title}>KJV 리더노트</Text>
             </View>
             <View style={styles.headerActions}>
@@ -2547,13 +2628,14 @@ function AppShell() {
                         label="이어 읽기"
                         onPress={() => {
                           if (userData.progress) {
-                            openReaderLocation({
+                            openReaderStudyRoute({
                               bookId: userData.progress.bookId,
                               chapter: userData.progress.chapter,
                               verseId: verseIdFromProgress(userData.progress.bookId, userData.progress.chapter, userData.progress.verse),
-                            });
+                            }, "today");
+                          } else {
+                            openReaderStudyRoute({ bookId: "gen", chapter: 1 }, "today");
                           }
-                          setActiveView("reader");
                         }}
                         styles={styles}
                         variant="primary"
@@ -2639,8 +2721,7 @@ function AppShell() {
                           <Pressable
                             key={highlight.id}
                             onPress={() => {
-                              openReaderLocation({ bookId: highlight.bookId, chapter: highlight.chapter, verseId: highlight.verseId });
-                              setActiveView("reader");
+                              openReaderStudyRoute({ bookId: highlight.bookId, chapter: highlight.chapter, verseId: highlight.verseId }, "library");
                             }}
                             style={styles.plainListButton}
                           >
@@ -2663,8 +2744,7 @@ function AppShell() {
                           <Pressable
                             key={favorite.id}
                             onPress={() => {
-                              openReaderLocation({ bookId: favorite.bookId, chapter: favorite.chapter, verseId: favorite.verseId });
-                              setActiveView("reader");
+                              openReaderStudyRoute({ bookId: favorite.bookId, chapter: favorite.chapter, verseId: favorite.verseId }, "library");
                             }}
                             style={styles.plainListButton}
                           >
@@ -2717,6 +2797,7 @@ function AppShell() {
                     onNextChapter={() => navigateChapter(1)}
                     onOpenChapterNote={() => setShowChapterNote((current) => !current)}
                     onOpenChapterPicker={openChapterPicker}
+                    onOpenQuickMove={() => setIsQuickMoveOpen(true)}
                     onPlayChapter={speakChapter}
                     onPreviousChapter={() => navigateChapter(-1)}
                     onSetTranslationMode={setReaderTranslationMode}
@@ -2944,35 +3025,35 @@ function AppShell() {
                   </View>
                   <Icon color={colors.accent} name="book-outline" size={18} />
                 </Pressable>
-                <Pressable onPress={() => setActiveView("progress")} style={styles.quickAction}>
+                <Pressable onPress={() => pushStudyRoute({ view: "progress" })} style={styles.quickAction}>
                   <View>
                     <Text style={styles.panelTitle}>통독 진척도</Text>
                     <Text style={styles.metaText}>전체, 오늘, 구약/신약 진행률</Text>
                   </View>
                   <Icon color={colors.accent} name="stats-chart-outline" size={18} />
                 </Pressable>
-                <Pressable onPress={() => setActiveView("highlights")} style={styles.quickAction}>
+                <Pressable onPress={() => pushStudyRoute({ view: "highlights" })} style={styles.quickAction}>
                   <View>
                     <Text style={styles.panelTitle}>강조</Text>
                     <Text style={styles.metaText}>하이라이트한 구절 {userData.highlights.length}개</Text>
                   </View>
                   <Icon color={colors.accent} name="color-wand-outline" size={18} />
                 </Pressable>
-                <Pressable onPress={() => setActiveView("search")} style={styles.quickAction}>
+                <Pressable onPress={() => pushStudyRoute({ view: "search" })} style={styles.quickAction}>
                   <View>
                     <Text style={styles.panelTitle}>본문 검색</Text>
                     <Text style={styles.metaText}>한국어/KJV, 권별 검색</Text>
                   </View>
                   <Icon color={colors.accent} name="search-outline" size={18} />
                 </Pressable>
-                <Pressable onPress={() => setActiveView("notes")} style={styles.quickAction}>
+                <Pressable onPress={() => pushStudyRoute({ view: "notes" })} style={styles.quickAction}>
                   <View>
                     <Text style={styles.panelTitle}>성경노트</Text>
                     <Text style={styles.metaText}>개인 노트 {userData.personalNotes.length}개</Text>
                   </View>
                   <Icon color={colors.accent} name="reader-outline" size={18} />
                 </Pressable>
-                <Pressable onPress={() => setActiveView("dictionary")} style={styles.quickAction}>
+                <Pressable onPress={() => pushStudyRoute({ view: "dictionary" })} style={styles.quickAction}>
                   <View>
                     <Text style={styles.panelTitle}>히브리어 사전</Text>
                     <Text style={styles.metaText}>발음, 한영 뜻, 예시 구절</Text>
@@ -2986,7 +3067,14 @@ function AppShell() {
               <View style={styles.section}>
                 <View style={[styles.selectedPanel, styles.formPanel, styles.searchPanel]}>
                   <View style={styles.panelHeading}>
-                    <Text style={styles.panelTitle}>본문 검색</Text>
+                    <View style={styles.headerIdentity}>
+                      {canGoBack ? (
+                        <Pressable accessibilityLabel="이전 화면" onPress={goBack} style={styles.compactIconButton}>
+                          <Icon color={colors.text} name="chevron-back" size={17} />
+                        </Pressable>
+                      ) : null}
+                      <Text style={styles.panelTitle}>본문 검색</Text>
+                    </View>
                     <Icon color={colors.text} name="search-outline" size={18} />
                   </View>
                   <View style={styles.formField}>
@@ -3135,14 +3223,29 @@ function AppShell() {
                     <Text style={styles.metaText}>{selectedDictionaryEntry.interpretationNoteKo}</Text>
                     <Text style={styles.groupLabel}>출현 예시</Text>
                     {selectedDictionaryEntry.sampleVerses.map((occurrence) => (
-                      <View key={occurrence.id} style={styles.studyItem}>
+                      <Pressable
+                        accessibilityLabel={`${getBook(occurrence.appBookId)?.nameKo ?? occurrence.appBookId} ${occurrence.chapter}장 ${occurrence.verse}절 열기`}
+                        key={occurrence.id}
+                        onPress={() =>
+                          openReaderStudyRoute(
+                            {
+                              bookId: occurrence.appBookId,
+                              chapter: occurrence.chapter,
+                              verseId: occurrence.verseKey,
+                            },
+                            "dictionary",
+                            { route: activeRoute.path, scrollAnchor: `occurrence-${occurrence.id}` },
+                          )
+                        }
+                        style={styles.studyItem}
+                      >
                         <Text style={styles.panelTitle}>
                           {getBook(occurrence.appBookId)?.nameKo ?? occurrence.appBookId} {occurrence.chapter}:{occurrence.verse}
                         </Text>
                         <Text style={styles.resultText}>{occurrence.surfaceHe} · {occurrence.transliteration}</Text>
                         {occurrence.phraseKo ? <Text style={styles.metaText}>{occurrence.phraseKo}</Text> : null}
                         {occurrence.phraseEn ? <Text style={styles.metaText}>{occurrence.phraseEn}</Text> : null}
-                      </View>
+                      </Pressable>
                     ))}
                     <ActionButton
                       icon="reader-outline"
@@ -3162,7 +3265,16 @@ function AppShell() {
                 {dictionarySearchResult.entries.map((entry) => (
                   <Pressable
                     key={entry.id}
-                    onPress={() => setSelectedDictionaryEntryId(entry.id)}
+                    onPress={() => {
+                      setSelectedDictionaryEntryId(entry.id);
+                      pushStudyRoute({
+                        view: "dictionary",
+                        dictionaryEntryId: entry.id,
+                        ...(activeRoute.context
+                          ? { context: { ...activeRoute.context, dictionaryEntryId: entry.id } }
+                          : {}),
+                      });
+                    }}
                     style={[styles.studyItem, selectedDictionaryEntry?.id === entry.id ? styles.verseRowSelected : null]}
                   >
                     <Text style={styles.panelTitle}>{entry.lemmaHe} · {entry.transliteration}</Text>
@@ -3232,8 +3344,7 @@ function AppShell() {
                           <Pressable
                             key={link.id}
                             onPress={() => {
-                              openReaderLocation({ bookId: link.bookId, chapter: link.chapter, verseId: link.verseKey });
-                              setActiveView("reader");
+                              openReaderStudyRoute({ bookId: link.bookId, chapter: link.chapter, verseId: link.verseKey }, "note");
                             }}
                           >
                             <Text style={styles.badge}>{getBook(link.bookId)?.nameKo ?? link.bookId} {link.chapter}:{link.verse}</Text>
@@ -3357,8 +3468,7 @@ function AppShell() {
                           icon="book-outline"
                           label="열기"
                           onPress={() => {
-                            openReaderLocation({ bookId: item.bookId, chapter: item.chapter, verseId: item.verseId });
-                            setActiveView("reader");
+                            openReaderStudyRoute({ bookId: item.bookId, chapter: item.chapter, verseId: item.verseId }, "library");
                           }}
                           styles={styles}
                         />
@@ -3495,8 +3605,7 @@ function AppShell() {
                         icon="book-outline"
                         label="열기"
                         onPress={() => {
-                          openReaderLocation({ bookId: item.bookId, chapter: item.chapter, verseId: item.verseId });
-                          setActiveView("reader");
+                          openReaderStudyRoute({ bookId: item.bookId, chapter: item.chapter, verseId: item.verseId }, "library");
                         }}
                         styles={styles}
                       />
@@ -3749,6 +3858,7 @@ function AppShell() {
                 <ScrollView style={styles.commandList}>
                   {quickMoveCommands.map((command) => (
                     <Pressable
+                      accessibilityLabel={`명령: ${command.label}`}
                       disabled={command.disabled}
                       key={command.label}
                       onPress={() => runQuickMoveCommand(command.action)}
@@ -4234,11 +4344,11 @@ function AppShell() {
           ) : null}
           {studyUiFeatureFlags.uiShellV2 ? (
             <View style={styles.tabBar}>
-              <TabButton active={activePrimaryArea === "today"} icon="home-outline" label="오늘" onPress={() => setActiveView("dashboard")} styles={styles} />
-              <TabButton active={activePrimaryArea === "read"} icon="book-outline" label="성경" onPress={() => setActiveView("reader")} styles={styles} />
-              <TabButton active={activePrimaryArea === "study"} icon="reader-outline" label="공부" onPress={() => setActiveView("notes")} styles={styles} />
-              <TabButton active={activePrimaryArea === "library"} icon="bookmark-outline" label="보관함" onPress={() => setActiveView("favorites")} styles={styles} />
-              <TabButton active={activePrimaryArea === "settings"} icon="settings-outline" label="설정" onPress={() => setActiveView("settings")} styles={styles} />
+              <TabButton active={activePrimaryArea === "today"} icon="home-outline" label="오늘" onPress={() => selectStudyTab("today")} styles={styles} />
+              <TabButton active={activePrimaryArea === "read"} icon="book-outline" label="성경" onPress={() => selectStudyTab("read")} styles={styles} />
+              <TabButton active={activePrimaryArea === "study"} icon="reader-outline" label="공부" onPress={() => selectStudyTab("study")} styles={styles} />
+              <TabButton active={activePrimaryArea === "library"} icon="bookmark-outline" label="보관함" onPress={() => selectStudyTab("library")} styles={styles} />
+              <TabButton active={activePrimaryArea === "settings"} icon="settings-outline" label="설정" onPress={() => selectStudyTab("settings")} styles={styles} />
             </View>
           ) : (
             <View style={styles.tabBar}>
@@ -5009,6 +5119,13 @@ function createStyles(colors: typeof lightColors, viewportHeight = 844) {
         flexDirection: "row",
         flexShrink: 1,
         gap: 7,
+      },
+      headerIdentity: {
+        alignItems: "center",
+        flexDirection: "row",
+        flexShrink: 1,
+        gap: 8,
+        minWidth: 0,
       },
       headerIconButton: {
         alignItems: "center",

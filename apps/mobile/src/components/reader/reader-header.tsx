@@ -11,6 +11,7 @@ type ReaderHeaderProps = {
   onNextChapter: () => void;
   onOpenChapterNote: () => void;
   onOpenChapterPicker: () => void;
+  onOpenQuickMove: () => void;
   onPlayChapter: () => void;
   onPreviousChapter: () => void;
   onSetTranslationMode: (mode: MobileReaderTranslationMode) => void;
@@ -37,6 +38,7 @@ export function ReaderHeader({
   onNextChapter,
   onOpenChapterNote,
   onOpenChapterPicker,
+  onOpenQuickMove,
   onPlayChapter,
   onPreviousChapter,
   onSetTranslationMode,
@@ -62,6 +64,9 @@ export function ReaderHeader({
         </Pressable>
         <Pressable accessibilityLabel="다음 장" onPress={onNextChapter} style={styles.iconButton}>
           <Text style={styles.icon}>›</Text>
+        </Pressable>
+        <Pressable accessibilityLabel="명령 검색" onPress={onOpenQuickMove} style={styles.iconButton}>
+          <Text style={styles.commandIcon}>⌘</Text>
         </Pressable>
       </View>
 
@@ -157,6 +162,13 @@ function createStyles(colors: MobileReaderColors) {
       fontSize: 25,
       fontWeight: "700",
       lineHeight: 27,
+    },
+    commandIcon: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: "800",
+      letterSpacing: 0,
+      lineHeight: 22,
     },
     titleButton: {
       flex: 1,

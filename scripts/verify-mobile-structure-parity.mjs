@@ -22,6 +22,10 @@ const groups = [
     name: "quick-move",
     labels: ["명령", "빠른 이동", "이동하거나 실행할 항목 검색", "이어 읽기", "홈 · 오늘", "오늘 통독 분량 열기", "통독 진척도", "강조 구절", "검색", "명령이 없습니다."],
   },
+  {
+    name: "mobile-study-navigation",
+    labels: ["hardwareBackPress", "이전 화면", "/(tabs)/today", "/search"],
+  },
     {
       name: "reader-actions",
       labels: ["읽음 완료", "EN", "KR", "읽기", "다중 선택", "장 노트", "강조", "인용 저장", "선택 구절 읽기", "구절 노트", "의견 보내기"],
@@ -92,6 +96,8 @@ async function main() {
     "apps/mobile/src/components/reader/reader-header.tsx",
     "apps/mobile/src/components/reader/reader-verse-row.tsx",
     "apps/mobile/src/components/reader/reader-verse-actions-sheet.tsx",
+    "apps/mobile/src/hooks/use-mobile-study-navigation.ts",
+    "packages/shared/src/mobile-study-navigation.ts",
   ].map((file) => readFile(file, "utf8")));
   const source = sources.join("\n");
   const missing = [];

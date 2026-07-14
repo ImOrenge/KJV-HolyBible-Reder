@@ -30,6 +30,10 @@
 - `useMobileReaderController`가 장 조회, 진입 절, 선택 범위, 현재 읽기 절, 첫 절 scroll, 읽음 완료를 소유한다.
 - `useMobileReaderTts`가 재생 queue, 반복, 일시정지, 이전/다음 절, 현재 재생 절을 소유한다.
 - `packages/shared/src/reader-orchestration.ts`가 웹/모바일 공통 Reader target, 범위 선택, 현재 절, TTS queue 규칙을 제공한다.
+- `packages/shared/src/mobile-study-navigation.ts`가 private text를 제외한 모바일 route serializer와 tab/reset/push/pop transition을 제공한다.
+- `useMobileStudyNavigation`이 기존 `activeView` 렌더러 앞에서 route stack과 Android hardware back을 관리한다.
+- 검색, 노트, 사전, 보관함에서 Reader로 이동할 때 권·장·절과 return target을 보존한다.
+- 사전 출현 구절은 해당 절 Reader를 열고 뒤로 가면 동일 사전 항목 route로 복귀한다.
 
 Expo Web `390x844` 검증:
 
@@ -39,6 +43,7 @@ Expo Web `390x844` 검증:
 - 약 `620ms` long press 후 1개 구절 다중 선택 sheet가 열린다.
 - `창세기 1장 -> 2장 -> 1장` 복귀 후 1절이 보이고 현재 위치가 `창세기 1:1`로 유지된다.
 - 선택 mode에서 1절과 3절을 누르면 1~3절이 연속 범위로 선택된다.
+- Reader의 명령 검색에서 검색 화면을 push하고 이전 버튼으로 창세기 1장에 복귀한다.
 - 증거: `reports/ui-ux-redesign-screenshots/expo-reader-v2-mobile-390.png`
 
 ## 브라우저 검증
@@ -74,11 +79,12 @@ Reader orchestration 검증:
 
 - `npm run reader:validate`: 진입 target, 역방향 범위 선택, 읽기 line 계산, 선택 mode 자동 scroll 억제, TTS queue/index 경계를 검증한다.
 - `npm run typecheck`, `npm run structure:mobile`, `npm run style:mobile`: 통과.
+- `npm run browser:reader -- --single=true --port=9352`: Reader -> Search -> Reader stack 복귀를 포함해 통과.
 
 ## 남은 작업
 
 - 웹 `ReaderScreen` 데이터 조회·저장·TTS orchestration을 `KjvMvpApp`에서 분리한다.
 - 원어 marker 자체의 keyboard/tap action을 context panel에 직접 연결한다.
 - 실제 clipboard, 원격 저장, 기기 TTS를 Android/iOS interaction test로 고정한다.
-- Expo Reader에 route params와 새 context return surface 계약을 적용한다.
+- iOS swipe back과 앱 재시작 후 route stack 복원을 Expo Router 전환 단계에서 적용한다.
 - Expo Reader V2의 drag snap과 keyboard 회피를 Android/iOS 실제 기기에서 검증한다.

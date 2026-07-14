@@ -124,7 +124,7 @@ flowchart LR
 - [x] `StudyContext`와 `StudyContextSource`를 `packages/shared`에 추가한다.
 - [x] `bookId`, `chapter`, `verseKeys`, `primaryVerseKey`, `returnTarget` validation을 추가한다.
 - [x] 웹 목표 URL과 legacy query adapter를 정의한다.
-- [ ] 모바일 route params adapter를 정의한다.
+- [x] 모바일 route params adapter를 정의한다.
 - [x] `uiShellV2`, `readerV2`, `notesV2` feature flag를 추가한다.
 - [x] semantic color와 spacing token을 정의한다.
 - [x] touch target, panel width, scripture width, radius, line-height 기준을 token화한다.
@@ -146,7 +146,7 @@ flowchart LR
 
 ### 완료 기준
 
-- [ ] 웹 URL과 모바일 stack이 동일한 verse context를 표현한다.
+- [x] 웹 URL과 모바일 stack이 동일한 verse context를 표현한다.
 - [ ] private text가 route, analytics, error log에 포함되지 않는다.
 - [ ] 새 Shell을 꺼도 기존 앱이 동일하게 동작한다.
 - [ ] 기준 viewport에서 개편 전 문제를 재현할 수 있다.
@@ -176,7 +176,8 @@ flowchart LR
 - [x] `Today / Read / Study / Library / Settings` 5-tab을 구현한다.
 - [ ] Reader, Note Editor, Dictionary Detail, Search를 stack screen으로 분리한다.
 - [ ] modal 사용을 확인/짧은 입력/filter로 제한한다.
-- [ ] Android back과 iOS swipe back의 return target을 연결한다.
+- [x] Android back의 return target을 연결한다.
+- [ ] iOS swipe back의 return target을 연결한다.
 - [ ] safe area와 keyboard inset을 Shell 책임으로 분리한다.
 - [ ] TTS 재생 중 mini player가 tab content를 가리지 않게 한다.
 - [x] 온보딩 완료 profile을 account slot의 단일 source로 사용한다.
@@ -235,6 +236,8 @@ flowchart LR
 - [x] 본문이 viewport 상단 `140px` 이내에서 시작하도록 한다.
 - [x] bottom tab과 TTS player offset을 sheet에 적용한다.
 - [x] keyboard 회피와 2단계 drag snap point를 구현한다.
+- [x] Reader에서 검색·노트·사전·보관함으로 이동하는 모바일 context stack과 이전 화면 복귀를 구현한다.
+- [x] 리더 헤더에 명령 검색 진입점을 추가하고 검색 push -> Reader pop을 브라우저로 검증한다.
 - [ ] keyboard 회피와 drag snap point를 Android/iOS 실제 기기에서 검증한다.
 
 ### 산출물
@@ -290,7 +293,7 @@ flowchart LR
 - [ ] alphabet/theme/book/sort를 filter bar와 popover로 구성한다.
 - [ ] 모바일 list/detail을 별도 stack screen으로 분리한다.
 - [ ] active filter chip과 filter sheet를 구현한다.
-- [ ] 단어 상세에서 Reader로 이동하고 동일 단어로 복귀한다.
+- [x] 단어 상세의 출현 구절에서 Reader로 이동하고 동일 사전 route로 복귀하는 stack 계약을 연결한다.
 - [ ] `내 노트에 추가`에서 현재 `StudyContext`를 유지한다.
 
 ### 10.2 통합 검색
