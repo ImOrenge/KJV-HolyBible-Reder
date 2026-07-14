@@ -1,8 +1,8 @@
 # 성경 읽기·공부·기록 중심 UI/UX 개편 아키텍처
 
-> 상태: 개편 기준 문서
-> 기준 릴리즈: `main@c04431ec` (`v0.6.1`)
-> 온보딩 구현 기준: `feat/2026-07-13-first-login-onboarding@d7646ffb`
+> 상태: `0.7.1` 릴리즈 기준 구현 문서
+> 기준 릴리즈: `release/0.7.1` (`v0.7.1` 로컬 태그 대상)
+> 통합 구현 기준: `develop/2026-07-13-first-login-onboarding@b28732ed`
 > 최종 갱신: 2026-07-14
 
 ## 1. 문서 목적
@@ -24,7 +24,7 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 
 ### 1.1 구현 상태
 
-2026-07-14 기준 P0, P1 일부, P2 AppShell 전환, P3 Reader 표시 계층, P4 웹·모바일 Notes 작업 공간, P5 웹 Dictionary와 `0.6.1` QT 커뮤니티의 개편 통합 묶음이 개발 브랜치에 구현되어 있다.
+2026-07-14 기준 P0, P1 일부, P2 AppShell 전환, P3 Reader 표시 계층, P4 웹·모바일 Notes 작업 공간, P5 웹 Dictionary와 QT 커뮤니티까지 `0.7.1` 릴리즈 후보에 구현되어 있다.
 
 | 영역 | 현재 구현 | 다음 경계 |
 | --- | --- | --- |
@@ -39,7 +39,7 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 | 모바일 Reader V2 | `readerV2` flag 아래 native ReaderHeader/VerseRow/VerseActionsSheet, EN/KR/동시 보기, long press 다중 선택, keyboard 회피와 2단계 snap, 전용 Reader controller/TTS hook, route/context 복귀 | Android/iOS 실기기 검증 |
 | 모바일 Notes V4 | 목록/편집기 stack 분리, compact keyboard toolbar, 사용자·노트별 AsyncStorage draft 복구, versioned remote save와 conflict 해결 band | revision/backlink inspector sheet, 장기 offline queue, 실기기 검증 |
 | 모바일 QT 커뮤니티 | 오늘 영역에서 독립 `/community` stack route로 진입, 명시적 이전 화면, `피드/내 참여/랭킹/설정` 내부 탭, 글 신고, 통독 TTS 완료 증거 연동 | 실제 기기 keyboard/auth/safe-area smoke |
-| 검증 | typecheck, lint, build, Expo Doctor, 구조/스타일 검사, 320/390/768/1024/1440px 웹 smoke, Expo Reader V2 390px interaction smoke | 실제 Android/iOS 검증 |
+| 검증 | typecheck, lint, production build, Expo Doctor/export, 구조/스타일 검사, community/notes/dictionary 390·1440px와 reader 1440px production 웹 smoke, 원격 Supabase onboarding/notes/community smoke, Android production AAB manifest/signing 검증 | 실제 Android/iOS 검증 |
 
 이 상태는 전체 개편 완료를 뜻하지 않는다. Reader data orchestration, 웹 Notes feature component, 모바일 Notes inspector sheet, Expo Dictionary list/detail screen을 분리하기 전까지 기존 대형 컴포넌트는 legacy adapter 안에서 유지한다.
 
