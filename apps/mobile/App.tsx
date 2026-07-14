@@ -2,11 +2,15 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
+  clearAllPersonalNoteDrafts,
+  clearPersonalNoteDraft,
+  clearPersonalNoteDraftIfCovered,
   clearUserDataFromStorage,
   collectSearchHighlightRanges,
   createReadingPlan,
   createBibleApiClient,
   createInitialUserData,
+  createPersonalNoteDraft,
   defaultFavoriteListId,
   formatPlanChapters,
   getUserOnboarding,
@@ -14,6 +18,7 @@ import {
   getBooks,
   getChapters,
   getLocalDateKey,
+  getPersonalNoteDraftFingerprint,
   getMobileReaderLocation,
   getReadingPlanDay,
   getStudyUiAreaForView,
@@ -22,6 +27,7 @@ import {
   hebrewDictionaryThemes,
   issueTypeLabels,
   loadRemoteUserData,
+  loadPersonalNoteDraft,
   loadUserDataFromStorage,
   mergeUserDataForImport,
   markdownLiteToPersonalNoteDocument,
@@ -36,8 +42,10 @@ import {
   privacyPolicyUpdatedAt,
   readingPlanOptions,
   saveRemoteUserData,
+  savePersonalNoteDraft,
   saveUserDataToStorage,
   searchHebrewDictionary,
+  shouldRestorePersonalNoteDraft,
   submitTranslationFeedback,
   translationFeedbackIssueTypes,
   type BibleSearchLanguage,
@@ -101,6 +109,7 @@ type AuthCredentialMode = "login" | "sign-up";
 type LoadStatus = "idle" | "loading" | "ready" | "error";
 type SubmitStatus = "idle" | "submitting" | "success" | "error";
 type SyncStatus = "idle" | "loading" | "ready" | "saving" | "error";
+type PersonalNoteDraftStatus = "idle" | "loading" | "dirty" | "saved" | "committed" | "error";
 type OnboardingStatus = "idle" | "checking" | "required" | "complete" | "error";
 const ttsSpeedOptions = [0.75, 1, 1.25, 1.5] as const;
 const iconGlyphs = {
@@ -448,6 +457,8 @@ function AppShell() {
   const [personalNoteTitle, setPersonalNoteTitle] = useState("");
   const [personalNoteDocument, setPersonalNoteDocument] = useState<PersonalNoteDocument>(() => markdownLiteToPersonalNoteDocument(""));
   const [personalNoteTagInput, setPersonalNoteTagInput] = useState("");
+  const [personalNoteDraftStatus, setPersonalNoteDraftStatus] = useState<PersonalNoteDraftStatus>("idle");
+  const [personalNoteDraftMessage, setPersonalNoteDraftMessage] = useState("");
   const [highlightColorFilter, setHighlightColorFilter] = useState<"all" | HighlightColor>("all");
   const [highlightBookFilter, setHighlightBookFilter] = useState("all");
   const [favoriteSearchQuery, setFavoriteSearchQuery] = useState("");
@@ -483,6 +494,9 @@ function AppShell() {
   const [copyStatus, setCopyStatus] = useState("");
   const didLoadStorageRef = useRef(false);
   const remoteSaveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const personalNoteDraftDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hydratedPersonalNoteDraftIdRef = useRef<string | null>(null);
+  const lastPersonalNoteDraftFingerprintRef = useRef("");
   const lastSavedRemoteSnapshotRef = useRef("");
   const pendingStoredVerseFetchesRef = useRef(new Set<string>());
 
@@ -683,6 +697,26 @@ function AppShell() {
         .filter((link) => link.noteId === selectedPersonalNote.id)
         .sort((left, right) => left.linkOrder - right.linkOrder)
     : [];
+  const personalNoteDraftOwnsSaveStatus = personalNoteDraftStatus === "loading" || personalNoteDraftStatus === "dirty" || personalNoteDraftStatus === "saved" || personalNoteDraftStatus === "error";
+  const personalNoteEditorSaveStatus = (() => {
+    if (personalNoteDraftOwnsSaveStatus) {
+      return personalNoteDraftMessage;
+    }
+    if (!authUser) return personalNoteDraftStatus === "committed" ? "이 기기에 저장됨" : "비로그인 · 이 기기에 저장";
+    if (syncStatus === "saving") return "서버 저장 중";
+    if (syncStatus === "error") return "서버 저장 실패 · 기기 캐시 보존";
+    if (syncStatus === "loading") return "서버 데이터 확인 중";
+    if (syncStatus === "ready") return "서버 저장 완료";
+    return personalNoteDraftStatus === "committed" ? "서버 저장 대기" : "서버 동기화 대기";
+  })();
+  const personalNoteEditorSaveTone: "neutral" | "saving" | "success" | "error" =
+    personalNoteDraftStatus === "error" || (!personalNoteDraftOwnsSaveStatus && Boolean(authUser) && syncStatus === "error")
+      ? "error"
+      : personalNoteDraftStatus === "dirty" || personalNoteDraftStatus === "loading" || syncStatus === "loading" || syncStatus === "saving"
+        ? "saving"
+        : personalNoteDraftStatus === "saved" || personalNoteDraftStatus === "committed" || syncStatus === "ready"
+          ? "success"
+          : "neutral";
   useEffect(() => {
     if (activeRoute.view === "notes" && activeRoute.noteId) setSelectedPersonalNoteId(activeRoute.noteId);
     if (activeRoute.view === "dictionary" && activeRoute.dictionaryEntryId) {
@@ -981,7 +1015,9 @@ function AppShell() {
     }
 
     if (!authUser || !supabase) {
-      void saveUserDataToStorage(AsyncStorage, activeUserId, userData);
+      void saveUserDataToStorage(AsyncStorage, activeUserId, userData)
+        .then(() => Promise.all(userData.personalNotes.map((note) => clearPersonalNoteDraftIfCovered(AsyncStorage, activeUserId, note))))
+        .catch(() => undefined);
       return;
     }
 
@@ -1003,7 +1039,9 @@ function AppShell() {
           lastSavedRemoteSnapshotRef.current = serialized;
           setSyncStatus("ready");
           setSyncMessage("서버 동기화 완료");
-          void saveUserDataToStorage(AsyncStorage, activeUserId, userData);
+          void saveUserDataToStorage(AsyncStorage, activeUserId, userData)
+            .then(() => Promise.all(userData.personalNotes.map((note) => clearPersonalNoteDraftIfCovered(AsyncStorage, activeUserId, note))))
+            .catch(() => undefined);
         })
         .catch((error) => {
           setSyncStatus("error");
@@ -1108,25 +1146,138 @@ function AppShell() {
   }, [bookId, chapter]);
 
   useEffect(() => {
-    if (!selectedPersonalNote) {
+    if (activeRoute.view !== "notes" || !activeRoute.noteId || !selectedPersonalNote) {
+      if (personalNoteDraftDebounceRef.current) {
+        clearTimeout(personalNoteDraftDebounceRef.current);
+        personalNoteDraftDebounceRef.current = null;
+      }
+      hydratedPersonalNoteDraftIdRef.current = null;
+      lastPersonalNoteDraftFingerprintRef.current = "";
       setSelectedPersonalNoteId(null);
       setPersonalNoteTitle("");
       setPersonalNoteDocument(markdownLiteToPersonalNoteDocument(""));
       setPersonalNoteTagInput("");
+      setPersonalNoteDraftStatus("idle");
+      setPersonalNoteDraftMessage("");
       return;
     }
 
-    setSelectedPersonalNoteId(selectedPersonalNote.id);
-    setPersonalNoteTitle(selectedPersonalNote.title);
-    setPersonalNoteDocument(normalizePersonalNoteDocument(selectedPersonalNote.bodyDocument, selectedPersonalNote.bodyMarkdown));
-    setPersonalNoteTagInput(
-      userData.personalNoteTags
-        .filter((tagLink) => tagLink.noteId === selectedPersonalNote.id)
-        .map((tagLink) => userData.tags.find((tag) => tag.id === tagLink.tagId)?.name)
-        .filter(Boolean)
-        .join(", "),
-    );
-  }, [selectedPersonalNote?.id, selectedPersonalNote?.title, selectedPersonalNote?.bodyDocument, selectedPersonalNote?.bodyMarkdown, userData.personalNoteTags, userData.tags]);
+    const note = selectedPersonalNote;
+    const savedTagInput = userData.personalNoteTags
+      .filter((tagLink) => tagLink.noteId === note.id)
+      .map((tagLink) => userData.tags.find((tag) => tag.id === tagLink.tagId)?.name)
+      .filter(Boolean)
+      .join(", ");
+    let cancelled = false;
+
+    if (personalNoteDraftDebounceRef.current) {
+      clearTimeout(personalNoteDraftDebounceRef.current);
+      personalNoteDraftDebounceRef.current = null;
+    }
+    hydratedPersonalNoteDraftIdRef.current = null;
+    lastPersonalNoteDraftFingerprintRef.current = "";
+    setSelectedPersonalNoteId(note.id);
+    setPersonalNoteTitle(note.title);
+    setPersonalNoteDocument(normalizePersonalNoteDocument(note.bodyDocument, note.bodyMarkdown));
+    setPersonalNoteTagInput(savedTagInput);
+    setPersonalNoteDraftStatus("loading");
+    setPersonalNoteDraftMessage("임시 저장 확인 중");
+
+    void loadPersonalNoteDraft(AsyncStorage, activeUserId, note.id)
+      .then((draft) => {
+        if (cancelled) return;
+        if (draft && shouldRestorePersonalNoteDraft(draft, note)) {
+          lastPersonalNoteDraftFingerprintRef.current = getPersonalNoteDraftFingerprint(draft);
+          setPersonalNoteTitle(draft.title);
+          setPersonalNoteDocument(normalizePersonalNoteDocument(draft.bodyDocument));
+          setPersonalNoteTagInput(draft.tagInput);
+          setPersonalNoteDraftStatus("saved");
+          setPersonalNoteDraftMessage("이 기기의 임시 저장을 복구했습니다.");
+        } else {
+          lastPersonalNoteDraftFingerprintRef.current = getPersonalNoteDraftFingerprint({
+            bodyDocument: normalizePersonalNoteDocument(note.bodyDocument, note.bodyMarkdown),
+            tagInput: savedTagInput,
+            title: note.title,
+          });
+          if (draft) void clearPersonalNoteDraft(AsyncStorage, activeUserId, note.id);
+          setPersonalNoteDraftStatus("idle");
+          setPersonalNoteDraftMessage("");
+        }
+        hydratedPersonalNoteDraftIdRef.current = note.id;
+      })
+      .catch(() => {
+        if (cancelled) return;
+        hydratedPersonalNoteDraftIdRef.current = note.id;
+        setPersonalNoteDraftStatus("error");
+        setPersonalNoteDraftMessage("임시 저장을 불러오지 못했습니다.");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeRoute.noteId, activeRoute.view, activeUserId, selectedPersonalNote?.id, selectedPersonalNote?.revision]);
+
+  useEffect(() => {
+    if (activeRoute.view !== "notes" || !activeRoute.noteId || !selectedPersonalNote || activeRoute.noteId !== selectedPersonalNote.id || hydratedPersonalNoteDraftIdRef.current !== selectedPersonalNote.id) return;
+    const savedTagInput = userData.personalNoteTags
+      .filter((tagLink) => tagLink.noteId === selectedPersonalNote.id)
+      .map((tagLink) => userData.tags.find((tag) => tag.id === tagLink.tagId)?.name)
+      .filter(Boolean)
+      .join(", ");
+    const currentFingerprint = getPersonalNoteDraftFingerprint({
+      bodyDocument: personalNoteDocument,
+      tagInput: personalNoteTagInput,
+      title: personalNoteTitle,
+    });
+    const savedFingerprint = getPersonalNoteDraftFingerprint({
+      bodyDocument: normalizePersonalNoteDocument(selectedPersonalNote.bodyDocument, selectedPersonalNote.bodyMarkdown),
+      tagInput: savedTagInput,
+      title: selectedPersonalNote.title,
+    });
+
+    if (personalNoteDraftDebounceRef.current) {
+      clearTimeout(personalNoteDraftDebounceRef.current);
+      personalNoteDraftDebounceRef.current = null;
+    }
+    if (currentFingerprint === lastPersonalNoteDraftFingerprintRef.current) return;
+    if (currentFingerprint === savedFingerprint) {
+      lastPersonalNoteDraftFingerprintRef.current = currentFingerprint;
+      return;
+    }
+
+    setPersonalNoteDraftStatus("dirty");
+    setPersonalNoteDraftMessage("변경 사항 임시 저장 대기");
+    personalNoteDraftDebounceRef.current = setTimeout(() => {
+      personalNoteDraftDebounceRef.current = null;
+      const draft = createPersonalNoteDraft({
+        baseRevision: selectedPersonalNote.revision,
+        bodyDocument: personalNoteDocument,
+        noteId: selectedPersonalNote.id,
+        tagInput: personalNoteTagInput,
+        title: personalNoteTitle,
+        userId: activeUserId,
+      });
+      void savePersonalNoteDraft(AsyncStorage, draft)
+        .then(() => {
+          if (hydratedPersonalNoteDraftIdRef.current !== draft.noteId) return;
+          lastPersonalNoteDraftFingerprintRef.current = currentFingerprint;
+          setPersonalNoteDraftStatus("saved");
+          setPersonalNoteDraftMessage("이 기기에 임시 저장됨");
+        })
+        .catch(() => {
+          if (hydratedPersonalNoteDraftIdRef.current !== draft.noteId) return;
+          setPersonalNoteDraftStatus("error");
+          setPersonalNoteDraftMessage("임시 저장 실패");
+        });
+    }, 500);
+
+    return () => {
+      if (personalNoteDraftDebounceRef.current) {
+        clearTimeout(personalNoteDraftDebounceRef.current);
+        personalNoteDraftDebounceRef.current = null;
+      }
+    };
+  }, [activeRoute.noteId, activeRoute.view, activeUserId, personalNoteDocument, personalNoteTagInput, personalNoteTitle, selectedPersonalNote, userData.personalNoteTags, userData.tags]);
 
   const setReadingLanguage = (language: TranslationLanguage) => {
     updateSettings({ defaultTranslation: language, showParallelTranslation: false });
@@ -1700,6 +1851,18 @@ function AppShell() {
       .map((tag) => tag.trim())
       .filter(Boolean);
 
+    if (personalNoteDraftDebounceRef.current) {
+      clearTimeout(personalNoteDraftDebounceRef.current);
+      personalNoteDraftDebounceRef.current = null;
+    }
+    setPersonalNoteDraftStatus("committed");
+    setPersonalNoteDraftMessage(authUser ? "서버 저장 대기" : "이 기기에 저장 중");
+    lastPersonalNoteDraftFingerprintRef.current = getPersonalNoteDraftFingerprint({
+      bodyDocument: personalNoteDocument,
+      tagInput: personalNoteTagInput,
+      title: personalNoteTitle,
+    });
+
     setUserData((current) => {
       const nextTags = [...current.tags];
       const tagIds = tagNames.map((name) => {
@@ -1799,6 +1962,15 @@ function AppShell() {
     setPersonalNoteTitle("");
     setPersonalNoteDocument(markdownLiteToPersonalNoteDocument(""));
     setPersonalNoteTagInput("");
+    if (personalNoteDraftDebounceRef.current) {
+      clearTimeout(personalNoteDraftDebounceRef.current);
+      personalNoteDraftDebounceRef.current = null;
+    }
+    hydratedPersonalNoteDraftIdRef.current = null;
+    lastPersonalNoteDraftFingerprintRef.current = "";
+    setPersonalNoteDraftStatus("idle");
+    setPersonalNoteDraftMessage("");
+    void clearPersonalNoteDraft(AsyncStorage, activeUserId, noteId);
     setCopyStatus("성경노트 삭제됨");
     setTimeout(() => setCopyStatus(""), 1600);
     if (activeRoute.view === "notes" && activeRoute.noteId && !goBack()) {
@@ -2205,6 +2377,7 @@ function AppShell() {
       }
 
       await clearUserDataFromStorage(AsyncStorage, authUser.id);
+      await clearAllPersonalNoteDrafts(AsyncStorage, authUser.id);
       await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
       setAuthSession(null);
       setAuthUser(null);
@@ -2305,7 +2478,16 @@ function AppShell() {
       {
         text: "초기화",
         style: "destructive",
-        onPress: () => setUserData(createInitialUserData(activeUserId)),
+        onPress: async () => {
+          if (personalNoteDraftDebounceRef.current) {
+            clearTimeout(personalNoteDraftDebounceRef.current);
+            personalNoteDraftDebounceRef.current = null;
+          }
+          await clearAllPersonalNoteDrafts(AsyncStorage, activeUserId);
+          setPersonalNoteDraftStatus("idle");
+          setPersonalNoteDraftMessage("");
+          setUserData(createInitialUserData(activeUserId));
+        },
       },
     ]);
   };
@@ -3320,7 +3502,8 @@ function AppShell() {
                     }
                     onSave={savePersonalNote}
                     referenceLabel={(link) => `${getBook(link.bookId)?.nameKo ?? link.bookId} ${link.chapter}:${link.verse}`}
-                    saveStatus={copyStatus}
+                    saveStatus={personalNoteEditorSaveStatus}
+                    saveStatusTone={personalNoteEditorSaveTone}
                     tags={personalNoteTagInput}
                     title={personalNoteTitle}
                   />

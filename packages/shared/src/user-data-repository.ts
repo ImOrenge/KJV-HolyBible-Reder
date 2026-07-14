@@ -7,6 +7,7 @@ export const defaultFavoriteListId = "default-favorite-list";
 
 export type UserDataStorage = {
   getItem(key: string): string | null | Promise<string | null>;
+  getAllKeys?(): readonly string[] | Promise<readonly string[]>;
   setItem(key: string, value: string): void | Promise<void>;
   removeItem(key: string): void | Promise<void>;
 };

@@ -20,6 +20,7 @@ type Props = {
   onSave: () => void;
   referenceLabel: (link: PersonalNoteVerseLink) => string;
   saveStatus?: string;
+  saveStatusTone?: "neutral" | "saving" | "success" | "error";
   tags: string;
   title: string;
 };
@@ -40,10 +41,18 @@ export function PersonalNoteEditorScreen({
   onSave,
   referenceLabel,
   saveStatus,
+  saveStatusTone = "neutral",
   tags,
   title,
 }: Props) {
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const saveStatusStyle = saveStatusTone === "error"
+    ? styles.saveMetaError
+    : saveStatusTone === "success"
+      ? styles.saveMetaSuccess
+      : saveStatusTone === "saving"
+        ? styles.saveMetaSaving
+        : null;
 
   return (
     <View accessibilityLabel="노트 편집 화면" style={styles.screen}>
@@ -54,7 +63,13 @@ export function PersonalNoteEditorScreen({
         <View style={styles.headerCopy}>
           <Text style={styles.eyebrow}>편집기</Text>
           <Text numberOfLines={1} style={styles.headerTitle}>{note.title}</Text>
-          <Text style={styles.saveMeta}>{saveStatus || `마지막 저장 ${formatUpdatedAt(note.lastSavedAt ?? note.updatedAt)}`}</Text>
+          <Text
+            accessibilityLabel={`노트 저장 상태: ${saveStatus || "저장됨"}`}
+            accessibilityLiveRegion="polite"
+            style={[styles.saveMeta, saveStatusStyle]}
+          >
+            {saveStatus || `마지막 저장 ${formatUpdatedAt(note.lastSavedAt ?? note.updatedAt)}`}
+          </Text>
         </View>
         <Pressable accessibilityRole="button" onPress={onSave} style={styles.saveButton}>
           <Text style={styles.saveButtonText}>저장</Text>
@@ -134,6 +149,9 @@ function createStyles(colors: PersonalNoteScreenColors) {
     eyebrow: { color: colors.muted, fontSize: 10, fontWeight: "800", letterSpacing: 0 },
     headerTitle: { color: colors.text, fontSize: 17, fontWeight: "900", letterSpacing: 0, lineHeight: 22 },
     saveMeta: { color: colors.muted, fontSize: 11, lineHeight: 16 },
+    saveMetaError: { color: colors.danger, fontWeight: "800" },
+    saveMetaSaving: { color: colors.muted, fontWeight: "800" },
+    saveMetaSuccess: { color: colors.accent, fontWeight: "800" },
     saveButton: { alignItems: "center", backgroundColor: colors.accent, borderRadius: 7, justifyContent: "center", minHeight: 44, paddingHorizontal: 15 },
     saveButtonText: { color: colors.accentText, fontSize: 14, fontWeight: "900", letterSpacing: 0 },
     field: { gap: 7 },

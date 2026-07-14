@@ -39,6 +39,9 @@
 - TenTap CSS 주입은 bridge `isReady` 이후에만 실행해 Expo Web/느린 WebView 초기화 race를 방지한다.
 - 모바일 노트 편집기의 세 줄 toolbar를 compact primary toolbar와 opt-in advanced toolbar로 분리했다.
 - TenTap `avoidIosKeyboard`와 전용 `KeyboardAvoidingView`를 연결해 toolbar와 마지막 편집 줄의 keyboard 회피 계약을 추가했다.
+- `packages/shared/src/personal-note-draft.ts`가 사용자·노트별 AsyncStorage key, 500ms debounce 저장, 최신 draft 판정과 저장 완료 draft 정리를 제공한다.
+- 회원탈퇴와 로컬 데이터 초기화는 사용자별 draft index와 AsyncStorage key scan을 함께 사용해 남은 초안을 제거한다.
+- 편집기 header는 임시 저장, 서버 저장 중, 서버 저장 완료, 서버 저장 실패를 live region으로 구분한다.
 
 Expo Web `390x844` 검증:
 
@@ -51,6 +54,7 @@ Expo Web `390x844` 검증:
 - Reader의 명령 검색에서 검색 화면을 push하고 이전 버튼으로 창세기 1장에 복귀한다.
 - Reader에서 노트 목록과 새 편집기를 왕복할 때 목록과 편집기가 동시에 렌더링되지 않는다.
 - 노트 기본 toolbar에서 advanced toolbar를 열고 닫아도 편집 화면과 route stack이 유지된다.
+- 저장 버튼 없이 제목을 수정한 뒤 목록으로 나갔다가 같은 노트를 열면 AsyncStorage draft가 복구된다.
 - 증거: `reports/ui-ux-redesign-screenshots/expo-reader-v2-mobile-390.png`
 
 ## 브라우저 검증
@@ -87,7 +91,8 @@ Reader orchestration 검증:
 - `npm run reader:validate`: 진입 target, 역방향 범위 선택, 읽기 line 계산, 선택 mode 자동 scroll 억제, TTS queue/index 경계를 검증한다.
 - `npm run typecheck`, `npm run lint`, `npm run build`, `npm run structure:mobile`, `npm run style:mobile`: 통과.
 - `npm run expo:doctor`: 20/20 checks 통과.
-- `npm run browser:reader -- --single=true --port=9354`: Reader -> Search -> Reader와 Reader -> Notes -> compact/advanced toolbar -> Reader stack 복귀를 포함해 통과.
+- `npm run note-draft:validate`: 사용자/노트 key 격리, 최신 draft 복구, 저장 완료 draft 정리, 손상 JSON 무시를 통과.
+- `npm run browser:reader -- --single=true --port=9360`: Reader -> Search -> Reader와 Reader -> Notes -> local draft 저장/복구 -> Reader stack 복귀를 포함해 통과.
 
 ## 남은 작업
 
@@ -96,3 +101,4 @@ Reader orchestration 검증:
 - 실제 clipboard, 원격 저장, 기기 TTS를 Android/iOS interaction test로 고정한다.
 - iOS swipe back과 앱 재시작 후 route stack 복원을 Expo Router 전환 단계에서 적용한다.
 - Expo Reader V2의 drag snap과 keyboard 회피를 Android/iOS 실제 기기에서 검증한다.
+- 모바일 revision conflict를 활성화하기 전에 `replace_user_data_snapshot`의 personal-note delete/reinsert를 보존형 RPC로 교체한다.

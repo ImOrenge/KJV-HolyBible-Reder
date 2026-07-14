@@ -168,15 +168,31 @@ async function openPage(port, url, viewport) {
 }
 
 async function waitForApp(cdp) {
-  const deadline = Date.now() + 20_000;
+  const deadline = Date.now() + 35_000;
+  let lastBodyText = "";
   while (Date.now() < deadline) {
-    const bodyText = await evaluate(cdp, () => (document.body.innerText || document.body.textContent || "").replace(/\s+/g, " ")).catch(() => "");
-    if (bodyText.includes("KJV 리더노트") || bodyText.includes("KJV Reader")) {
+    lastBodyText = await evaluate(cdp, () => (document.body.innerText || document.body.textContent || "").replace(/\s+/g, " ")).catch(() => "");
+    if (lastBodyText.includes("KJV 리더노트") || lastBodyText.includes("KJV Reader")) {
       return;
     }
     await sleep(250);
   }
-  throw new Error("Rendered app text did not appear before timeout.");
+  const exceptions = cdp.events
+    .filter((event) => event.method === "Runtime.exceptionThrown")
+    .map((event) => event.params?.exceptionDetails?.exception?.description ?? event.params?.exceptionDetails?.text)
+    .filter(Boolean)
+    .slice(-5);
+  const consoleErrors = cdp.events
+    .filter((event) => event.method === "Runtime.consoleAPICalled" && ["error", "warning"].includes(event.params?.type))
+    .map((event) => event.params?.args?.map((arg) => arg.value ?? arg.description).filter(Boolean).join(" "))
+    .filter(Boolean)
+    .slice(-5);
+  const failures = cdp.events
+    .filter((event) => event.method === "Network.loadingFailed")
+    .map((event) => event.params?.errorText)
+    .filter(Boolean)
+    .slice(-5);
+  throw new Error(`Rendered app text did not appear before timeout. Body: ${lastBodyText.slice(0, 300)} Exceptions: ${JSON.stringify(exceptions)} Console: ${JSON.stringify(consoleErrors)} Network: ${JSON.stringify(failures)}`);
 }
 
 function findTextCenter(label) {
@@ -658,6 +674,41 @@ async function clickAccessibilityLabel(cdp, label) {
   return true;
 }
 
+async function clickFirstAccessibilityLabelPrefix(cdp, prefix) {
+  const center = await evaluate(cdp, (targetPrefix) => {
+    const target = [...document.querySelectorAll("[aria-label]")].find((element) => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return element.getAttribute("aria-label")?.startsWith(targetPrefix)
+        && rect.width > 0
+        && rect.height > 0
+        && style.display !== "none"
+        && style.visibility !== "hidden";
+    });
+    if (!target) return null;
+    target.scrollIntoView({ block: "center", inline: "nearest" });
+    const rect = target.getBoundingClientRect();
+    return { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) };
+  }, prefix);
+  if (!center) return false;
+  await cdp.send("Input.dispatchMouseEvent", { button: "left", buttons: 1, clickCount: 1, type: "mousePressed", x: center.x, y: center.y });
+  await cdp.send("Input.dispatchMouseEvent", { button: "left", buttons: 0, clickCount: 1, type: "mouseReleased", x: center.x, y: center.y });
+  return true;
+}
+
+async function waitForAccessibilityInputValue(cdp, label, expectedFragment, timeout = 5_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const value = await evaluate(cdp, ({ expectedLabel }) => {
+      const input = document.querySelector(`[aria-label="${expectedLabel}"]`);
+      return input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement ? input.value : null;
+    }, { expectedLabel: label }).catch(() => null);
+    if (typeof value === "string" && value.includes(expectedFragment)) return value;
+    await sleep(200);
+  }
+  return null;
+}
+
 async function scrollAccessibilityLabelIntoView(cdp, label) {
   return evaluate(cdp, (targetLabel) => {
     const target = [...document.querySelectorAll("[aria-label]")].find(
@@ -961,6 +1012,21 @@ async function verifyMobileNoteStackFlow(cdp, name) {
     }
   }
 
+  let draftTitle = null;
+  if (!(await clickAccessibilityLabel(cdp, "노트 제목"))) {
+    failures.push(`${name}.noteStack.draftInput: note title input missing`);
+  } else {
+    await cdp.send("Input.insertText", { text: " 임시복구" });
+    draftTitle = await waitForAccessibilityInputValue(cdp, "노트 제목", "임시복구", 3_000);
+    if (!draftTitle) {
+      failures.push(`${name}.noteStack.draftInputValue: note title did not change`);
+    } else {
+      if (!(await waitForAccessibilityLabel(cdp, "노트 저장 상태: 이 기기에 임시 저장됨", 5_000))) {
+        failures.push(`${name}.noteStack.draftSaved: local draft saved status missing`);
+      }
+    }
+  }
+
   if (!(await clickAccessibilityLabel(cdp, "노트 편집기 이전 화면"))) {
     failures.push(`${name}.noteStack.editorBack: editor back button missing`);
     return failures;
@@ -968,6 +1034,31 @@ async function verifyMobileNoteStackFlow(cdp, name) {
   if (!(await waitForAccessibilityLabel(cdp, "노트 목록 화면"))) {
     failures.push(`${name}.noteStack.listRestore: list screen was not restored`);
     return failures;
+  }
+  if (draftTitle) {
+    if (!(await clickFirstAccessibilityLabelPrefix(cdp, "노트 열기:"))) {
+      failures.push(`${name}.noteStack.draftReopen: saved note row missing`);
+      return failures;
+    }
+    if (!(await waitForAccessibilityLabel(cdp, "노트 편집 화면", 8_000))) {
+      failures.push(`${name}.noteStack.draftEditor: editor did not reopen`);
+      return failures;
+    }
+    const restoredTitle = await waitForAccessibilityInputValue(cdp, "노트 제목", "임시복구", 5_000);
+    if (!restoredTitle || restoredTitle !== draftTitle) {
+      failures.push(`${name}.noteStack.draftRestore: expected ${JSON.stringify(draftTitle)}, got ${JSON.stringify(restoredTitle)}`);
+    }
+    if (!(await waitForAccessibilityLabel(cdp, "노트 저장 상태: 이 기기의 임시 저장을 복구했습니다.", 5_000))) {
+      failures.push(`${name}.noteStack.draftRestoreStatus: restored local draft status missing`);
+    }
+    if (!(await clickAccessibilityLabel(cdp, "노트 편집기 이전 화면"))) {
+      failures.push(`${name}.noteStack.draftEditorBack: editor back button missing after draft restore`);
+      return failures;
+    }
+    if (!(await waitForAccessibilityLabel(cdp, "노트 목록 화면"))) {
+      failures.push(`${name}.noteStack.draftListRestore: list screen was not restored after draft check`);
+      return failures;
+    }
   }
   if (!(await clickAccessibilityLabel(cdp, "이전 화면"))) {
     failures.push(`${name}.noteStack.readerBack: list return button missing`);

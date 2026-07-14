@@ -271,7 +271,8 @@ flowchart LR
 - [x] rich-text toolbar를 모바일 keyboard 위에 고정한다.
 - [x] 기본 toolbar와 더보기 toolbar의 도구를 분리한다.
 - [ ] verse autocomplete의 `#창`, `#창 1:10` 흐름을 유지한다.
-- [ ] local draft, remote save, revision conflict 상태를 editor header에 표시한다.
+- [x] local draft와 remote save 상태를 editor header에 표시한다.
+- [ ] revision conflict 상태와 해결 action을 editor header에 표시한다.
 - [ ] template 선택을 새 노트 생성 단계로 이동한다.
 - [ ] revision, backlink, linked verse를 inspector/sheet로 이동한다.
 - [ ] 노트에서 Reader로 돌아갈 때 verse anchor를 복원한다.

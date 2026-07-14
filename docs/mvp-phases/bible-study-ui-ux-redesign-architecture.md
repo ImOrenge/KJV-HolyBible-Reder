@@ -23,7 +23,7 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 
 ### 1.1 구현 상태
 
-2026-07-14 기준 P0, P1 일부, P2 AppShell 전환과 P3 Reader 표시 계층 및 모바일 문맥 stack의 첫 묶음이 개발 브랜치에 구현되어 있다.
+2026-07-14 기준 P0, P1 일부, P2 AppShell 전환, P3 Reader 표시 계층과 P4 모바일 Notes 작업 공간의 첫 묶음이 개발 브랜치에 구현되어 있다.
 
 | 영역 | 현재 구현 | 다음 경계 |
 | --- | --- | --- |
@@ -33,7 +33,7 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 | 웹 Reader V2 | `readerV2` flag 아래 ReaderHeader/VerseRow/VerseActions, 3-pane, 태블릿 sheet, 모바일 action sheet | ReaderScreen data orchestration과 자동 회귀 테스트 |
 | 모바일 Shell | `uiShellV2` flag 아래 `오늘/성경/공부/보관함/설정` 5탭, custom route stack adapter, header 명령 검색, Android hardware back | Expo Router 전환, iOS swipe back, screen별 컴포넌트 분리 |
 | 모바일 Reader V2 | `readerV2` flag 아래 native ReaderHeader/VerseRow/VerseActionsSheet, EN/KR/동시 보기, long press 다중 선택, keyboard 회피와 2단계 snap, 전용 Reader controller/TTS hook, route/context 복귀 | Android/iOS 실기기 검증 |
-| 모바일 Notes V2 | `PersonalNoteListScreen`과 `PersonalNoteEditorScreen`을 route noteId 기준으로 상호 배타 렌더링하고 Reader -> 목록 -> 편집기 -> 목록 -> Reader stack 복귀 | keyboard toolbar 고정, local draft, remote conflict, inspector sheet |
+| 모바일 Notes V3 | 목록/편집기 stack 분리, compact keyboard toolbar, 사용자·노트별 AsyncStorage draft 복구, local/remote 저장 상태 live region | 보존형 snapshot RPC, remote revision conflict, inspector sheet, 실기기 검증 |
 | 검증 | typecheck, lint, build, Expo Doctor, 구조/스타일 검사, 320/390/768/1024/1440px 웹 smoke, Expo Reader V2 390px interaction smoke | 실제 Android/iOS 검증 |
 
 이 상태는 P2 완료를 뜻하지 않는다. Reader data orchestration, Notes inspector/keyboard toolbar, Dictionary Detail을 독립 screen/pane 책임으로 분리하기 전까지 기존 대형 컴포넌트는 legacy adapter 안에서 유지한다.
@@ -490,6 +490,8 @@ Note List Screen -> Note Editor Screen -> Linked Verse Sheet
 - 뒤로 가기 전에 local draft를 보존하고 remote save 상태를 표시한다.
 - 리더에서 진입한 경우 뒤로 가기는 원래 절로 복귀한다.
 
+`local draft`는 수동 저장 전 데이터 손실을 막는 복구 버퍼이며 로그인 사용자의 최종 저장소는 Supabase다. draft key와 index는 사용자·노트 단위로 격리하고 회원탈퇴 또는 기기 데이터 초기화 시 해당 사용자의 draft를 일괄 제거한다. 현재 `replace_user_data_snapshot`은 personal-note 행을 delete/reinsert하므로, 모바일에서 `save_personal_note_versioned` 충돌 처리를 활성화하기 전에 snapshot 저장을 revision과 history를 보존하는 RPC로 교체해야 한다.
+
 ### 8.5 히브리어 사전
 
 #### 웹
@@ -809,7 +811,7 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 - [ ] 구절 노트, 장 노트, 성경노트 표시 개념을 통합한다.
 - [ ] template 선택을 note 생성 단계로 이동한다.
 - [x] 모바일 toolbar를 keyboard 위 compact toolbar로 전환한다.
-- [ ] 리더 복귀 문맥과 local draft를 검증한다.
+- [x] 리더 복귀 문맥과 local draft를 검증한다.
 
 ### Phase UX-04: Dictionary, Search, Library
 
