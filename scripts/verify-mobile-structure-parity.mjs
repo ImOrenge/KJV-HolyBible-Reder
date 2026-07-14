@@ -27,6 +27,10 @@ const groups = [
     labels: ["hardwareBackPress", "이전 화면", "/(tabs)/today", "/search"],
   },
   {
+    name: "qt-community-nested-tabs",
+    labels: ["QT 커뮤니티", "피드", "내 참여", "랭킹", "설정", "커뮤니티 프로필", "개인 노트는 직접 게시하지 않는 한 커뮤니티에 공개되지 않습니다.", "이전 화면", "QT 나눔 신고", "신고가 접수되었습니다."],
+  },
+  {
     name: "personal-note-stack-screens",
     labels: ["노트 목록 화면", "노트 편집 화면", "노트 편집기 이전 화면", "노트 저장", "새 노트", "노트 기본 서식 도구", "노트 서식 더보기", "노트 고급 서식 도구", "노트 고급 서식 닫기", "이 기기에 임시 저장됨", "서버에 노트 저장 중", "서버에 노트 저장됨", "서버 버전과 충돌 · 내 초안 보존", "서버 버전 사용", "내 초안 유지"],
   },
@@ -104,6 +108,7 @@ async function main() {
     "apps/mobile/src/components/notes/personal-note-list-screen.tsx",
     "apps/mobile/src/components/notes/personal-note-editor-screen.tsx",
     "apps/mobile/src/components/personal-note-rich-text-editor.tsx",
+    "apps/mobile/src/community-home-panel.tsx",
     "packages/shared/src/mobile-study-navigation.ts",
   ].map((file) => readFile(file, "utf8")));
   const source = sources.join("\n");

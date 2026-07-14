@@ -45,6 +45,7 @@
 | `npm run lint` | PASS |
 | `npm run build` | PASS - Next.js 16.2.9, 커뮤니티 API 11개 포함 |
 | `npm run expo:doctor` | PASS - 20/20 |
+| Expo Web runtime probe | PASS - `http://localhost:8083`, 709 modules, HTTP 200 |
 | Expo Android export | PASS - 986 modules, Android Hermes bundle |
 | EAS production AAB | PASS - build `c7b504c8-9fe3-4f40-be88-3434c051ef30`, commit `eee2c3db` |
 | AAB manifest | PASS - `com.kjvreader`, version `0.6.1`, versionCode `6` |
@@ -56,6 +57,8 @@
 | `npm run structure:mobile` | PASS |
 | `npm run style:mobile` | PASS |
 | `npm run study-ui:validate` | PASS |
+| 인증된 웹 커뮤니티 | PASS - 독립 sidebar 진입, 4개 내부 tab semantics, 피드 렌더링 |
+| 모바일 커뮤니티 route 계약 | PASS - `/community` push/pop, 이전 화면 fallback, 신고 상태 구조 |
 | 390px/1440px 브라우저 | PASS - sidebar 독립 커뮤니티, 모바일 5-tab, 가로 넘침과 로그인 runtime 오류 없음 |
 | `npm audit --omit=dev --audit-level=high` | PASS - high/critical 0, moderate 10 |
 | `npm run audit:mobile-clicks` | BLOCKED - 연결된 Android 기기/에뮬레이터 없음 |
@@ -78,6 +81,7 @@
 - 커뮤니티 스모크가 테스트 사용자 삭제 오류를 무시하던 문제를 수정했다.
 - 테스트 사용자는 병렬 삭제 대신 순차 삭제하며 각 Admin API 오류를 확인한다.
 - 재검증 후 최근 생성된 커뮤니티 스모크 사용자가 0명임을 원격 DB에서 확인했다.
+- 모바일 커뮤니티에 명시적 이전 화면과 글 신고 확인·결과 상태를 추가하고 route/구조 검증을 보강했다.
 
 ## 외부 릴리즈 게이트
 

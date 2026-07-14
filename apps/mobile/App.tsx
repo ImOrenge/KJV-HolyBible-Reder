@@ -3356,6 +3356,9 @@ function AppShell() {
                           }
                         : null
                   }
+                  onBack={() => {
+                    if (!goBack()) selectStudyTab("today");
+                  }}
                   onLogin={() => {
                     setShowAuthForm(true);
                     setEntryMode("login");

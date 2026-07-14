@@ -34,11 +34,11 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 | 웹 Reader V2 | `readerV2` flag 아래 ReaderHeader/VerseRow/VerseActions, 3-pane, 태블릿 sheet, 모바일 action sheet | ReaderScreen data orchestration과 자동 회귀 테스트 |
 | 웹 Notes V4 | `300px list + editor + 300px inspector`, 생성 단계 template dialog, 900px 이하 목록/편집 분리, revision/backlink/linked verse inspector | feature component 추출, Reader verse anchor 복귀 자동 검증 |
 | 웹 Dictionary V2 | 독립 `HebrewDictionaryWorkspace`, compact 2-pane, filter popover/chip, 출현형 강조, 검색·필터·선택 단어 URL state, Reader 왕복 복원, 900px 이하 list/detail 분리 | `내 노트에 추가` StudyContext, scroll 복원, 원격 전체 데이터 검증 |
-| 웹 QT 커뮤니티 | sidebar 독립 `QT 커뮤니티`, `/app/community?tab=...`, `피드/내 참여/랭킹/설정` 내부 탭, 로그인 gate | authenticated browser smoke, thread detail URL 여부 검토 |
+| 웹 QT 커뮤니티 | sidebar 독립 `QT 커뮤니티`, `/app/community?tab=...`, `피드/내 참여/랭킹/설정` 내부 탭, 로그인 gate와 authenticated browser smoke | thread detail URL 여부 검토 |
 | 모바일 Shell | `uiShellV2` flag 아래 `오늘/성경/공부/보관함/설정` 5탭, custom route stack adapter, header 명령 검색, Android hardware back | Expo Router 전환, iOS swipe back, screen별 컴포넌트 분리 |
 | 모바일 Reader V2 | `readerV2` flag 아래 native ReaderHeader/VerseRow/VerseActionsSheet, EN/KR/동시 보기, long press 다중 선택, keyboard 회피와 2단계 snap, 전용 Reader controller/TTS hook, route/context 복귀 | Android/iOS 실기기 검증 |
 | 모바일 Notes V4 | 목록/편집기 stack 분리, compact keyboard toolbar, 사용자·노트별 AsyncStorage draft 복구, versioned remote save와 conflict 해결 band | revision/backlink inspector sheet, 장기 offline queue, 실기기 검증 |
-| 모바일 QT 커뮤니티 | 오늘 영역의 커뮤니티 진입, `피드/내 참여/랭킹/설정` 내부 탭, 통독 TTS 완료 증거 연동 | 독립 stack route, 실제 기기 keyboard/auth smoke |
+| 모바일 QT 커뮤니티 | 오늘 영역에서 독립 `/community` stack route로 진입, 명시적 이전 화면, `피드/내 참여/랭킹/설정` 내부 탭, 글 신고, 통독 TTS 완료 증거 연동 | 실제 기기 keyboard/auth/safe-area smoke |
 | 검증 | typecheck, lint, build, Expo Doctor, 구조/스타일 검사, 320/390/768/1024/1440px 웹 smoke, Expo Reader V2 390px interaction smoke | 실제 Android/iOS 검증 |
 
 이 상태는 전체 개편 완료를 뜻하지 않는다. Reader data orchestration, 웹 Notes feature component, 모바일 Notes inspector sheet, Expo Dictionary list/detail screen을 분리하기 전까지 기존 대형 컴포넌트는 legacy adapter 안에서 유지한다.
@@ -896,8 +896,9 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 - [x] `/app/community?tab=...` allowlist와 browser history 계약을 추가한다.
 - [x] 웹·Expo 커뮤니티를 `피드/내 참여/랭킹/설정` 내부 탭으로 분리한다.
 - [x] Reader V2 TTS hook 완료 시 통독 포인트 증거를 기록하도록 연결한다.
-- [ ] authenticated web/Expo interaction과 원격 RLS smoke를 재검증한다.
-- [ ] 모바일 커뮤니티 screen의 keyboard, safe area와 back을 실제 기기에서 검증한다.
+- [x] authenticated web interaction과 원격 RLS smoke를 재검증한다.
+- [x] 모바일 `/community` push/pop, 명시적 이전 화면과 글 신고 동작을 구현하고 route/구조 계약을 검증한다.
+- [ ] 모바일 커뮤니티 screen의 authenticated interaction, keyboard와 safe area를 실제 Android/iOS 기기에서 검증한다.
 
 ### Phase UX-05: Today, Progress, Settings
 
@@ -984,6 +985,8 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 - `main@c04431ec`의 `0.6.1` QT 커뮤니티, Google OAuth, 버전 계약을 UI/UX 개편 기준선에 통합했다.
 - 웹 `함께 > QT 커뮤니티` sidebar route와 `피드/내 참여/랭킹/설정` 내부 탭 URL 계약을 추가했다.
 - Expo 커뮤니티 내부 탭과 Reader V2 TTS 완료 증거 연동, 개인 노트 비공개 경계를 반영했다.
+- 로그인 사용자의 웹 커뮤니티 tablist와 원격 댓글·도움·랭킹·통독 증거 흐름을 재검증했다.
+- 모바일 커뮤니티를 `/community` stack 화면으로 고정하고 이전 화면 및 글 신고 동작과 자동 계약 검증을 보강했다.
 - 웹 히브리어 사전을 독립 workspace component, compact 2-pane, filter popover와 active chip으로 개편했다.
 - 검색어·선택 단어·alphabet/theme/book/sort URL 계약과 Reader 왕복 복원을 추가했다.
 - 히브리어 출현형 강조, 한영 뜻·발음 정보 요약, 390px list/detail 단일 pane 검증을 반영했다.

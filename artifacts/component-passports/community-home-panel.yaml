@@ -9,14 +9,16 @@ component:
     style: apps/web/src/app/globals.css
   component_kind: feature
   change_gate:
-    type: behavioral
-    summary: Adds an independent QT Community page with nested feed, participation, ranking, and settings tabs across web and mobile.
+    type: breaking
+    summary: Adds a required Expo back action and report confirmation while preserving the independent QT Community page and nested tabs.
+    migration: The only Expo call site now passes onBack through the shared mobile navigation stack.
   public_api:
     props:
       - initialTab (web)
       - currentReference
       - user or accessToken
       - apiBaseUrl
+      - onBack (Expo)
       - onLogin
       - onOpenReader
     routes:
@@ -35,12 +37,15 @@ component:
       - ranking opt-in and opt-out
       - weekly monthly all-time ranking
       - profile and privacy settings
+      - thread report confirmation, success, and failure
+      - explicit mobile back with Today fallback
   accessibility_contract:
     - native buttons and pressables keep explicit labels or visible command text
     - status messages are announced on web
     - web nested navigation exposes tablist, tab, and tabpanel semantics
     - active nested tabs expose selected state on web and mobile
     - ranking period controls expose pressed state on web
+    - mobile back and report actions expose explicit accessibility labels
   privacy_contract:
     - personal Bible notes are private by default
     - only content explicitly entered in the community composer is published
@@ -66,3 +71,32 @@ component:
       - web mobile screenshot at 390px
       - web desktop screenshot at 1440px
       - Expo typecheck and interaction smoke
+  evidence:
+    current_level: 3
+    updated_at: 2026-07-14T20:22:42+09:00
+    items:
+      - type: contract
+        command: npm run study-ui:validate
+        result: pass
+        finding: all four community query tabs, invalid values, and mobile community push/pop are covered
+      - type: structure
+        command: npm run structure:mobile
+        result: pass
+        finding: nested tabs, privacy notice, back control, and report states are present
+      - type: authenticated-browser
+        setup: npm run smoke:community:ui-user -- create
+        command: in-app browser at http://localhost:3002/app/community
+        cleanup: npm run smoke:community:ui-user -- cleanup
+        result: pass
+        finding: authenticated feed rendered with four tab semantics and independent sidebar navigation
+      - type: authenticated-api
+        command: npm run smoke:community
+        result: pass
+        finding: 16P/2P, one comment, one helpful reaction, three ranking entries, and cleanup passed
+      - type: runtime-adapter
+        command: Expo Web bundle probe against http://localhost:8083
+        result: pass
+        finding: community panel and shared public Supabase configuration bundled successfully
+  next_action:
+    type: native-interaction
+    target: verify authenticated keyboard, safe area, back, and report confirmation on Android and iOS

@@ -21,6 +21,7 @@
     "browser:mobile": "node scripts/verify-mobile-browser-parity.mjs",
     "browser:reader": "node scripts/verify-reader-browser-parity.mjs",
     "smoke:community": "node scripts/smoke-community.mjs",
+    "smoke:community:ui-user": "node scripts/manage-community-ui-smoke-user.mjs",
     "build": "npm run build -w @kjv/web",
     "typecheck": "npm run typecheck -ws --if-present",
     "lint": "npm run lint -ws --if-present",

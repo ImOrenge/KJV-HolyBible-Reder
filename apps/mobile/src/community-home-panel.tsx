@@ -5,15 +5,17 @@ import {
   getCommunitySummary,
   getCommunityThread,
   setCommunityReaction,
+  submitCommunityReport,
   updateCommunityProfile,
   type CommunityRankingPeriod,
   type CommunitySummary,
+  type StudyUiCommunityTab,
   type CommunityThread,
   type CommunityThreadDetail,
   type CommunityThreadType,
 } from "@kjv/shared";
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 type Theme = {
   accent: string;
@@ -30,12 +32,11 @@ type Props = {
   accessToken?: string;
   apiBaseUrl: string;
   currentReference: { reference: string; verseKey: string } | null;
+  onBack: () => void;
   onLogin: () => void;
   onOpenReader: () => void;
   theme: Theme;
 };
-
-type CommunityTab = "feed" | "participating" | "ranking" | "settings";
 
 const typeLabels: Record<CommunityThreadType, string> = {
   application: "적용",
@@ -45,15 +46,15 @@ const typeLabels: Record<CommunityThreadType, string> = {
   question: "질문",
 };
 
-const tabs: Array<{ key: CommunityTab; label: string }> = [
+const tabs: Array<{ key: StudyUiCommunityTab; label: string }> = [
   { key: "feed", label: "피드" },
   { key: "participating", label: "내 참여" },
   { key: "ranking", label: "랭킹" },
   { key: "settings", label: "설정" },
 ];
 
-export function CommunityHomePanel({ accessToken, apiBaseUrl, currentReference, onLogin, onOpenReader, theme }: Props) {
-  const [activeTab, setActiveTab] = useState<CommunityTab>("feed");
+export function CommunityHomePanel({ accessToken, apiBaseUrl, currentReference, onBack, onLogin, onOpenReader, theme }: Props) {
+  const [activeTab, setActiveTab] = useState<StudyUiCommunityTab>("feed");
   const [summary, setSummary] = useState<CommunitySummary | null>(null);
   const [detail, setDetail] = useState<CommunityThreadDetail | null>(null);
   const [message, setMessage] = useState("");
@@ -82,7 +83,15 @@ export function CommunityHomePanel({ accessToken, apiBaseUrl, currentReference, 
   if (!accessToken) {
     return (
       <View style={[styles.panel, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <Text style={[styles.title, { color: theme.text }]}>QT 커뮤니티</Text>
+        <View style={styles.header}>
+          <Pressable accessibilityLabel="이전 화면" accessibilityRole="button" onPress={onBack} style={[styles.backButton, { borderColor: theme.border }]}>
+            <Text style={[styles.backGlyph, { color: theme.text }]}>‹</Text>
+          </Pressable>
+          <View style={styles.headerText}>
+            <Text style={[styles.title, { color: theme.text }]}>QT 커뮤니티</Text>
+            <Text style={[styles.muted, { color: theme.muted }]}>함께 읽기</Text>
+          </View>
+        </View>
         <Text style={[styles.muted, { color: theme.muted }]}>로그인하고 구절 중심 QT 나눔과 참여 랭킹을 이용하세요.</Text>
         <Pressable onPress={onLogin} style={[styles.primaryButton, { backgroundColor: theme.accent }]}>
           <Text style={{ color: theme.accentText, fontWeight: "800" }}>로그인하고 참여하기</Text>
@@ -162,6 +171,22 @@ export function CommunityHomePanel({ accessToken, apiBaseUrl, currentReference, 
     }
   }
 
+  async function reportThread(threadId: string) {
+    try {
+      await submitCommunityReport({ targetType: "thread", targetId: threadId, reason: "other" }, options);
+      setMessage("신고가 접수되었습니다.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "신고를 접수하지 못했습니다.");
+    }
+  }
+
+  function confirmThreadReport(threadId: string) {
+    Alert.alert("QT 나눔 신고", "이 글을 운영자에게 신고하시겠습니까?", [
+      { style: "cancel", text: "취소" },
+      { onPress: () => void reportThread(threadId), style: "destructive", text: "신고" },
+    ]);
+  }
+
   function renderThreads(threads: CommunityThread[], emptyMessage: string) {
     return (
       <View style={styles.section}>
@@ -183,8 +208,15 @@ export function CommunityHomePanel({ accessToken, apiBaseUrl, currentReference, 
 
   const detailPanel = detail ? (
     <View style={[styles.detail, { borderColor: theme.border }]}>
-      <Text style={[styles.muted, { color: theme.muted }]}>{detail.thread.reference}</Text>
-      <Text style={[styles.subtitle, { color: theme.text }]}>{detail.thread.title}</Text>
+      <View style={styles.detailHeading}>
+        <View style={styles.headerText}>
+          <Text style={[styles.muted, { color: theme.muted }]}>{detail.thread.reference}</Text>
+          <Text style={[styles.subtitle, { color: theme.text }]}>{detail.thread.title}</Text>
+        </View>
+        <Pressable accessibilityLabel="QT 나눔 신고" accessibilityRole="button" onPress={() => confirmThreadReport(detail.thread.id)} style={[styles.reportButton, { borderColor: theme.border }]}>
+          <Text style={{ color: theme.danger, fontSize: 12, fontWeight: "800" }}>신고</Text>
+        </Pressable>
+      </View>
       <Text style={[styles.body, { color: theme.text }]}>{detail.thread.body}</Text>
       <Pressable onPress={() => void toggleHelpful("thread", detail.thread.id, !detail.thread.viewerHelpful)} style={[styles.secondaryButton, { borderColor: theme.border }]}>
         <Text style={{ color: theme.text }}>도움 {detail.thread.helpfulCount}</Text>
@@ -205,7 +237,15 @@ export function CommunityHomePanel({ accessToken, apiBaseUrl, currentReference, 
 
   return (
     <View style={[styles.panel, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-      <Text style={[styles.title, { color: theme.text }]}>QT 커뮤니티</Text>
+      <View style={styles.header}>
+        <Pressable accessibilityLabel="이전 화면" accessibilityRole="button" onPress={onBack} style={[styles.backButton, { borderColor: theme.border }]}>
+          <Text style={[styles.backGlyph, { color: theme.text }]}>‹</Text>
+        </Pressable>
+        <View style={styles.headerText}>
+          <Text style={[styles.title, { color: theme.text }]}>QT 커뮤니티</Text>
+          <Text style={[styles.muted, { color: theme.muted }]}>함께 읽기</Text>
+        </View>
+      </View>
       {summary ? (
         <>
           <View style={[styles.metrics, { borderColor: theme.border }]}>
@@ -283,11 +323,16 @@ function Metric({ label, value, theme }: { label: string; value: string; theme: 
 }
 
 const styles = StyleSheet.create({
+  backButton: { alignItems: "center", borderRadius: 6, borderWidth: 1, height: 40, justifyContent: "center", width: 40 },
+  backGlyph: { fontSize: 30, lineHeight: 32 },
   body: { fontSize: 14, lineHeight: 22 },
   comment: { borderTopWidth: 1, gap: 6, paddingVertical: 12 },
   commentForm: { alignItems: "center", flexDirection: "row", gap: 8 },
   commentInput: { flex: 1 },
   detail: { borderTopWidth: 1, gap: 10, paddingTop: 16 },
+  detailHeading: { alignItems: "flex-start", flexDirection: "row", gap: 8, justifyContent: "space-between" },
+  header: { alignItems: "center", flexDirection: "row", gap: 10 },
+  headerText: { flex: 1, gap: 2, minWidth: 0 },
   input: { borderRadius: 6, borderWidth: 1, minHeight: 44, paddingHorizontal: 12, paddingVertical: 10 },
   metric: { flex: 1, gap: 4, minWidth: 84, padding: 10 },
   metrics: { borderBottomWidth: 1, borderTopWidth: 1, flexDirection: "row" },
@@ -296,6 +341,7 @@ const styles = StyleSheet.create({
   primaryButton: { alignItems: "center", borderRadius: 6, justifyContent: "center", minHeight: 44, paddingHorizontal: 14 },
   privacyNote: { borderBottomWidth: 1, borderTopWidth: 1, fontSize: 12, lineHeight: 19, paddingVertical: 12 },
   rankRow: { alignItems: "center", borderBottomWidth: 1, flexDirection: "row", minHeight: 42, paddingHorizontal: 6 },
+  reportButton: { alignItems: "center", borderRadius: 6, borderWidth: 1, justifyContent: "center", minHeight: 38, paddingHorizontal: 10 },
   secondaryButton: { alignItems: "center", borderRadius: 6, borderWidth: 1, justifyContent: "center", minHeight: 42, paddingHorizontal: 12 },
   section: { gap: 10 },
   settingRow: { alignItems: "center", borderBottomWidth: 1, flexDirection: "row", justifyContent: "space-between", minHeight: 48 },

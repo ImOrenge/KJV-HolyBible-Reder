@@ -88,8 +88,15 @@ assert.equal(buildLegacyStudyAppUrl("dashboard"), "/app");
 assert.equal(buildLegacyStudyAppUrl("notes"), "/app?view=notes");
 assert.equal(buildStudyUiTargetUrl("notes"), "/app/study/notes");
 assert.equal(buildStudyUiTargetUrl("highlights"), "/app/library?section=highlights");
+assert.equal(buildStudyUiCommunityUrl({ tab: "feed" }), "/app/community");
+assert.equal(buildStudyUiCommunityUrl({ tab: "participating" }), "/app/community?tab=participating");
 assert.equal(buildStudyUiCommunityUrl({ tab: "ranking" }), "/app/community?tab=ranking");
+assert.equal(buildStudyUiCommunityUrl({ tab: "settings" }), "/app/community?tab=settings");
+assert.deepEqual(parseStudyUiCommunityRoute(new URLSearchParams()), {});
+assert.deepEqual(parseStudyUiCommunityRoute(new URLSearchParams("tab=feed")), {});
 assert.deepEqual(parseStudyUiCommunityRoute(new URLSearchParams("tab=participating")), { tab: "participating" });
+assert.deepEqual(parseStudyUiCommunityRoute(new URLSearchParams("tab=ranking")), { tab: "ranking" });
+assert.deepEqual(parseStudyUiCommunityRoute(new URLSearchParams("tab=settings")), { tab: "settings" });
 assert.equal(parseStudyUiCommunityRoute(new URLSearchParams("tab=private")), null);
 const dictionaryUrl = buildStudyUiDictionaryUrl({
   query: "reshith",
@@ -170,6 +177,13 @@ const mobileNoteRoute = createMobileStudyRoute({
 });
 assert.equal(mobileNoteRoute.path.startsWith("/notes/note-1?"), true);
 assert.equal(createMobileStudyRoute({ view: "community" }).path, "/community");
+
+let communityNavigation = createMobileStudyNavigationState();
+communityNavigation = pushMobileStudyRoute(communityNavigation, createMobileStudyRoute({ view: "community" }));
+assert.equal(getActiveMobileStudyRoute(communityNavigation).view, "community");
+assert.equal(canPopMobileStudyRoute(communityNavigation), true);
+communityNavigation = popMobileStudyRoute(communityNavigation);
+assert.equal(getActiveMobileStudyRoute(communityNavigation).view, "dashboard");
 
 let mobileNavigation = createMobileStudyNavigationState();
 mobileNavigation = pushMobileStudyRoute(mobileNavigation, mobileReaderRoute);
