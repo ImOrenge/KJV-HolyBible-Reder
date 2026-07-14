@@ -42,6 +42,8 @@
 - `packages/shared/src/personal-note-draft.ts`가 사용자·노트별 AsyncStorage key, 500ms debounce 저장, 최신 draft 판정과 저장 완료 draft 정리를 제공한다.
 - 회원탈퇴와 로컬 데이터 초기화는 사용자별 draft index와 AsyncStorage key scan을 함께 사용해 남은 초안을 제거한다.
 - 편집기 header는 임시 저장, 서버 저장 중, 서버 저장 완료, 서버 저장 실패를 live region으로 구분한다.
+- 노트 본문 저장은 bearer 인증 create/versioned update API로 분리하고 409에서는 local draft를 유지한 채 서버 버전 또는 내 초안을 선택한다.
+- 원격 `20260714110000` migration은 전체 snapshot 저장에서 personal-note 행과 revision history를 보존한다.
 
 Expo Web `390x844` 검증:
 
@@ -92,7 +94,9 @@ Reader orchestration 검증:
 - `npm run typecheck`, `npm run lint`, `npm run build`, `npm run structure:mobile`, `npm run style:mobile`: 통과.
 - `npm run expo:doctor`: 20/20 checks 통과.
 - `npm run note-draft:validate`: 사용자/노트 key 격리, 최신 draft 복구, 저장 완료 draft 정리, 손상 JSON 무시를 통과.
-- `npm run browser:reader -- --single=true --port=9360`: Reader -> Search -> Reader와 Reader -> Notes -> local draft 저장/복구 -> Reader stack 복귀를 포함해 통과.
+- `npm run note-client:validate`, `npm run note-snapshot:validate`: bearer payload, typed 409 conflict, permanent delete URL과 snapshot 보존 SQL 불변식을 통과.
+- `npm run db:smoke-notes`: 원격 revision save, snapshot 보존, note/revision/link 교차 계정 RLS 격리를 통과.
+- `npm run browser:reader -- --single=true --port=9361`: Reader -> Search -> Reader와 Reader -> Notes -> local draft 저장/복구 -> Reader stack 복귀를 포함해 통과.
 
 ## 남은 작업
 
@@ -101,4 +105,4 @@ Reader orchestration 검증:
 - 실제 clipboard, 원격 저장, 기기 TTS를 Android/iOS interaction test로 고정한다.
 - iOS swipe back과 앱 재시작 후 route stack 복원을 Expo Router 전환 단계에서 적용한다.
 - Expo Reader V2의 drag snap과 keyboard 회피를 Android/iOS 실제 기기에서 검증한다.
-- 모바일 revision conflict를 활성화하기 전에 `replace_user_data_snapshot`의 personal-note delete/reinsert를 보존형 RPC로 교체한다.
+- 인증된 두 실제 기기에서 동시 수정 충돌 band와 두 해결 action을 interaction test로 고정한다.

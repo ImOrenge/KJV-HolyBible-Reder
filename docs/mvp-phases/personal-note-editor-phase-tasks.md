@@ -54,13 +54,14 @@
 - [x] 저장 버튼을 구현한다.
 - [x] local draft, 서버 저장 중, 서버 저장 완료, 서버 저장 실패 상태를 표시한다.
 - [x] local draft debounce 저장을 구현한다.
+- [x] revision conflict와 서버 버전/내 초안 해결 흐름을 구현한다.
 - [x] 새 노트 생성 흐름을 구현한다.
 - [x] 노트 삭제 흐름을 구현한다.
 
 ### 완료 기준
 
-- [ ] 사용자가 새 노트를 만들 수 있다.
-- [ ] 노트가 id 단위로 개별 저장된다.
+- [x] 사용자가 새 노트를 만들 수 있다.
+- [x] 노트가 id 단위로 개별 저장된다.
 - [ ] 새로고침 후에도 로컬 노트가 유지된다.
 - [x] 저장 실패 시 작성 중인 draft가 사라지지 않는다.
 - [x] 모바일에서 목록과 편집기가 서로 겹치지 않는다.
@@ -119,30 +120,30 @@
 
 ### 태스크
 
-- [ ] `user_personal_notes` migration을 작성한다.
-- [ ] `user_personal_note_verse_links` migration을 작성한다.
-- [ ] `user_personal_note_tags` migration을 작성한다.
-- [ ] `user_verse_tags` migration을 작성한다.
-- [ ] 각 테이블에 RLS를 활성화한다.
-- [ ] `authenticated` role 전용 grant를 설정한다.
+- [x] `user_personal_notes` migration을 작성한다.
+- [x] `user_personal_note_verse_links` migration을 작성한다.
+- [x] `user_personal_note_tags` migration을 작성한다.
+- [x] `user_verse_tags` migration을 작성한다.
+- [x] 각 테이블에 RLS를 활성화한다.
+- [x] `authenticated` role 전용 grant를 설정한다.
 - [ ] `anon` role 쓰기 권한이 없음을 확인한다.
-- [ ] 노트 CRUD RLS 정책을 작성한다.
-- [ ] verse link membership 소유권 정책을 작성한다.
-- [ ] note tag membership 소유권 정책을 작성한다.
-- [ ] verse tag 소유권 정책을 작성한다.
-- [ ] localStorage repository와 Supabase repository 인터페이스를 맞춘다.
-- [ ] `GET /api/me/notes`를 구현한다.
-- [ ] `POST /api/me/notes`를 구현한다.
-- [ ] `PATCH /api/me/notes/{noteId}`를 구현한다.
-- [ ] `DELETE /api/me/notes/{noteId}`를 구현한다.
-- [ ] `POST /api/me/verse-tags`를 구현한다.
-- [ ] `DELETE /api/me/verse-tags/{verseTagId}`를 구현한다.
+- [x] 노트 CRUD RLS 정책을 작성한다.
+- [x] verse link membership 소유권 정책을 작성한다.
+- [x] note tag membership 소유권 정책을 작성한다.
+- [x] verse tag 소유권 정책을 작성한다.
+- [x] localStorage repository와 Supabase repository 인터페이스를 맞춘다.
+- [x] `GET /api/me/notes`를 구현한다.
+- [x] `POST /api/me/notes`를 구현한다.
+- [x] `PATCH /api/me/notes/{noteId}`를 구현한다.
+- [x] `DELETE /api/me/notes/{noteId}`를 구현한다.
+- [x] `POST /api/me/verse-tags`를 구현한다.
+- [x] `DELETE /api/me/verse-tags/{verseTagId}`를 구현한다.
 - [ ] 로그에서 노트 본문이 출력되지 않게 마스킹한다.
 
 ### 완료 기준
 
-- [ ] 로그인 계정 기준으로 노트가 저장된다.
-- [ ] 다른 계정의 note id를 직접 요청해도 읽을 수 없다.
+- [x] 로그인 계정 기준으로 노트가 저장된다.
+- [x] 다른 계정의 note id를 직접 요청해도 읽을 수 없다.
 - [ ] 다른 계정의 note에 verse link를 추가할 수 없다.
 - [ ] 다른 계정의 tag를 자신의 note에 연결할 수 없다.
 - [ ] 서버 오류 로그에 노트 본문 원문이 남지 않는다.

@@ -7,10 +7,12 @@ import {
   clearPersonalNoteDraftIfCovered,
   clearUserDataFromStorage,
   collectSearchHighlightRanges,
+  createRemotePersonalNote,
   createReadingPlan,
   createBibleApiClient,
   createInitialUserData,
   createPersonalNoteDraft,
+  deleteRemotePersonalNote,
   defaultFavoriteListId,
   formatPlanChapters,
   getUserOnboarding,
@@ -34,6 +36,7 @@ import {
   normalizePersonalNoteDocument,
   personalNoteDocumentToMarkdown,
   personalNoteDocumentToText,
+  PersonalNoteRevisionConflictError,
   normalizeVerseId,
   percent,
   privacyPolicyIntro,
@@ -66,6 +69,7 @@ import {
   type Verse,
   type StudyContextSource,
   type StudyReturnTarget,
+  updateRemotePersonalNote,
 } from "@kjv/shared";
 import { createClient as createSupabaseClient, type Session, type User } from "@supabase/supabase-js";
 import * as Clipboard from "expo-clipboard";
@@ -110,6 +114,7 @@ type LoadStatus = "idle" | "loading" | "ready" | "error";
 type SubmitStatus = "idle" | "submitting" | "success" | "error";
 type SyncStatus = "idle" | "loading" | "ready" | "saving" | "error";
 type PersonalNoteDraftStatus = "idle" | "loading" | "dirty" | "saved" | "committed" | "error";
+type PersonalNoteRemoteStatus = "idle" | "saving" | "saved" | "conflict" | "error";
 type OnboardingStatus = "idle" | "checking" | "required" | "complete" | "error";
 const ttsSpeedOptions = [0.75, 1, 1.25, 1.5] as const;
 const iconGlyphs = {
@@ -459,6 +464,9 @@ function AppShell() {
   const [personalNoteTagInput, setPersonalNoteTagInput] = useState("");
   const [personalNoteDraftStatus, setPersonalNoteDraftStatus] = useState<PersonalNoteDraftStatus>("idle");
   const [personalNoteDraftMessage, setPersonalNoteDraftMessage] = useState("");
+  const [personalNoteRemoteStatus, setPersonalNoteRemoteStatus] = useState<PersonalNoteRemoteStatus>("idle");
+  const [personalNoteRemoteMessage, setPersonalNoteRemoteMessage] = useState("");
+  const [personalNoteConflict, setPersonalNoteConflict] = useState<PersonalNote | null>(null);
   const [highlightColorFilter, setHighlightColorFilter] = useState<"all" | HighlightColor>("all");
   const [highlightBookFilter, setHighlightBookFilter] = useState("all");
   const [favoriteSearchQuery, setFavoriteSearchQuery] = useState("");
@@ -498,6 +506,7 @@ function AppShell() {
   const hydratedPersonalNoteDraftIdRef = useRef<string | null>(null);
   const lastPersonalNoteDraftFingerprintRef = useRef("");
   const lastSavedRemoteSnapshotRef = useRef("");
+  const remotePersonalNoteIdsRef = useRef(new Set<string>());
   const pendingStoredVerseFetchesRef = useRef(new Set<string>());
 
   const activeUserId = authUser?.id ?? guestUserId;
@@ -699,24 +708,30 @@ function AppShell() {
     : [];
   const personalNoteDraftOwnsSaveStatus = personalNoteDraftStatus === "loading" || personalNoteDraftStatus === "dirty" || personalNoteDraftStatus === "saved" || personalNoteDraftStatus === "error";
   const personalNoteEditorSaveStatus = (() => {
+    if (personalNoteRemoteStatus === "conflict") return "서버 버전과 충돌 · 내 초안 보존";
+    if (personalNoteRemoteStatus === "saving") return "서버에 노트 저장 중";
+    if (personalNoteRemoteStatus === "error") return personalNoteRemoteMessage || "서버 노트 저장 실패 · 내 초안 보존";
     if (personalNoteDraftOwnsSaveStatus) {
       return personalNoteDraftMessage;
     }
     if (!authUser) return personalNoteDraftStatus === "committed" ? "이 기기에 저장됨" : "비로그인 · 이 기기에 저장";
-    if (syncStatus === "saving") return "서버 저장 중";
-    if (syncStatus === "error") return "서버 저장 실패 · 기기 캐시 보존";
+    if (personalNoteRemoteStatus === "saved") return "서버에 노트 저장됨";
     if (syncStatus === "loading") return "서버 데이터 확인 중";
-    if (syncStatus === "ready") return "서버 저장 완료";
-    return personalNoteDraftStatus === "committed" ? "서버 저장 대기" : "서버 동기화 대기";
+    return "서버 노트 저장 대기";
   })();
   const personalNoteEditorSaveTone: "neutral" | "saving" | "success" | "error" =
-    personalNoteDraftStatus === "error" || (!personalNoteDraftOwnsSaveStatus && Boolean(authUser) && syncStatus === "error")
+    personalNoteRemoteStatus === "conflict" || personalNoteRemoteStatus === "error" || personalNoteDraftStatus === "error"
       ? "error"
-      : personalNoteDraftStatus === "dirty" || personalNoteDraftStatus === "loading" || syncStatus === "loading" || syncStatus === "saving"
+      : personalNoteRemoteStatus === "saving" || personalNoteDraftStatus === "dirty" || personalNoteDraftStatus === "loading" || syncStatus === "loading"
         ? "saving"
-        : personalNoteDraftStatus === "saved" || personalNoteDraftStatus === "committed" || syncStatus === "ready"
+        : personalNoteRemoteStatus === "saved" || personalNoteDraftStatus === "saved" || personalNoteDraftStatus === "committed"
           ? "success"
           : "neutral";
+  useEffect(() => {
+    setPersonalNoteConflict(null);
+    setPersonalNoteRemoteStatus("idle");
+    setPersonalNoteRemoteMessage("");
+  }, [activeRoute.noteId]);
   useEffect(() => {
     if (activeRoute.view === "notes" && activeRoute.noteId) setSelectedPersonalNoteId(activeRoute.noteId);
     if (activeRoute.view === "dictionary" && activeRoute.dictionaryEntryId) {
@@ -960,6 +975,7 @@ function AppShell() {
     };
 
     if (authUser && supabase) {
+      remotePersonalNoteIdsRef.current = new Set();
       setSyncStatus("loading");
       setSyncMessage("서버 데이터 불러오는 중");
       loadRemoteUserData(supabase, authUser.id)
@@ -968,6 +984,7 @@ function AppShell() {
             return;
           }
           applyLoadedData(data);
+          remotePersonalNoteIdsRef.current = new Set(data.personalNotes.map((note) => note.id));
           lastSavedRemoteSnapshotRef.current = JSON.stringify(data);
           setSyncStatus("ready");
           setSyncMessage("서버 동기화 연결됨");
@@ -996,6 +1013,10 @@ function AppShell() {
 
     setSyncStatus("idle");
     setSyncMessage("");
+    remotePersonalNoteIdsRef.current = new Set();
+    setPersonalNoteConflict(null);
+    setPersonalNoteRemoteStatus("idle");
+    setPersonalNoteRemoteMessage("");
     loadUserDataFromStorage(AsyncStorage, activeUserId)
       .then((data) => {
         if (!cancelled) {
@@ -1039,9 +1060,7 @@ function AppShell() {
           lastSavedRemoteSnapshotRef.current = serialized;
           setSyncStatus("ready");
           setSyncMessage("서버 동기화 완료");
-          void saveUserDataToStorage(AsyncStorage, activeUserId, userData)
-            .then(() => Promise.all(userData.personalNotes.map((note) => clearPersonalNoteDraftIfCovered(AsyncStorage, activeUserId, note))))
-            .catch(() => undefined);
+          void saveUserDataToStorage(AsyncStorage, activeUserId, userData).catch(() => undefined);
         })
         .catch((error) => {
           setSyncStatus("error");
@@ -1840,7 +1859,7 @@ function AppShell() {
     });
   };
 
-  const savePersonalNote = () => {
+  const savePersonalNote = async () => {
     const now = new Date().toISOString();
     const existingId = selectedPersonalNote?.id ?? selectedPersonalNoteId ?? createId("personal-note");
     const title = personalNoteTitle.trim() || "제목 없는 성경노트";
@@ -1850,11 +1869,37 @@ function AppShell() {
       .split(",")
       .map((tag) => tag.trim())
       .filter(Boolean);
+    const existingNote = selectedPersonalNote;
+    const nextNote: PersonalNote = {
+      id: existingId,
+      userId: activeUserId,
+      title,
+      bodyMarkdown,
+      bodyText,
+      bodyDocument: personalNoteDocument,
+      editorFormat: "rich-text-v1",
+      status: "active",
+      pinned: existingNote?.pinned ?? false,
+      revision: existingNote?.revision ?? 1,
+      createdAt: existingNote?.createdAt ?? now,
+      updatedAt: now,
+      lastSavedAt: authUser ? existingNote?.lastSavedAt : now,
+    };
+    const draft = createPersonalNoteDraft({
+      baseRevision: nextNote.revision,
+      bodyDocument: personalNoteDocument,
+      noteId: existingId,
+      tagInput: personalNoteTagInput,
+      title: personalNoteTitle,
+      updatedAt: now,
+      userId: activeUserId,
+    });
 
     if (personalNoteDraftDebounceRef.current) {
       clearTimeout(personalNoteDraftDebounceRef.current);
       personalNoteDraftDebounceRef.current = null;
     }
+    setPersonalNoteConflict(null);
     setPersonalNoteDraftStatus("committed");
     setPersonalNoteDraftMessage(authUser ? "서버 저장 대기" : "이 기기에 저장 중");
     lastPersonalNoteDraftFingerprintRef.current = getPersonalNoteDraftFingerprint({
@@ -1880,23 +1925,6 @@ function AppShell() {
         nextTags.push(tag);
         return tag.id;
       });
-      const existingNote = current.personalNotes.find((note) => note.id === existingId);
-      const nextNote: PersonalNote = {
-        id: existingId,
-        userId: activeUserId,
-        title,
-        bodyMarkdown,
-        bodyText,
-        bodyDocument: personalNoteDocument,
-        editorFormat: "rich-text-v1",
-        status: "active",
-        pinned: existingNote?.pinned ?? false,
-        revision: existingNote?.revision ?? 1,
-        createdAt: existingNote?.createdAt ?? now,
-        updatedAt: now,
-        lastSavedAt: now,
-      };
-
       return {
         ...current,
         tags: nextTags,
@@ -1913,8 +1941,155 @@ function AppShell() {
       };
     });
     setSelectedPersonalNoteId(existingId);
-    setCopyStatus("성경노트 저장됨");
-    setTimeout(() => setCopyStatus(""), 1600);
+    await savePersonalNoteDraft(AsyncStorage, draft).catch(() => undefined);
+
+    if (!authUser) {
+      setPersonalNoteRemoteStatus("idle");
+      setPersonalNoteDraftStatus("committed");
+      setPersonalNoteDraftMessage("이 기기에 저장됨");
+      setCopyStatus("성경노트 저장됨");
+      setTimeout(() => setCopyStatus(""), 1600);
+      return;
+    }
+
+    if (!authSession?.access_token) {
+      setPersonalNoteRemoteStatus("error");
+      setPersonalNoteRemoteMessage("로그인 세션을 확인할 수 없어 내 초안으로 보존했습니다.");
+      return;
+    }
+
+    setPersonalNoteRemoteStatus("saving");
+    setPersonalNoteRemoteMessage("서버에 노트 저장 중");
+    try {
+      const input = {
+        note: nextNote,
+        noteLinks: userData.personalNoteLinks.filter((link) => link.sourceNoteId === existingId),
+        tagNames,
+        verseLinks: selectedPersonalNoteLinks,
+      };
+      const savedNote = remotePersonalNoteIdsRef.current.has(existingId)
+        ? await updateRemotePersonalNote(input, { accessToken: authSession.access_token, baseUrl: apiBaseUrl })
+        : await createRemotePersonalNote(input, { accessToken: authSession.access_token, baseUrl: apiBaseUrl });
+      remotePersonalNoteIdsRef.current.add(existingId);
+      await clearPersonalNoteDraftIfCovered(AsyncStorage, activeUserId, savedNote);
+      setUserData((current) => ({
+        ...current,
+        personalNotes: [savedNote, ...current.personalNotes.filter((note) => note.id !== existingId)],
+      }));
+      lastPersonalNoteDraftFingerprintRef.current = getPersonalNoteDraftFingerprint({
+        bodyDocument: normalizePersonalNoteDocument(savedNote.bodyDocument, savedNote.bodyMarkdown),
+        tagInput: personalNoteTagInput,
+        title: savedNote.title,
+      });
+      setPersonalNoteDraftStatus("committed");
+      setPersonalNoteDraftMessage("서버에 저장됨");
+      setPersonalNoteRemoteStatus("saved");
+      setPersonalNoteRemoteMessage("서버에 노트 저장됨");
+    } catch (error) {
+      if (error instanceof PersonalNoteRevisionConflictError && error.current) {
+        setPersonalNoteConflict(error.current);
+        setPersonalNoteRemoteStatus("conflict");
+        setPersonalNoteRemoteMessage("다른 기기에서 수정된 서버 버전을 확인하세요.");
+        setPersonalNoteDraftStatus("saved");
+        setPersonalNoteDraftMessage("내 초안 보존됨");
+        return;
+      }
+      if (error instanceof PersonalNoteRevisionConflictError) {
+        remotePersonalNoteIdsRef.current.delete(existingId);
+        setPersonalNoteRemoteMessage("서버에서 노트를 찾을 수 없습니다. 다시 저장하면 새 노트로 생성됩니다.");
+      } else {
+        setPersonalNoteRemoteMessage(error instanceof Error ? `${error.message} · 내 초안 보존` : "서버 노트 저장 실패 · 내 초안 보존");
+      }
+      setPersonalNoteRemoteStatus("error");
+      setPersonalNoteDraftStatus("saved");
+      setPersonalNoteDraftMessage("내 초안 보존됨");
+    }
+  };
+
+  const useServerPersonalNoteVersion = async () => {
+    if (!personalNoteConflict || !authUser || !supabase) return;
+    setPersonalNoteRemoteStatus("saving");
+    setPersonalNoteRemoteMessage("서버 버전 불러오는 중");
+    try {
+      const remoteData = await loadRemoteUserData(supabase, authUser.id);
+      const remoteNote = remoteData.personalNotes.find((note) => note.id === personalNoteConflict.id) ?? personalNoteConflict;
+      const remoteTagLinks = remoteData.personalNoteTags.filter((tagLink) => tagLink.noteId === remoteNote.id);
+      const remoteTagIds = new Set(remoteTagLinks.map((tagLink) => tagLink.tagId));
+      const remoteTags = remoteData.tags.filter((tag) => remoteTagIds.has(tag.id));
+      await clearPersonalNoteDraft(AsyncStorage, activeUserId, remoteNote.id);
+      setUserData((current) => {
+        const tags = new Map(current.tags.map((tag) => [tag.id, tag]));
+        remoteTags.forEach((tag) => tags.set(tag.id, tag));
+        return {
+          ...current,
+          personalNotes: [remoteNote, ...current.personalNotes.filter((note) => note.id !== remoteNote.id)],
+          personalNoteVerseLinks: [
+            ...remoteData.personalNoteVerseLinks.filter((link) => link.noteId === remoteNote.id),
+            ...current.personalNoteVerseLinks.filter((link) => link.noteId !== remoteNote.id),
+          ],
+          personalNoteTags: [...remoteTagLinks, ...current.personalNoteTags.filter((tagLink) => tagLink.noteId !== remoteNote.id)],
+          personalNoteRevisions: [
+            ...remoteData.personalNoteRevisions.filter((revision) => revision.noteId === remoteNote.id),
+            ...current.personalNoteRevisions.filter((revision) => revision.noteId !== remoteNote.id),
+          ],
+          personalNoteLinks: [
+            ...remoteData.personalNoteLinks.filter((link) => link.sourceNoteId === remoteNote.id || link.targetNoteId === remoteNote.id),
+            ...current.personalNoteLinks.filter((link) => link.sourceNoteId !== remoteNote.id && link.targetNoteId !== remoteNote.id),
+          ],
+          verseTags: [
+            ...remoteData.verseTags.filter((tag) => tag.sourceNoteId === remoteNote.id),
+            ...current.verseTags.filter((tag) => tag.sourceNoteId !== remoteNote.id),
+          ],
+          tags: [...tags.values()],
+        };
+      });
+      remotePersonalNoteIdsRef.current.add(remoteNote.id);
+      setPersonalNoteTitle(remoteNote.title);
+      setPersonalNoteDocument(normalizePersonalNoteDocument(remoteNote.bodyDocument, remoteNote.bodyMarkdown));
+      setPersonalNoteTagInput(
+        remoteData.personalNoteTags
+          .filter((tagLink) => tagLink.noteId === remoteNote.id)
+          .map((tagLink) => remoteData.tags.find((tag) => tag.id === tagLink.tagId)?.name)
+          .filter(Boolean)
+          .join(", "),
+      );
+      setPersonalNoteConflict(null);
+      setPersonalNoteDraftStatus("committed");
+      setPersonalNoteDraftMessage("서버 버전 사용");
+      setPersonalNoteRemoteStatus("saved");
+      setPersonalNoteRemoteMessage("서버 버전을 불러왔습니다.");
+    } catch (error) {
+      setPersonalNoteRemoteStatus("conflict");
+      setPersonalNoteRemoteMessage(error instanceof Error ? error.message : "서버 버전을 불러오지 못했습니다.");
+    }
+  };
+
+  const keepLocalPersonalNoteDraft = () => {
+    if (!personalNoteConflict || !selectedPersonalNote) return;
+    const now = new Date().toISOString();
+    const rebasedNote = {
+      ...selectedPersonalNote,
+      revision: personalNoteConflict.revision,
+      lastSavedAt: personalNoteConflict.lastSavedAt,
+    };
+    setUserData((current) => ({
+      ...current,
+      personalNotes: [rebasedNote, ...current.personalNotes.filter((note) => note.id !== rebasedNote.id)],
+    }));
+    setPersonalNoteConflict(null);
+    setPersonalNoteRemoteStatus("idle");
+    setPersonalNoteRemoteMessage("");
+    setPersonalNoteDraftStatus("saved");
+    setPersonalNoteDraftMessage("서버 변경 확인 · 내 초안 유지");
+    void savePersonalNoteDraft(AsyncStorage, createPersonalNoteDraft({
+      baseRevision: personalNoteConflict.revision,
+      bodyDocument: personalNoteDocument,
+      noteId: selectedPersonalNote.id,
+      tagInput: personalNoteTagInput,
+      title: personalNoteTitle,
+      updatedAt: now,
+      userId: activeUserId,
+    }));
   };
 
   const addPersonalNoteVerseReference = (suggestion: { bookId: string; chapter: number; verse: number; verseKey: string }) => {
@@ -1945,10 +2120,28 @@ function AppShell() {
     setCopyStatus("구절 태그 추가됨 · 저장 필요");
   };
 
-  const deletePersonalNote = () => {
+  const deletePersonalNote = async () => {
     const noteId = selectedPersonalNote?.id;
     if (!noteId) {
       return;
+    }
+
+    if (authUser) {
+      if (!authSession?.access_token) {
+        setPersonalNoteRemoteStatus("error");
+        setPersonalNoteRemoteMessage("로그인 세션을 확인할 수 없어 삭제하지 않았습니다.");
+        return;
+      }
+      setPersonalNoteRemoteStatus("saving");
+      setPersonalNoteRemoteMessage("서버에서 노트 삭제 중");
+      try {
+        await deleteRemotePersonalNote(noteId, { accessToken: authSession.access_token, baseUrl: apiBaseUrl });
+        remotePersonalNoteIdsRef.current.delete(noteId);
+      } catch (error) {
+        setPersonalNoteRemoteStatus("error");
+        setPersonalNoteRemoteMessage(error instanceof Error ? error.message : "서버에서 노트를 삭제하지 못했습니다.");
+        return;
+      }
     }
 
     setUserData((current) => ({
@@ -1970,6 +2163,9 @@ function AppShell() {
     lastPersonalNoteDraftFingerprintRef.current = "";
     setPersonalNoteDraftStatus("idle");
     setPersonalNoteDraftMessage("");
+    setPersonalNoteConflict(null);
+    setPersonalNoteRemoteStatus("idle");
+    setPersonalNoteRemoteMessage("");
     void clearPersonalNoteDraft(AsyncStorage, activeUserId, noteId);
     setCopyStatus("성경노트 삭제됨");
     setTimeout(() => setCopyStatus(""), 1600);
@@ -2302,6 +2498,10 @@ function AppShell() {
     setShowAuthForm(false);
     setSyncStatus("idle");
     setSyncMessage("");
+    remotePersonalNoteIdsRef.current = new Set();
+    setPersonalNoteConflict(null);
+    setPersonalNoteRemoteStatus("idle");
+    setPersonalNoteRemoteMessage("");
     setImportStatus("idle");
     setImportMessage("");
     setHasDeviceDataToImport(false);
@@ -2309,7 +2509,7 @@ function AppShell() {
   };
 
   const importDeviceData = async () => {
-    if (!authUser || !supabase) {
+    if (!authUser || !authSession?.access_token || !supabase) {
       setImportStatus("error");
       setImportMessage("로그인 후 가져올 수 있습니다.");
       return;
@@ -2327,7 +2527,28 @@ function AppShell() {
       }
 
       const merged = mergeUserDataForImport(userData, localData, authUser.id);
+      const existingRemoteNoteIds = new Set(userData.personalNotes.map((note) => note.id));
+      for (const localNote of localData.personalNotes) {
+        if (existingRemoteNoteIds.has(localNote.id)) continue;
+        const note = merged.personalNotes.find((candidate) => candidate.id === localNote.id);
+        if (!note) continue;
+        const tagNames = merged.personalNoteTags
+          .filter((tagLink) => tagLink.noteId === note.id)
+          .map((tagLink) => merged.tags.find((tag) => tag.id === tagLink.tagId)?.name)
+          .filter((name): name is string => Boolean(name));
+        await createRemotePersonalNote(
+          {
+            note,
+            noteLinks: merged.personalNoteLinks.filter((link) => link.sourceNoteId === note.id),
+            tagNames,
+            verseLinks: merged.personalNoteVerseLinks.filter((link) => link.noteId === note.id),
+          },
+          { accessToken: authSession.access_token, baseUrl: apiBaseUrl },
+        );
+        existingRemoteNoteIds.add(note.id);
+      }
       const saved = await saveRemoteUserData(supabase, authUser.id, merged);
+      remotePersonalNoteIdsRef.current = new Set(saved.personalNotes.map((note) => note.id));
       lastSavedRemoteSnapshotRef.current = JSON.stringify(saved);
       setUserData(saved);
       await saveUserDataToStorage(AsyncStorage, authUser.id, saved);
@@ -2391,6 +2612,10 @@ function AppShell() {
       setDeleteAccountMessage("");
       setSyncStatus("idle");
       setSyncMessage("");
+      remotePersonalNoteIdsRef.current = new Set();
+      setPersonalNoteConflict(null);
+      setPersonalNoteRemoteStatus("idle");
+      setPersonalNoteRemoteMessage("");
       setImportStatus("idle");
       setImportMessage("");
       setHasDeviceDataToImport(false);
@@ -3487,6 +3712,7 @@ function AppShell() {
                 {activeRoute.noteId && selectedPersonalNote ? (
                   <PersonalNoteEditorScreen
                     colors={colors}
+                    conflictRevision={personalNoteConflict?.revision}
                     document={personalNoteDocument}
                     formatUpdatedAt={formatShortDate}
                     links={selectedPersonalNoteLinks}
@@ -3497,11 +3723,14 @@ function AppShell() {
                     onChangeTags={setPersonalNoteTagInput}
                     onChangeTitle={setPersonalNoteTitle}
                     onDelete={deletePersonalNote}
+                    onKeepLocalDraft={keepLocalPersonalNoteDraft}
                     onOpenLinkedVerse={(link) =>
                       openReaderStudyRoute({ bookId: link.bookId, chapter: link.chapter, verseId: link.verseKey }, "note")
                     }
                     onSave={savePersonalNote}
+                    onUseServerVersion={useServerPersonalNoteVersion}
                     referenceLabel={(link) => `${getBook(link.bookId)?.nameKo ?? link.bookId} ${link.chapter}:${link.verse}`}
+                    saveDisabled={personalNoteRemoteStatus === "saving" || personalNoteRemoteStatus === "conflict"}
                     saveStatus={personalNoteEditorSaveStatus}
                     saveStatusTone={personalNoteEditorSaveTone}
                     tags={personalNoteTagInput}

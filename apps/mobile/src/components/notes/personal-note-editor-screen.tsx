@@ -10,17 +10,21 @@ type Props = {
   formatUpdatedAt: (value: string) => string;
   links: PersonalNoteVerseLink[];
   note: PersonalNote;
+  conflictRevision?: number;
   onAddVerseReference: (suggestion: { bookId: string; chapter: number; verse: number; verseKey: string }) => void;
   onBack: () => void;
   onChangeDocument: (document: PersonalNoteDocument) => void;
   onChangeTags: (value: string) => void;
   onChangeTitle: (value: string) => void;
   onDelete: () => void;
+  onKeepLocalDraft: () => void;
   onOpenLinkedVerse: (link: PersonalNoteVerseLink) => void;
   onSave: () => void;
+  onUseServerVersion: () => void;
   referenceLabel: (link: PersonalNoteVerseLink) => string;
   saveStatus?: string;
   saveStatusTone?: "neutral" | "saving" | "success" | "error";
+  saveDisabled?: boolean;
   tags: string;
   title: string;
 };
@@ -31,17 +35,21 @@ export function PersonalNoteEditorScreen({
   formatUpdatedAt,
   links,
   note,
+  conflictRevision,
   onAddVerseReference,
   onBack,
   onChangeDocument,
   onChangeTags,
   onChangeTitle,
   onDelete,
+  onKeepLocalDraft,
   onOpenLinkedVerse,
   onSave,
+  onUseServerVersion,
   referenceLabel,
   saveStatus,
   saveStatusTone = "neutral",
+  saveDisabled = false,
   tags,
   title,
 }: Props) {
@@ -71,10 +79,25 @@ export function PersonalNoteEditorScreen({
             {saveStatus || `마지막 저장 ${formatUpdatedAt(note.lastSavedAt ?? note.updatedAt)}`}
           </Text>
         </View>
-        <Pressable accessibilityRole="button" onPress={onSave} style={styles.saveButton}>
+        <Pressable accessibilityRole="button" disabled={saveDisabled} onPress={onSave} style={[styles.saveButton, saveDisabled ? styles.saveButtonDisabled : null]}>
           <Text style={styles.saveButtonText}>저장</Text>
         </Pressable>
       </View>
+
+      {conflictRevision ? (
+        <View accessibilityLabel={`노트 저장 충돌: 서버 버전 ${conflictRevision}`} accessibilityRole="alert" style={styles.conflictBand}>
+          <Text style={styles.conflictTitle}>다른 기기에서 수정된 내용이 있습니다</Text>
+          <Text style={styles.conflictText}>서버 버전 {conflictRevision}을 사용하거나, 현재 초안을 유지한 뒤 다시 저장하세요.</Text>
+          <View style={styles.conflictActions}>
+            <Pressable accessibilityLabel="서버 버전 사용" accessibilityRole="button" onPress={onUseServerVersion} style={styles.conflictSecondaryButton}>
+              <Text style={styles.conflictSecondaryText}>서버 버전 사용</Text>
+            </Pressable>
+            <Pressable accessibilityLabel="내 초안 유지" accessibilityRole="button" onPress={onKeepLocalDraft} style={styles.conflictPrimaryButton}>
+              <Text style={styles.conflictPrimaryText}>내 초안 유지</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
 
       <View style={styles.field}>
         <Text style={styles.fieldLabel}>제목</Text>
@@ -153,7 +176,16 @@ function createStyles(colors: PersonalNoteScreenColors) {
     saveMetaSaving: { color: colors.muted, fontWeight: "800" },
     saveMetaSuccess: { color: colors.accent, fontWeight: "800" },
     saveButton: { alignItems: "center", backgroundColor: colors.accent, borderRadius: 7, justifyContent: "center", minHeight: 44, paddingHorizontal: 15 },
+    saveButtonDisabled: { opacity: 0.55 },
     saveButtonText: { color: colors.accentText, fontSize: 14, fontWeight: "900", letterSpacing: 0 },
+    conflictBand: { backgroundColor: colors.surfaceStrong, borderColor: colors.danger, borderLeftWidth: 3, gap: 8, paddingHorizontal: 12, paddingVertical: 11 },
+    conflictTitle: { color: colors.danger, fontSize: 13, fontWeight: "900", letterSpacing: 0, lineHeight: 18 },
+    conflictText: { color: colors.text, fontSize: 12, lineHeight: 18 },
+    conflictActions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    conflictSecondaryButton: { alignItems: "center", borderColor: colors.border, borderRadius: 7, borderWidth: 1, justifyContent: "center", minHeight: 40, paddingHorizontal: 12 },
+    conflictSecondaryText: { color: colors.text, fontSize: 12, fontWeight: "800", letterSpacing: 0 },
+    conflictPrimaryButton: { alignItems: "center", backgroundColor: colors.accent, borderRadius: 7, justifyContent: "center", minHeight: 40, paddingHorizontal: 12 },
+    conflictPrimaryText: { color: colors.accentText, fontSize: 12, fontWeight: "900", letterSpacing: 0 },
     field: { gap: 7 },
     fieldLabel: { color: colors.text, fontSize: 12, fontWeight: "800", letterSpacing: 0 },
     input: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 7, borderWidth: 1, color: colors.text, fontSize: 15, minHeight: 46, paddingHorizontal: 12, paddingVertical: 10 },

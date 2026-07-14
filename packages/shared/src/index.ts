@@ -8,6 +8,7 @@ export * from "./korean-search";
 export * from "./mobile-study-navigation";
 export * from "./onboarding";
 export * from "./personal-note-document";
+export * from "./personal-note-client";
 export * from "./personal-note-draft";
 export * from "./privacy-policy";
 export * from "./reading-plan";

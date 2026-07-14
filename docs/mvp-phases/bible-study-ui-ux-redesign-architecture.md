@@ -33,7 +33,7 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 | 웹 Reader V2 | `readerV2` flag 아래 ReaderHeader/VerseRow/VerseActions, 3-pane, 태블릿 sheet, 모바일 action sheet | ReaderScreen data orchestration과 자동 회귀 테스트 |
 | 모바일 Shell | `uiShellV2` flag 아래 `오늘/성경/공부/보관함/설정` 5탭, custom route stack adapter, header 명령 검색, Android hardware back | Expo Router 전환, iOS swipe back, screen별 컴포넌트 분리 |
 | 모바일 Reader V2 | `readerV2` flag 아래 native ReaderHeader/VerseRow/VerseActionsSheet, EN/KR/동시 보기, long press 다중 선택, keyboard 회피와 2단계 snap, 전용 Reader controller/TTS hook, route/context 복귀 | Android/iOS 실기기 검증 |
-| 모바일 Notes V3 | 목록/편집기 stack 분리, compact keyboard toolbar, 사용자·노트별 AsyncStorage draft 복구, local/remote 저장 상태 live region | 보존형 snapshot RPC, remote revision conflict, inspector sheet, 실기기 검증 |
+| 모바일 Notes V4 | 목록/편집기 stack 분리, compact keyboard toolbar, 사용자·노트별 AsyncStorage draft 복구, versioned remote save와 conflict 해결 band | revision/backlink inspector sheet, 장기 offline queue, 실기기 검증 |
 | 검증 | typecheck, lint, build, Expo Doctor, 구조/스타일 검사, 320/390/768/1024/1440px 웹 smoke, Expo Reader V2 390px interaction smoke | 실제 Android/iOS 검증 |
 
 이 상태는 P2 완료를 뜻하지 않는다. Reader data orchestration, Notes inspector/keyboard toolbar, Dictionary Detail을 독립 screen/pane 책임으로 분리하기 전까지 기존 대형 컴포넌트는 legacy adapter 안에서 유지한다.
@@ -490,7 +490,7 @@ Note List Screen -> Note Editor Screen -> Linked Verse Sheet
 - 뒤로 가기 전에 local draft를 보존하고 remote save 상태를 표시한다.
 - 리더에서 진입한 경우 뒤로 가기는 원래 절로 복귀한다.
 
-`local draft`는 수동 저장 전 데이터 손실을 막는 복구 버퍼이며 로그인 사용자의 최종 저장소는 Supabase다. draft key와 index는 사용자·노트 단위로 격리하고 회원탈퇴 또는 기기 데이터 초기화 시 해당 사용자의 draft를 일괄 제거한다. 현재 `replace_user_data_snapshot`은 personal-note 행을 delete/reinsert하므로, 모바일에서 `save_personal_note_versioned` 충돌 처리를 활성화하기 전에 snapshot 저장을 revision과 history를 보존하는 RPC로 교체해야 한다.
+`local draft`는 수동 저장 전 데이터 손실을 막는 복구 버퍼이며 로그인 사용자의 최종 저장소는 Supabase다. draft key와 index는 사용자·노트 단위로 격리하고 회원탈퇴 또는 기기 데이터 초기화 시 해당 사용자의 draft를 일괄 제거한다. `20260714110000_preserve_personal_notes_in_user_snapshot.sql` 이후 전체 snapshot 저장은 personal-note 행과 revision history를 수정하지 않으며, 노트 본문은 bearer 인증을 사용하는 create/versioned update API로 개별 저장한다. 409 충돌에서는 로컬 draft를 유지하고 `서버 버전 사용` 또는 `내 초안 유지`를 명시적으로 선택한다.
 
 ### 8.5 히브리어 사전
 

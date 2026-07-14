@@ -33,6 +33,9 @@
     "reader:validate": "node scripts/run-reader-orchestration-validation.mjs",
     "study-ui:validate": "node scripts/run-study-context-validation.mjs",
     "note-draft:validate": "node --experimental-strip-types scripts/validate-personal-note-draft.mjs",
+    "note-client:validate": "node --experimental-strip-types scripts/validate-personal-note-client.mjs",
+    "note-privacy:validate": "node scripts/validate-personal-note-privacy.mjs",
+    "note-snapshot:validate": "node scripts/validate-personal-note-snapshot-migration.mjs",
     "db:smoke-notes": "node scripts/smoke-remote-personal-note-workspace.mjs",
     "db:smoke-onboarding": "node scripts/smoke-remote-onboarding.mjs"
   },

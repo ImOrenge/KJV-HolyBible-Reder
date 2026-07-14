@@ -10,11 +10,12 @@ component:
     editor_screen: apps/mobile/src/components/notes/personal-note-editor-screen.tsx
     rich_text_editor: apps/mobile/src/components/personal-note-rich-text-editor.tsx
     draft_storage: packages/shared/src/personal-note-draft.ts
+    remote_client: packages/shared/src/personal-note-client.ts
     navigation: apps/mobile/src/hooks/use-mobile-study-navigation.ts
     integration: apps/mobile/App.tsx
   public_api:
     list_props: [notes, query, totalCount, onCreate, onOpen, onQueryChange, onBack]
-    editor_props: [note, title, document, tags, links, saveStatus, saveStatusTone, onSave, onDelete, onBack, onOpenLinkedVerse]
+    editor_props: [note, title, document, tags, links, saveStatus, saveStatusTone, saveDisabled, conflictRevision, onSave, onDelete, onBack, onOpenLinkedVerse, onUseServerVersion, onKeepLocalDraft]
     rich_text_editor_props: [document, onChange, onAddVerseReference]
   styling:
     system: react-native StyleSheet
@@ -22,14 +23,15 @@ component:
     inline_styles_allowed: false
   state:
     controlled: [query, title, document, tags]
-    local: [advancedToolsOpen, draftHydration, draftDebounceStatus]
-    external_store: [AsyncStorage note draft, Supabase user snapshot]
+    local: [advancedToolsOpen, draftHydration, draftDebounceStatus, remoteSaveStatus, revisionConflict]
+    external_store: [AsyncStorage note draft, Supabase user snapshot, versioned personal-note API]
   accessibility:
     screen_roots: [노트 목록 화면, 노트 편집 화면]
     back_control: 노트 편집기 이전 화면
     toolbar_roots: [노트 기본 서식 도구, 노트 고급 서식 도구]
     toolbar_toggle: [노트 서식 더보기, 노트 고급 서식 닫기]
     live_region: 노트 저장 상태
+    conflict_alert: 노트 저장 충돌
     controls: native Pressable and TextInput roles with explicit labels
   owns:
     - personal note list search and empty state presentation
@@ -41,10 +43,10 @@ component:
     - per-user and per-note local draft debounce, restore, and covered-draft cleanup
     - account deletion and local reset cleanup for indexed and orphaned user draft keys
     - local draft and remote sync state presentation in the editor header
+    - explicit server-version and local-draft conflict resolution actions
   does_not_own:
     - note persistence and Supabase synchronization
     - route transition implementation
-    - remote revision conflict resolution
     - linked verse inspector sheet
   rendering_contract:
     - a notes root route renders PersonalNoteListScreen only
@@ -53,6 +55,8 @@ component:
     - editor back pops to the list and a pushed list can pop to its source Reader
     - deleting an open note removes its memberships and returns to the list
     - leaving the editor clears in-memory fields and reopening rehydrates a newer AsyncStorage draft
+    - a 409 revision conflict keeps the local draft and disables save until the user chooses a resolution action
+    - choosing the server version replaces only the conflicted note domain and keeps unrelated local state
   editor_contract:
     - TenTap receives the shared PersonalNoteDocument JSON model
     - CSS injection waits for bridge isReady to prevent WebView initialization races
@@ -61,11 +65,11 @@ component:
     - primary formatting tools remain visible while advanced structure, color, alignment, and template tools are opt-in
     - inline verse autocomplete continues to call the existing verse-link callback
   test_surface:
-    static: [npm run typecheck, npm run structure:mobile, npm run note-draft:validate]
-    runtime: [npm run browser:reader -- --single=true --port=9360]
+    static: [npm run typecheck, npm run structure:mobile, npm run note-draft:validate, npm run note-client:validate, npm run note-privacy:validate, npm run note-snapshot:validate]
+    runtime: [npm run browser:reader -- --single=true --port=9361, npm run db:smoke-notes]
   evidence:
     - type: browser-interaction
-      command: npm run browser:reader -- --single=true --port=9360
+      command: npm run browser:reader -- --single=true --port=9361
       result: pass
       findings:
         - Reader command search pushes the personal note list
@@ -75,7 +79,12 @@ component:
         - an unsaved title edit reaches local draft saved state and is restored after editor unmount and reopen
         - editor back restores the list and list back restores Genesis 1 Reader
         - Reader chapter, context sheet, and selection checks remain green
+    - type: remote-database
+      command: npm run db:smoke-notes
+      result: pass
+      findings:
+        - snapshot replacement preserves the versioned note row and revision history
+        - note, revision, and note-link reads remain isolated across accounts
   residual_risk:
-    - Mobile remote revision conflict UI is not implemented yet.
-    - The legacy replace_user_data_snapshot RPC still replaces personal-note rows and needs a preservation-safe DB phase before mobile versioned conflict handling is enabled.
+    - The conflict band is covered by type and structure checks, but a live two-device authenticated interaction still needs device evidence.
     - Android and iOS device keyboard, IME, toolbar position, and long-document performance still require physical-device verification.

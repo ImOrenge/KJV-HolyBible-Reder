@@ -272,11 +272,11 @@ flowchart LR
 - [x] 기본 toolbar와 더보기 toolbar의 도구를 분리한다.
 - [ ] verse autocomplete의 `#창`, `#창 1:10` 흐름을 유지한다.
 - [x] local draft와 remote save 상태를 editor header에 표시한다.
-- [ ] revision conflict 상태와 해결 action을 editor header에 표시한다.
+- [x] revision conflict 상태와 `서버 버전 사용`/`내 초안 유지` action을 editor header에 표시한다.
 - [ ] template 선택을 새 노트 생성 단계로 이동한다.
 - [ ] revision, backlink, linked verse를 inspector/sheet로 이동한다.
 - [ ] 노트에서 Reader로 돌아갈 때 verse anchor를 복원한다.
-- [ ] note body가 toast, log, URL에 노출되지 않는지 검증한다.
+- [x] note body가 toast, log, URL에 노출되지 않는지 검증한다.
 
 ### 완료 기준
 
@@ -284,7 +284,7 @@ flowchart LR
 - [ ] keyboard가 toolbar와 마지막 편집 줄을 가리지 않는다.
 - [ ] 저장 실패와 앱 종료 후에도 local draft가 유지된다.
 - [ ] 연결 구절 추가/삭제 후 Reader backlink가 일관된다.
-- [ ] 다른 계정의 note/revision/link를 조회할 수 없다.
+- [x] 다른 계정의 note/revision/link를 조회할 수 없다.
 
 ## 10. Phase P5: Dictionary, Search, Library 개편
 

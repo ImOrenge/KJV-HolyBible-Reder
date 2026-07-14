@@ -7,7 +7,25 @@ import {
 } from "@kjv/shared";
 import { NextResponse } from "next/server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createBearerClient, createClient } from "@/lib/supabase/server";
+
+export const personalNoteCorsHeaders = {
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
+  "Access-Control-Allow-Origin": "*",
+  Vary: "Origin",
+};
+
+export function personalNoteJson(body: unknown, init?: ResponseInit) {
+  return NextResponse.json(body, {
+    ...init,
+    headers: { ...personalNoteCorsHeaders, ...init?.headers },
+  });
+}
+
+export function personalNoteOptions() {
+  return new Response(null, { headers: personalNoteCorsHeaders, status: 204 });
+}
 
 export type PersonalNotePayload = {
   clientId?: unknown;
@@ -29,15 +47,21 @@ export function normalizeText(value: unknown, maxLength: number) {
   return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
 }
 
-export async function requirePersonalNoteUser() {
-  const supabase = await createClient();
+function getBearerAccessToken(request?: Request) {
+  const [scheme, token] = (request?.headers.get("authorization") ?? "").split(/\s+/, 2);
+  return scheme?.toLowerCase() === "bearer" && token ? token : null;
+}
+
+export async function requirePersonalNoteUser(request?: Request) {
+  const accessToken = getBearerAccessToken(request);
+  const supabase = accessToken ? createBearerClient(accessToken) : await createClient();
   const {
     data: { user },
     error,
-  } = await supabase.auth.getUser();
+  } = accessToken ? await supabase.auth.getUser(accessToken) : await supabase.auth.getUser();
 
   if (error || !user) {
-    return { error: NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 }) } as const;
+    return { error: personalNoteJson({ error: "로그인이 필요합니다." }, { status: 401 }) } as const;
   }
   return { supabase, user } as const;
 }

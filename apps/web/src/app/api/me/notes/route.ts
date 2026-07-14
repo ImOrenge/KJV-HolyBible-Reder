@@ -1,16 +1,17 @@
-import { NextResponse } from "next/server";
-
 import {
   PERSONAL_NOTE_SELECT,
   mapPersonalNoteRow,
   normalizeText,
   parsePersonalNoteBody,
+  personalNoteJson,
+  personalNoteOptions,
   replaceNoteRelations,
   requirePersonalNoteUser,
   type PersonalNotePayload,
 } from "@/lib/personal-note-server";
 
 export const dynamic = "force-dynamic";
+export function OPTIONS() { return personalNoteOptions(); }
 
 type VerseLinkRow = {
   client_id: string;
@@ -25,8 +26,8 @@ type VerseLinkRow = {
   bible_books: Array<{ app_book_id: string }> | null;
 };
 
-export async function GET() {
-  const auth = await requirePersonalNoteUser();
+export async function GET(request: Request) {
+  const auth = await requirePersonalNoteUser(request);
   if ("error" in auth) return auth.error;
   const [notesResult, linksResult, noteTagsResult, verseTagsResult, tagsResult, revisionsResult, noteLinksResult, templatesResult] = await Promise.all([
     auth.supabase.from("user_personal_notes").select(PERSONAL_NOTE_SELECT).eq("user_id", auth.user.id).order("updated_at", { ascending: false }),
@@ -40,7 +41,7 @@ export async function GET() {
   ]);
   const results = [notesResult, linksResult, noteTagsResult, verseTagsResult, tagsResult, revisionsResult, noteLinksResult, templatesResult];
   const firstError = results.find((result) => result.error)?.error;
-  if (firstError) return NextResponse.json({ error: firstError.message }, { status: 500 });
+  if (firstError) return personalNoteJson({ error: firstError.message }, { status: 500 });
 
   const notes = (notesResult.data ?? []).map((row) => mapPersonalNoteRow(row, auth.user.id));
   const noteClientIdByServerId = new Map((notesResult.data ?? []).map((row) => [row.id, row.client_id]));
@@ -56,10 +57,10 @@ export async function GET() {
   const revisions = (revisionsResult.data ?? []).map((row) => ({ id: row.id, userId: auth.user.id, noteId: noteClientIdByServerId.get(row.note_id) ?? row.note_id, revision: row.revision, title: row.title, bodyDocument: row.body_document ?? undefined, bodyText: row.body_text, snapshotReason: row.snapshot_reason, createdAt: row.created_at }));
   const noteLinks = (noteLinksResult.data ?? []).map((row) => ({ userId: auth.user.id, sourceNoteId: noteClientIdByServerId.get(row.source_note_id) ?? row.source_note_id, targetNoteId: noteClientIdByServerId.get(row.target_note_id) ?? row.target_note_id, createdAt: row.created_at }));
   const templates = (templatesResult.data ?? []).map((row) => ({ id: row.client_id, userId: auth.user.id, name: row.name, description: row.description, bodyDocument: row.body_document, status: row.status, createdAt: row.created_at, updatedAt: row.updated_at }));
-  return NextResponse.json({ notes, verseLinks, noteTags, tags, verseTags, revisions, noteLinks, templates });
+  return personalNoteJson({ notes, verseLinks, noteTags, tags, verseTags, revisions, noteLinks, templates });
 }
 export async function POST(request: Request) {
-  const auth = await requirePersonalNoteUser();
+  const auth = await requirePersonalNoteUser(request);
   if ("error" in auth) return auth.error;
   const payload = (await request.json().catch(() => null)) as PersonalNotePayload | null;
   try {
@@ -70,12 +71,16 @@ export async function POST(request: Request) {
       body_document: body.bodyDocument, body_markdown: body.bodyMarkdown, body_text: body.bodyText,
       client_id: clientId, editor_format: body.editorFormat, revision: 1, title, user_id: auth.user.id,
     }).select(PERSONAL_NOTE_SELECT).single();
+    if (error?.code === "23505") {
+      const { data: current } = await auth.supabase.from("user_personal_notes").select(PERSONAL_NOTE_SELECT).eq("user_id", auth.user.id).eq("client_id", clientId).maybeSingle();
+      return personalNoteJson({ error: "이미 서버에 저장된 노트입니다.", code: "note_revision_conflict", current: current ? mapPersonalNoteRow(current, auth.user.id) : null }, { status: 409 });
+    }
     if (error || !note) throw new Error(error?.message ?? "노트 저장에 실패했습니다.");
     const { error: revisionError } = await auth.supabase.from("user_personal_note_revisions").insert({ user_id: auth.user.id, note_id: note.id, revision: 1, title, body_document: body.bodyDocument, body_text: body.bodyText, snapshot_reason: "create" });
     if (revisionError) throw new Error(revisionError.message);
     await replaceNoteRelations({ supabase: auth.supabase, userId: auth.user.id, noteServerId: note.id, payload: payload ?? {} });
-    return NextResponse.json({ note: mapPersonalNoteRow(note, auth.user.id) }, { status: 201 });
+    return personalNoteJson({ note: mapPersonalNoteRow(note, auth.user.id) }, { status: 201 });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "노트 저장에 실패했습니다." }, { status: 400 });
+    return personalNoteJson({ error: error instanceof Error ? error.message : "노트 저장에 실패했습니다." }, { status: 400 });
   }
 }

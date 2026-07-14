@@ -18,8 +18,11 @@ const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY;
 if (!baseUrl || !anonKey) throw new Error("Missing Supabase smoke environment variables.");
 
 if (!serviceKey || serviceKey.startsWith("your-")) {
-  const connection = spawnSync("supabase", ["db", "dump", "--linked", "--dry-run"], { cwd: process.cwd(), encoding: "utf8" });
+  const supabaseCommand = process.platform === "win32" ? "supabase.exe" : "supabase";
+  const psqlCommand = process.platform === "win32" ? "psql.exe" : "psql";
+  const connection = spawnSync(supabaseCommand, ["db", "dump", "--linked", "--dry-run"], { cwd: process.cwd(), encoding: "utf8" });
   const output = `${connection.stdout ?? ""}\n${connection.stderr ?? ""}`;
+  if (connection.status !== 0) throw new Error(`Supabase CLI connection lookup failed: ${connection.error?.message ?? connection.stderr?.trim() ?? connection.status}`);
   const postgresEnv = Object.fromEntries(
     ["PGHOST", "PGPORT", "PGUSER", "PGPASSWORD", "PGDATABASE"].map((key) => {
       const value = new RegExp(`export ${key}="([^"]+)"`).exec(output)?.[1];
@@ -27,7 +30,7 @@ if (!serviceKey || serviceKey.startsWith("your-")) {
       return [key, value];
     }),
   );
-  const result = spawnSync("psql", ["-v", "ON_ERROR_STOP=1", "-f", "scripts/smoke-remote-personal-note-workspace.sql"], {
+  const result = spawnSync(psqlCommand, ["-v", "ON_ERROR_STOP=1", "-f", "scripts/smoke-remote-personal-note-workspace.sql"], {
     cwd: process.cwd(),
     encoding: "utf8",
     env: { ...process.env, ...postgresEnv },
@@ -87,8 +90,42 @@ try {
   const unchanged = await request("/rest/v1/rpc/save_personal_note_versioned", { token: userA.accessToken, method: "POST", body: { ...saveBody, p_expected_revision: 2 } });
   if (!unchanged.response.ok || unchanged.payload?.revision !== 2 || unchanged.payload?.unchanged !== true) throw new Error(`Unchanged save failed: ${unchanged.response.status}`);
 
+  const revisionsBefore = await request(`/rest/v1/user_personal_note_revisions?select=id,revision&note_id=eq.${inserted.payload[0].id}`, { token: userA.accessToken });
+  if (!revisionsBefore.response.ok) throw new Error(`Revision precheck failed: ${revisionsBefore.response.status}`);
+  const snapshot = await request("/rest/v1/rpc/get_user_data_snapshot", { token: userA.accessToken, method: "POST", body: {} });
+  if (!snapshot.response.ok || !snapshot.payload) throw new Error(`Snapshot load failed: ${snapshot.response.status}`);
+  const replaced = await request("/rest/v1/rpc/replace_user_data_snapshot", { token: userA.accessToken, method: "POST", body: { snapshot: snapshot.payload } });
+  if (!replaced.response.ok) throw new Error(`Snapshot replace failed: ${replaced.response.status}`);
+  const preservedNote = await request(`/rest/v1/user_personal_notes?select=revision,title&client_id=eq.${encodeURIComponent(clientId)}`, { token: userA.accessToken });
+  if (!preservedNote.response.ok || preservedNote.payload?.[0]?.revision !== 2 || preservedNote.payload?.[0]?.title !== "원격 노트 smoke 수정") {
+    throw new Error("Snapshot replace did not preserve the versioned note row.");
+  }
+  const revisionsAfter = await request(`/rest/v1/user_personal_note_revisions?select=id,revision&note_id=eq.${inserted.payload[0].id}`, { token: userA.accessToken });
+  if (!revisionsAfter.response.ok || revisionsAfter.payload?.length !== revisionsBefore.payload?.length) {
+    throw new Error("Snapshot replace did not preserve note revision history.");
+  }
+
+  const linkedClientId = `smoke-note-linked-${crypto.randomUUID()}`;
+  const linkedNote = await request("/rest/v1/user_personal_notes", {
+    token: userA.accessToken,
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: { user_id: userA.id, client_id: linkedClientId, title: "연결 노트 smoke", body_document: document, body_markdown: "", body_text: "", editor_format: "rich-text-v1", status: "active", pinned: false, revision: 1 },
+  });
+  if (!linkedNote.response.ok || !linkedNote.payload?.[0]?.id) throw new Error(`Linked note insert failed: ${linkedNote.response.status}`);
+  const noteLink = await request("/rest/v1/user_personal_note_links", {
+    token: userA.accessToken,
+    method: "POST",
+    body: { user_id: userA.id, source_note_id: inserted.payload[0].id, target_note_id: linkedNote.payload[0].id },
+  });
+  if (!noteLink.response.ok) throw new Error(`Note link insert failed: ${noteLink.response.status}`);
+
   const crossRead = await request(`/rest/v1/user_personal_notes?select=client_id&client_id=eq.${encodeURIComponent(clientId)}`, { token: userB.accessToken });
   if (!crossRead.response.ok || !Array.isArray(crossRead.payload) || crossRead.payload.length !== 0) throw new Error("Cross-account note read was not isolated.");
+  const crossRevision = await request(`/rest/v1/user_personal_note_revisions?select=id&note_id=eq.${inserted.payload[0].id}`, { token: userB.accessToken });
+  if (!crossRevision.response.ok || crossRevision.payload.length !== 0) throw new Error("Cross-account note revision read was not isolated.");
+  const crossLink = await request(`/rest/v1/user_personal_note_links?select=source_note_id&source_note_id=eq.${inserted.payload[0].id}`, { token: userB.accessToken });
+  if (!crossLink.response.ok || crossLink.payload.length !== 0) throw new Error("Cross-account note link read was not isolated.");
 
   const crossSave = await request("/rest/v1/rpc/save_personal_note_versioned", { token: userB.accessToken, method: "POST", body: { ...saveBody, p_expected_revision: 2 } });
   if (crossSave.response.ok) throw new Error("Cross-account note write was not isolated.");
@@ -99,7 +136,7 @@ try {
   const crossTemplate = await request(`/rest/v1/user_personal_note_templates?select=client_id&client_id=eq.${encodeURIComponent(templateId)}`, { token: userB.accessToken });
   if (!crossTemplate.response.ok || crossTemplate.payload.length !== 0) throw new Error("Cross-account template read was not isolated.");
 
-  console.log("remote personal-note workspace smoke passed: revision=2, unchanged-save=true, account-isolation=true");
+  console.log("remote personal-note workspace smoke passed: revision=2, snapshot-preserved=true, unchanged-save=true, note-revision-link-isolation=true");
 } finally {
   for (const user of users) {
     await request(`/auth/v1/admin/users/${user.id}`, { token: serviceKey, method: "DELETE" }).catch(() => undefined);
