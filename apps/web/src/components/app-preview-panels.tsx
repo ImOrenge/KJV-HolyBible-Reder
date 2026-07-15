@@ -4,6 +4,7 @@ export type ContinueReadingPanelProps = {
   title: string;
   subtitle: string;
   ctaLabel: string;
+  headingElement?: "h2" | "h3" | "p";
   onOpen?: () => void;
   readonly?: boolean;
   className?: string;
@@ -13,10 +14,12 @@ export function ContinueReadingPanel({
   title,
   subtitle,
   ctaLabel,
+  headingElement = "h2",
   onOpen,
   readonly = false,
   className = "",
 }: ContinueReadingPanelProps) {
+  const Heading = headingElement;
   const ctaContent = (
     <>
       <BookOpen aria-hidden="true" size={18} />
@@ -30,7 +33,7 @@ export function ContinueReadingPanel({
         <span>이어 읽기</span>
         <BookOpen aria-hidden="true" size={20} />
       </div>
-      <h2>{title}</h2>
+      <Heading className="continue-reading-title">{title}</Heading>
       <p>{subtitle}</p>
       {readonly ? (
         <div className="primary-button continue-reading-cta is-readonly">{ctaContent}</div>
@@ -95,6 +98,7 @@ export type ReaderPreviewPanelProps = {
   verses: ReaderPreviewVerse[];
   selectedVerseNumber?: number;
   tools: ReaderPreviewTool[];
+  headingElement?: "h2" | "h3" | "p";
   className?: string;
 };
 
@@ -104,14 +108,17 @@ export function ReaderPreviewPanel({
   verses,
   selectedVerseNumber,
   tools,
+  headingElement = "h2",
   className = "",
 }: ReaderPreviewPanelProps) {
+  const Heading = headingElement;
+
   return (
     <section className={`reader-panel reader-preview-panel ${className}`.trim()} aria-label={`${bookLabel} ${chapterLabel} 미리보기`}>
       <div className="reader-toolbar reader-preview-toolbar">
         <div />
         <div>
-          <h2>{chapterLabel}</h2>
+          <Heading className="reader-preview-title">{chapterLabel}</Heading>
           <p>{bookLabel}</p>
         </div>
         <div />
