@@ -4,7 +4,7 @@
 
 ## 현재 판정
 
-**RELEASE VALIDATION IN PROGRESS**
+**ANDROID RELEASE APK VERIFIED**
 
 `develop/2026-07-25-personal-note-release`의 개인 노트 목록/편집 분리 결과를 `release/0.8.0`에서 검증한다. 진행 중인 QT 커뮤니티 피드 개편은 이 릴리즈에서 제외한다.
 
@@ -46,22 +46,25 @@
 | Expo SDK 57 patch 호환성 | PASS - Expo 권장 patch 버전으로 동기화 |
 | Next.js 보안 patch | PASS - `16.2.11` |
 | `npm audit --omit=dev --audit-level=high` | WARN - high 4, moderate 10; 남은 항목은 Next/Expo 전이 의존성의 강제 breaking fix 경로 |
-| Android preview APK | PENDING |
-| APK package/version/signing/hash | PENDING |
+| Android preview APK | PASS - EAS build `5ebe8e8d-8be2-4092-87ee-118298049a75` |
+| APK package/version/signing/hash | PASS - `com.kjvreader`, `0.8.0` (`8`), v2 signature |
 | main fast-forward와 원격 push | PENDING |
 
 ## Android 산출물
 
 | 항목 | 값 |
 | --- | --- |
-| EAS build | PENDING |
-| EAS artifact | PENDING |
-| 로컬 검증본 | PENDING |
-| 파일 크기 | PENDING |
-| SHA-256 | PENDING |
+| EAS build | `5ebe8e8d-8be2-4092-87ee-118298049a75` |
+| 앱 소스 commit | `9fa9920be3be3b5c25b189ddeea82c312c35b17b` |
+| EAS artifact | `https://expo.dev/artifacts/eas/qQGFtJLlqRVlzQa_tI7ASrFf9MiWfsd8m4o7_5DXuZ8.apk` |
+| 로컬 검증본 | `D:\kjv-educator-artifacts\kjv-reader-note-0.8.0-8.apk` |
+| 파일 크기 | `73,252,096 bytes` |
+| SHA-256 | `3BAEFFDEFA761623936C9F13F67B143522E38755A11D763E9404E45CD2920049` |
 | package | `com.kjvreader` |
 | version | `versionName=0.8.0`, `versionCode=8` |
-| 인증서 | PENDING |
+| 서명 방식 | APK Signature Scheme v2 |
+| 인증서 SHA-1 | `9F:51:A8:96:1B:EA:0A:35:53:8A:A8:CF:64:D6:3F:23:19:4F:6A:5F` |
+| 인증서 SHA-256 | `E8:45:72:72:39:60:D4:A4:B4:A8:91:C8:ED:74:6A:9B:46:27:F9:1C:51:0B:8F:E3:E2:C0:EE:3C:2B:37:E9:D0` |
 
 ## Git 흐름
 
