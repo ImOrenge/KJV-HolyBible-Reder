@@ -1,6 +1,6 @@
 {
   "name": "@kjv/web",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "private": true,
   "scripts": {
     "dev": "dotenv -e ../../.env -- next dev --turbopack",
@@ -27,7 +27,7 @@
     "@tiptap/starter-kit": "^3.27.3",
     "jszip": "^3.10.1",
     "lucide-react": "latest",
-    "next": "latest",
+    "next": "16.2.11",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },
@@ -38,7 +38,7 @@
     "@types/react-dom": "latest",
     "dotenv-cli": "latest",
     "eslint": "latest",
-    "eslint-config-next": "latest",
+    "eslint-config-next": "16.2.11",
     "tailwindcss": "latest"
   }
 }
