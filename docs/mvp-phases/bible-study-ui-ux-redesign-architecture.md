@@ -1,9 +1,9 @@
 # 성경 읽기·공부·기록 중심 UI/UX 개편 아키텍처
 
-> 상태: `0.7.1` 릴리즈 기준 구현 문서
-> 기준 릴리즈: `release/0.7.1` (`v0.7.1` 로컬 태그 대상)
+> 상태: `0.8.0` 릴리즈 기준 구현 문서
+> 기준 릴리즈: `release/0.8.0` (`v0.8.0` 태그 대상)
 > 통합 구현 기준: `develop/2026-07-13-first-login-onboarding@b28732ed`
-> 최종 갱신: 2026-07-14
+> 최종 갱신: 2026-07-25
 
 ## 1. 문서 목적
 
@@ -24,7 +24,7 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 
 ### 1.1 구현 상태
 
-2026-07-14 기준 P0, P1 일부, P2 AppShell 전환, P3 Reader 표시 계층, P4 웹·모바일 Notes 작업 공간, P5 웹 Dictionary와 QT 커뮤니티까지 `0.7.1` 릴리즈 후보에 구현되어 있다.
+2026-07-25 기준 P0, P1 일부, P2 AppShell 전환, P3 Reader 표시 계층, P4 웹·모바일 Notes 작업 공간, P5 웹 Dictionary까지 구현되어 있다. `0.8.0`은 웹 개인 노트의 목록 우선 탐색과 독립 편집 URL을 릴리즈 범위로 하며, 진행 중인 QT 피드 개편은 포함하지 않는다.
 
 | 영역 | 현재 구현 | 다음 경계 |
 | --- | --- | --- |
@@ -32,7 +32,7 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 | 웹 Shell | 기본 활성화된 `uiShellV2` 아래 232/72px sidebar, top bar, account slot, 명령 검색, 5영역 모바일 nav. `NEXT_PUBLIC_UI_SHELL_V2=false`로 legacy rollback | sync/TTS slot |
 | 웹 legacy adapter | 기존 `KjvMvpApp`을 controlled `activeView`로 열고 `/app/...` history 및 Reader 권·장·절 deep link와 연결 | 화면별 feature component 교체 |
 | 웹 Reader V2 | `readerV2` flag 아래 ReaderHeader/VerseRow/VerseActions, 3-pane, 태블릿 sheet, 모바일 action sheet | ReaderScreen data orchestration과 자동 회귀 테스트 |
-| 웹 Notes V4 | `300px list + editor + 300px inspector`, 생성 단계 template dialog, 900px 이하 목록/편집 분리, revision/backlink/linked verse inspector | feature component 추출, Reader verse anchor 복귀 자동 검증 |
+| 웹 Notes V5 | `/app/study/notes` 목록 우선 화면, `/app/study/notes/[noteId]` 편집 화면, 생성 단계 template dialog, editor 전용 revision/backlink/linked verse inspector | feature component 추출, Reader verse anchor 복귀 자동 검증 |
 | 웹 Dictionary V2 | 독립 `HebrewDictionaryWorkspace`, compact 2-pane, filter popover/chip, 출현형 강조, 검색·필터·선택 단어 URL state, Reader 왕복 복원, 900px 이하 list/detail 분리 | `내 노트에 추가` StudyContext, scroll 복원, 원격 전체 데이터 검증 |
 | 웹 QT 커뮤니티 | sidebar 독립 `QT 커뮤니티`, `/app/community?tab=...`, `피드/내 참여/랭킹/설정` 내부 탭, 로그인 gate와 authenticated browser smoke | thread detail URL 여부 검토 |
 | 모바일 Shell | `uiShellV2` flag 아래 `오늘/성경/공부/보관함/설정` 5탭, custom route stack adapter, header 명령 검색, Android hardware back | Expo Router 전환, iOS swipe back, screen별 컴포넌트 분리 |
@@ -501,12 +501,15 @@ Secondary actions:
 
 #### 웹
 
-- list `300px` + editor + optional context panel 구조
-- list에는 검색, 고정, 최근, 태그, 권 필터만 둔다.
+- `/app/study/notes`는 검색, 권 필터, 보관함, 내보내기와 노트 목록만 표시한다.
+- 목록 항목에는 수정일, 본문 요약, 대표 연결 구절과 태그를 표시한다.
+- `/app/study/notes/[noteId]`는 editor와 optional inspector만 표시한다.
+- 목록과 editor는 viewport 크기와 무관하게 동시에 렌더링하지 않는다.
+- 목록에서 노트를 선택하거나 새 노트를 만들면 detail URL을 push하고, `노트 목록`은 목록 URL을 push한다.
+- 브라우저 뒤로 가기, 새로고침, 직접 링크 진입 시 `personalNote.noteId`를 복원한다.
 - template은 새 노트 생성 dialog에서 선택한다.
-- revision과 backlink는 editor 하단 고정 영역이 아니라 inspector tab으로 이동한다.
-- `1440px`에서는 3영역을 동시에 표시하고 `1024px`에서는 list/editor 2열 아래 inspector를 배치한다.
-- `900px` 이하에서는 list와 editor를 동시에 표시하지 않고 editor 상단의 `노트 목록`으로 복귀한다.
+- revision과 backlink는 editor 하단 고정 영역이 아니라 inspector로 이동한다.
+- 넓은 화면에서는 editor와 `300px` inspector를 배치하고 `1100px` 이하에서는 inspector를 editor 아래에 둔다.
 
 #### 모바일
 
@@ -873,7 +876,7 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 ### Phase UX-03: Notes 개편
 
 - [x] 모바일 note list와 editor를 별도 screen으로 분리한다.
-- [x] 웹 note list/editor/inspector 구조와 900px 이하 list/editor 분리를 구현한다.
+- [x] 웹 note list와 editor를 독립 URL로 분리하고 inspector를 editor 화면에만 배치한다.
 - [ ] 구절 노트, 장 노트, 성경노트 표시 개념을 통합한다.
 - [x] 웹 template 선택을 note 생성 단계로 이동한다.
 - [x] 모바일 toolbar를 keyboard 위 compact toolbar로 전환한다.
@@ -979,6 +982,13 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 이 네 항목은 데이터 모델 변경 없이도 가장 큰 사용성 문제를 해결한다. 이후 `StudyContext`를 기준으로 사전, 검색, 보관함과 오늘 화면을 순차 연결한다.
 
 ## 21. 문서 갱신 이력
+
+### 2026-07-25
+
+- `0.8.0` 개인 노트 릴리즈 범위를 웹 목록 우선 탐색과 독립 편집 URL로 고정했다.
+- `/app/study/notes`와 `/app/study/notes/[noteId]`에서 목록과 편집기를 상호 배타적으로 렌더링하도록 계약을 갱신했다.
+- 노트 생성·선택·목록 복귀·브라우저 history·직접 링크가 `personalNote.noteId`를 일관되게 복원하도록 명시했다.
+- 이번 릴리즈에서 진행 중인 QT 피드 개편을 제외했다.
 
 ### 2026-07-14
 

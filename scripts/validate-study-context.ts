@@ -10,6 +10,7 @@ import {
   buildLegacyStudyAppUrl,
   buildStudyUiCommunityUrl,
   buildStudyUiDictionaryUrl,
+  buildStudyUiPersonalNoteUrl,
   buildStudyUiTargetUrl,
   createStudyUiReaderRoute,
   createStudyUiNavigationEvent,
@@ -87,6 +88,9 @@ assert.equal(parseStudyUiWebView("unknown"), "dashboard");
 assert.equal(buildLegacyStudyAppUrl("dashboard"), "/app");
 assert.equal(buildLegacyStudyAppUrl("notes"), "/app?view=notes");
 assert.equal(buildStudyUiTargetUrl("notes"), "/app/study/notes");
+assert.equal(buildStudyUiPersonalNoteUrl(), "/app/study/notes");
+assert.equal(buildStudyUiPersonalNoteUrl({ noteId: "personal-note-123" }), "/app/study/notes/personal-note-123");
+assert.throws(() => buildStudyUiPersonalNoteUrl({ noteId: "../private" }));
 assert.equal(buildStudyUiTargetUrl("highlights"), "/app/library?section=highlights");
 assert.equal(buildStudyUiCommunityUrl({ tab: "feed" }), "/app/community");
 assert.equal(buildStudyUiCommunityUrl({ tab: "participating" }), "/app/community?tab=participating");
@@ -128,6 +132,12 @@ assert.deepEqual(parseStudyUiRoute("/app/community", new URLSearchParams("tab=ra
 assert.equal(parseStudyUiRoute("/app/community", new URLSearchParams("tab=private")), null);
 assert.deepEqual(parseStudyUiRoute("/app/library", new URLSearchParams("section=highlights")), { view: "highlights" });
 assert.deepEqual(parseStudyUiRoute("/app/study/dictionary"), { view: "dictionary" });
+assert.deepEqual(parseStudyUiRoute("/app/study/notes"), { view: "notes" });
+assert.deepEqual(parseStudyUiRoute("/app/study/notes/personal-note-123"), {
+  view: "notes",
+  personalNote: { noteId: "personal-note-123" },
+});
+assert.equal(parseStudyUiRoute("/app/study/notes/private%2Fnote"), null);
 assert.deepEqual(parseStudyUiRoute("/app/study/dictionary", new URLSearchParams("entry=reshith&theme=genesis-primeval")), {
   view: "dictionary",
   dictionary: { entryKey: "reshith", themeId: "genesis-primeval" },

@@ -268,13 +268,16 @@ flowchart LR
 
 ### 목표
 
-사용자에게 하나의 `노트` 개념을 제공하고 모바일 목록과 편집을 분리한다.
+사용자에게 하나의 `노트` 개념을 제공하고 웹과 모바일 모두 목록과 편집을 분리한다.
 
 ### 태스크
 
 - [ ] `StudyNote` legacy read adapter와 `PersonalNote` write 정책을 고정한다.
 - [ ] 리더의 구절/장 노트 action을 하나의 `노트` action으로 통합한다.
-- [x] 웹 list `300px` + editor + inspector 구조를 구현한다.
+- [x] 웹 `/app/study/notes`를 검색·필터·요약 중심 목록 화면으로 구성한다.
+- [x] 웹 `/app/study/notes/[noteId]`를 editor와 optional inspector 전용 화면으로 구성한다.
+- [x] 웹 목록과 editor를 모든 viewport에서 동시에 렌더링하지 않는다.
+- [x] 노트 선택·생성·목록 복귀를 URL history와 연결하고 직접 detail 진입을 복원한다.
 - [x] 모바일 Note List와 Note Editor를 별도 stack screen으로 분리한다.
 - [x] rich-text toolbar를 모바일 keyboard 위에 고정한다.
 - [x] 기본 toolbar와 더보기 toolbar의 도구를 분리한다.
@@ -289,6 +292,8 @@ flowchart LR
 ### 완료 기준
 
 - [x] 모바일에서 목록과 편집기가 한 scroll에 동시에 나타나지 않는다.
+- [x] 웹에서 목록 route와 편집 route가 분리되고 동시에 나타나지 않는다.
+- [x] 웹 detail URL을 새로고침하거나 브라우저 뒤로 이동해도 해당 노트와 목록 상태가 복원된다.
 - [ ] keyboard가 toolbar와 마지막 편집 줄을 가리지 않는다.
 - [ ] 저장 실패와 앱 종료 후에도 local draft가 유지된다.
 - [ ] 연결 구절 추가/삭제 후 Reader backlink가 일관된다.
@@ -533,7 +538,7 @@ apps/mobile/
 - [ ] Reader 첫 viewport가 조작 UI보다 본문을 우선한다.
 - [ ] 구절 선택 후 2회 action 안에 노트, 하이라이트, 저장을 시작한다.
 - [ ] 노트, 사전, 검색 상세에서 원래 읽기 문맥으로 복귀한다.
-- [ ] 모바일 노트 목록과 편집기가 별도 screen이다.
+- [x] 웹과 모바일 노트 목록과 편집기가 별도 route/screen이다.
 - [ ] 웹 `1024px` 이상 navigation에 줄바꿈이 없다.
 - [ ] `320~1440px`에서 비정상적인 요소 겹침과 horizontal overflow가 없다.
 - [ ] keyboard, screen reader, 큰 글꼴, reduced motion을 검증했다.

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { buildLegacyStudyAppUrl, buildStudyUiCommunityUrl, buildStudyUiDictionaryUrl, buildStudyUiTargetUrl, type StudyUiRouteState } from "@kjv/shared/study-ui";
+import { buildLegacyStudyAppUrl, buildStudyUiCommunityUrl, buildStudyUiDictionaryUrl, buildStudyUiPersonalNoteUrl, buildStudyUiTargetUrl, type StudyUiRouteState } from "@kjv/shared/study-ui";
 
 import { guestAppUser, toAppUser, type AppUser } from "@/lib/auth/app-user";
 import { getUserProfile } from "@/lib/onboarding-server";
@@ -17,7 +17,7 @@ type StudyAppEntryProps = {
 export async function StudyAppEntry({ route }: StudyAppEntryProps) {
   const renderApp = (appUser: AppUser) => studyUiFeatureFlags.uiShellV2
     ? <StudyAppShell initialRoute={route} readerV2={studyUiFeatureFlags.readerV2} user={appUser} />
-    : <KjvMvpApp communityRoute={route.community} dictionaryRoute={route.dictionary} initialView={route.view} readerExperience={studyUiFeatureFlags.readerV2 ? "v2" : "legacy"} readerRoute={route.reader} user={appUser} />;
+    : <KjvMvpApp communityRoute={route.community} dictionaryRoute={route.dictionary} initialView={route.view} personalNoteRoute={route.personalNote} readerExperience={studyUiFeatureFlags.readerV2 ? "v2" : "legacy"} readerRoute={route.reader} user={appUser} />;
 
   if (!hasSupabasePublicConfig({ includeServerFallback: true })) return renderApp(guestAppUser);
 
@@ -35,6 +35,8 @@ export async function StudyAppEntry({ route }: StudyAppEntryProps) {
         ? buildStudyUiCommunityUrl(route.community)
         : route.view === "dictionary"
         ? buildStudyUiDictionaryUrl(route.dictionary)
+        : route.view === "notes"
+        ? buildStudyUiPersonalNoteUrl(route.personalNote)
         : buildStudyUiTargetUrl(route.view, route.reader)
       : buildLegacyStudyAppUrl(route.view);
     redirect(`/onboarding?next=${encodeURIComponent(next)}`);

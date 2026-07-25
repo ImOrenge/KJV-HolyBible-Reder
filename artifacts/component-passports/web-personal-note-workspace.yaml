@@ -1,7 +1,7 @@
 component:
   id: web-personal-note-workspace
   status: candidate
-  updated_at: 2026-07-14T18:30:00+09:00
+  updated_at: 2026-07-15T18:47:00+09:00
   owner_scope: personal-note-feature
   source:
     repo: D:\kjv-educator
@@ -9,20 +9,30 @@ component:
       - apps/web/src/components/kjv-mvp-app.tsx
       - apps/web/src/components/personal-note-creation-dialog.tsx
       - apps/web/src/components/personal-note-rich-text-editor.tsx
+      - apps/web/src/components/study-app-entry.tsx
+      - apps/web/src/components/study-app-shell.tsx
       - apps/web/src/app/globals.css
-    route: /app/study/notes
+      - packages/shared/src/study-ui.ts
+    routes: [/app/study/notes, /app/study/notes/[noteId]]
   classification:
     kind: screen
     change_gate: behavioral-style-contract
   layout:
-    desktop_1440: [list-300, editor-fluid, inspector-300]
-    tablet_1024: [list-300, editor-fluid, inspector-under-editor]
-    compact_900: [list-or-editor, inspector-under-editor]
+    desktop_1440_list: [list-full]
+    desktop_1440_editor: [editor-fluid, inspector-300]
+    tablet_1024_list: [list-full]
+    tablet_1024_editor: [editor-fluid, inspector-under-editor]
+    compact_390: [list-or-editor, inspector-under-editor]
   state:
-    parent: [selectedNote, mobilePane, inspectorOpen, pendingCreationVerses]
+    parent: [selectedNote, screen, inspectorOpen, pendingCreationVerses]
+    route: [personalNote.noteId]
     dialog: [templateSelection, linkedVerseCount]
   behavior:
+    entry: list-first
+    selection: push-note-detail-route
     creation: template-selection-before-editor
+    creation_completion: push-created-note-detail-route
+    back: push-note-list-route-and-support-browser-history
     inspector: [linkedVerses, revisions, backlinks, save-as-template]
     rollback: NEXT_PUBLIC_UI_SHELL_V2=false
   styling:
@@ -32,7 +42,27 @@ component:
     inline_styles_allowed: false
   accessibility:
     keyboard: native-controls-dialog-escape-and-focus
-    aria: labeled-dialog-inspector-complementary-and-pressed-toggle
+    aria: labeled-list-screen-editor-screen-dialog-inspector-complementary-and-pressed-toggle
+  rendering_contract:
+    - the list route renders the note list only
+    - a detail route renders the editor and optional inspector only
+    - list and editor are mutually exclusive at every viewport width
+    - direct detail links and browser history restore the routed note id
+    - archived or unavailable note ids retain a list return action
   validation:
     required: [typecheck, lint, build, browser-interaction, 1440-1024-390-layout, horizontal-overflow]
     residual: [authenticated-two-device-save-conflict, screen-reader-manual]
+  evidence:
+    - type: static
+      result: pass
+      commands: [npm run typecheck, npm run lint, npm run build, npm run study-ui:validate, npm run note-client:validate, npm run note-draft:validate, npm run note-privacy:validate, npm run note-snapshot:validate, npm run structure:mobile]
+    - type: production-browser
+      result: pass
+      viewports: [1440x1000, 1024x900, 390x844]
+      findings:
+        - the list route renders one list screen and no editor screen
+        - creating and opening a note pushes its detail route
+        - the detail route renders one editor screen and no list screen
+        - the list return action and browser back restore the matching route state
+        - the inspector moves below the editor at 1024px
+        - no horizontal document overflow occurs at any verified viewport

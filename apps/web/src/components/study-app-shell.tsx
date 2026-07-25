@@ -25,9 +25,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { AppUser } from "@/lib/auth/app-user";
 import {
+  buildStudyUiPersonalNoteUrl,
   buildStudyUiTargetUrl,
   getStudyUiAreaForView,
   type StudyUiArea,
+  type StudyUiPersonalNoteRoute,
   type StudyUiReaderRoute,
   type StudyUiRouteState,
   type StudyUiWebViewKey,
@@ -156,6 +158,13 @@ export function StudyAppShell({ initialRoute, readerV2 = false, user }: StudyApp
     router.push(buildStudyUiTargetUrl("reader", route), { scroll: false });
   }, [router]);
 
+  const navigatePersonalNote = useCallback((route: StudyUiPersonalNoteRoute = {}) => {
+    setActiveView("notes");
+    setIsCommandOpen(false);
+    setCommandQuery("");
+    router.push(buildStudyUiPersonalNoteUrl(route), { scroll: false });
+  }, [router]);
+
   const filteredCommands = useMemo(() => {
     const query = commandQuery.trim().toLocaleLowerCase("ko-KR");
     if (!query) return commandItems;
@@ -245,10 +254,12 @@ export function StudyAppShell({ initialRoute, readerV2 = false, user }: StudyApp
             communityRoute={activeView === "community" ? initialRoute.community ?? {} : undefined}
             dictionaryRoute={activeView === "dictionary" ? initialRoute.dictionary ?? {} : undefined}
             navigationMode="shell"
+            onPersonalNoteNavigate={navigatePersonalNote}
             onReaderLocationChange={rememberReaderLocation}
             onReaderNavigate={navigateReader}
             onViewChange={navigate}
             readerExperience={readerV2 ? "v2" : "legacy"}
+            personalNoteRoute={activeView === "notes" ? initialRoute.personalNote ?? {} : undefined}
             readerRoute={activeView === "reader" ? readerRoute : undefined}
             user={user}
           />

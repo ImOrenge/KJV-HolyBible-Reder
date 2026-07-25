@@ -59,9 +59,14 @@ export type StudyUiDictionaryRoute = {
   themeId?: string;
 };
 
+export type StudyUiPersonalNoteRoute = {
+  noteId?: string;
+};
+
 export type StudyUiRouteState = {
   community?: StudyUiCommunityRoute;
   dictionary?: StudyUiDictionaryRoute;
+  personalNote?: StudyUiPersonalNoteRoute;
   reader?: StudyUiReaderRoute;
   view: StudyUiWebViewKey;
 };
@@ -309,6 +314,13 @@ export function buildStudyUiDictionaryUrl(route: StudyUiDictionaryRoute = {}) {
   return queryString ? `/app/study/dictionary?${queryString}` : "/app/study/dictionary";
 }
 
+export function buildStudyUiPersonalNoteUrl(route: StudyUiPersonalNoteRoute = {}) {
+  const noteId = route.noteId?.trim();
+  if (!noteId) return "/app/study/notes";
+  if (!IDENTIFIER_PATTERN.test(noteId)) throw new Error("노트 ID를 확인하세요.");
+  return `/app/study/notes/${encodeURIComponent(noteId)}`;
+}
+
 export function buildStudyUiCommunityUrl(route: StudyUiCommunityRoute = {}) {
   const params = new URLSearchParams();
   if (route.tab && route.tab !== "feed") params.set("tab", route.tab);
@@ -379,6 +391,12 @@ export function parseStudyUiRoute(pathname: string, params = new URLSearchParams
       return Object.keys(dictionary).length ? { view: "dictionary", dictionary } : { view: "dictionary" };
     }
     return null;
+  }
+
+  if (segments[1] === "study" && segments[2] === "notes" && segments.length === 4) {
+    const noteId = segments[3]?.trim();
+    if (!noteId || !IDENTIFIER_PATTERN.test(noteId)) return null;
+    return { view: "notes", personalNote: { noteId } };
   }
 
   if (segments[1] === "read" && segments.length === 4) {
