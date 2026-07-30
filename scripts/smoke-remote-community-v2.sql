@@ -20,6 +20,18 @@ begin
      or has_column_privilege('anon', 'public.user_public_profiles', 'show_honorific', 'select') then
     raise exception 'Anonymous profile access exposes private honorific controls.';
   end if;
+  if not has_column_privilege('authenticated', 'public.user_public_profiles', 'public_enabled', 'insert')
+     or not has_column_privilege('authenticated', 'public.user_public_profiles', 'handle', 'update')
+     or not has_column_privilege('authenticated', 'public.user_public_profiles', 'bio', 'update')
+     or not has_column_privilege('authenticated', 'public.user_public_profiles', 'public_enabled', 'update')
+     or not has_column_privilege('authenticated', 'public.user_public_profiles', 'show_honorific', 'update') then
+    raise exception 'Authenticated Community V2 profile mutation grants are missing.';
+  end if;
+  if has_column_privilege('authenticated', 'public.user_public_profiles', 'status', 'update')
+     or has_column_privilege('authenticated', 'public.user_public_profiles', 'follower_count', 'update')
+     or has_column_privilege('authenticated', 'public.user_public_profiles', 'post_count', 'update') then
+    raise exception 'Authenticated profile mutation grants expose server-managed columns.';
+  end if;
   if not has_table_privilege('authenticated', 'public.discussion_threads', 'select')
      or not has_table_privilege('authenticated', 'public.discussion_comments', 'select')
      or not has_table_privilege('authenticated', 'public.discussion_reactions', 'select')
@@ -113,7 +125,7 @@ begin
     (v_post_id, 'JHN.3.16', 0, true, 'For God so loved the world.', '하나님이 세상을 이처럼 사랑하사'),
     (v_post_id, 'GEN.1.1', 1, false, 'In the beginning God created.', '태초에 하나님이 창조하시니라');
   insert into public.community_hashtags(id, tag, normalized_tag, post_count)
-  values (tag_id, '말씀순환', '말씀순환', 1);
+  values (tag_id, 'sqltag_' || suffix, 'sqltag_' || suffix, 1);
   insert into public.community_post_hashtags(post_id, hashtag_id, position)
   values (v_post_id, tag_id, 0);
   insert into public.community_post_mentions(post_id, mentioned_user_id) values (v_post_id, user_b);
@@ -218,6 +230,7 @@ do $$
 declare
   target_post uuid := (select post_id from smoke_community_context);
   user_a uuid := (select user_a from smoke_community_context);
+  changed_rows integer;
 begin
   if (select count(*) from public.community_posts where id = target_post) <> 0 then
     raise exception 'Blocked author remained visible to the authenticated viewer.';
@@ -227,7 +240,10 @@ begin
   end if;
   begin
     update public.community_posts set body = '다른 사용자의 변조 시도입니다.' where id = target_post;
-    raise exception 'Authenticated user unexpectedly updated a community post directly.';
+    get diagnostics changed_rows = row_count;
+    if changed_rows <> 0 then
+      raise exception 'Authenticated user unexpectedly updated another account post.';
+    end if;
   exception when insufficient_privilege then null;
   end;
 end;

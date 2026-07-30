@@ -100,7 +100,7 @@ try {
   await Promise.all([
     completeOnboarding(author, authorName, "목사님"),
     completeOnboarding(member, memberName, "성도님"),
-    completeOnboarding(moderator, moderatorName, "운영자님"),
+    completeOnboarding(moderator, moderatorName, "장로님"),
   ]);
   const [authorProfile, memberProfile] = await Promise.all([
     api("/api/community/v2/profile", {

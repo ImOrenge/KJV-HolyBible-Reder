@@ -311,7 +311,7 @@ async function enforceRateLimit(
 ) {
   const { count, error } = await service
     .from(table)
-    .select("id", { count: "exact", head: true })
+    .select(userColumn, { count: "exact", head: true })
     .eq(userColumn, userId)
     .gte("created_at", createdAfter);
   if (error) throw new CommunityV2Error(error.message, 500);
@@ -828,11 +828,8 @@ async function loadVerseSnapshots(service: CommunityDb, verseKeys: string[]) {
 }
 
 async function syncPostHashtags(service: CommunityDb, postId: string, hashtags: string[]) {
-  const { data: oldLinks } = await service.from("community_post_hashtags").select("hashtag_id").eq("post_id", postId);
-  const oldIds = (oldLinks ?? []).map((row) => row.hashtag_id);
   const { error: deleteError } = await service.from("community_post_hashtags").delete().eq("post_id", postId);
   if (deleteError) throw new CommunityV2Error(deleteError.message, 500);
-  let newIds: string[] = [];
   if (hashtags.length) {
     const { error: upsertError } = await service.from("community_hashtags").upsert(
       hashtags.map((tag) => ({ normalized_tag: tag, tag })),
@@ -843,16 +840,10 @@ async function syncPostHashtags(service: CommunityDb, postId: string, hashtags: 
     if (tagError) throw new CommunityV2Error(tagError.message, 500);
     const tagIdMap = new Map((tagRows ?? []).map((row) => [row.normalized_tag, row.id]));
     const links = hashtags.flatMap((tag, position) => tagIdMap.get(tag) ? [{ hashtag_id: tagIdMap.get(tag), position, post_id: postId }] : []);
-    newIds = links.map((link) => link.hashtag_id as string);
     if (links.length) {
       const { error: linkError } = await service.from("community_post_hashtags").insert(links);
       if (linkError) throw new CommunityV2Error(linkError.message, 500);
     }
-  }
-  const affectedIds = [...new Set([...oldIds, ...newIds])];
-  for (const hashtagId of affectedIds) {
-    const { count } = await service.from("community_post_hashtags").select("post_id", { count: "exact", head: true }).eq("hashtag_id", hashtagId);
-    await service.from("community_hashtags").update({ post_count: count ?? 0 }).eq("id", hashtagId);
   }
 }
 
@@ -889,8 +880,11 @@ export async function createCommunityPost(
   if (quotedPostId) await getCommunityPost(service, quotedPostId, user.id);
   const normalizedIdempotency = cleanNullableText(idempotencyKey)?.slice(0, 120) ?? null;
   if (normalizedIdempotency) {
-    const { data: existing } = await service.from("community_posts").select("id").eq("author_id", user.id).eq("idempotency_key", normalizedIdempotency).maybeSingle<{ id: string }>();
-    if (existing) return getCommunityPost(service, existing.id, user.id);
+    const { data: existingId, error: idempotencyError } = await service.rpc("find_own_community_post_by_idempotency", {
+      p_idempotency_key: normalizedIdempotency,
+    });
+    if (idempotencyError) throw new CommunityV2Error(idempotencyError.message, 500);
+    if (typeof existingId === "string") return getCommunityPost(service, existingId, user.id);
   }
   const { data: row, error } = await service
     .from("community_posts")
@@ -958,7 +952,7 @@ export async function deleteCommunityPost(service: CommunityDb, user: User, post
   await requireOwnedPost(service, postId, user.id);
   const { data: media } = await service.from("community_post_media").select("storage_path").eq("post_id", postId).maybeSingle<{ storage_path: string }>();
   await syncPostHashtags(service, postId, []);
-  const { error } = await service.from("community_posts").update({ author_id: null, body: "삭제된 QT 나눔입니다.", deleted_at: new Date().toISOString(), status: "deleted", title: null }).eq("id", postId).eq("author_id", user.id);
+  const { error } = await service.from("community_posts").update({ body: "삭제된 QT 나눔입니다.", deleted_at: new Date().toISOString(), status: "deleted", title: null }).eq("id", postId).eq("author_id", user.id);
   if (error) throw new CommunityV2Error(error.message, 500);
   if (media?.storage_path) await service.storage.from(COMMUNITY_MEDIA_BUCKET).remove([media.storage_path]);
 }
@@ -1049,7 +1043,14 @@ export async function createCommunityComment(
   }
   const normalizedKey = cleanNullableText(idempotencyKey)?.slice(0, 120) ?? null;
   if (normalizedKey) {
-    const { data: existing } = await service.from("community_comments").select("id,post_id,author_id,parent_comment_id,body,status,like_count,edited_at,created_at").eq("author_id", user.id).eq("idempotency_key", normalizedKey).maybeSingle<CommentRowV2>();
+    const { data: existingId, error: idempotencyError } = await service.rpc("find_own_community_comment_by_idempotency", {
+      p_idempotency_key: normalizedKey,
+    });
+    if (idempotencyError) throw new CommunityV2Error(idempotencyError.message, 500);
+    const { data: existing, error: existingError } = typeof existingId === "string"
+      ? await service.from("community_comments").select("id,post_id,author_id,parent_comment_id,body,status,like_count,edited_at,created_at").eq("id", existingId).maybeSingle<CommentRowV2>()
+      : { data: null, error: null };
+    if (existingError) throw new CommunityV2Error(existingError.message, 500);
     if (existing) return (await hydrateCommunityComments(service, [existing], user.id))[0];
   }
   const { data, error } = await service
@@ -1085,7 +1086,7 @@ export async function updateCommunityComment(service: CommunityDb, user: User, c
 
 export async function deleteCommunityComment(service: CommunityDb, user: User, commentId: string) {
   await requireOwnedComment(service, commentId, user.id);
-  const { error } = await service.from("community_comments").update({ author_id: null, body: "삭제된 댓글입니다.", deleted_at: new Date().toISOString(), status: "deleted" }).eq("id", commentId).eq("author_id", user.id);
+  const { error } = await service.from("community_comments").update({ body: "삭제된 댓글입니다.", deleted_at: new Date().toISOString(), status: "deleted" }).eq("id", commentId).eq("author_id", user.id);
   if (error) throw new CommunityV2Error(error.message, 500);
 }
 
@@ -1524,42 +1525,42 @@ export async function processCommunityNotificationOutbox(service: CommunityDb) {
             user_id: event.recipient_id,
           });
           if (insertError) throw insertError;
-           const { data: tokens } = await service.from("community_push_tokens").select("id,token").eq("user_id", event.recipient_id).eq("enabled", true);
-           if (tokens?.length) {
-             for (let index = 0; index < tokens.length; index += 100) {
-               const batch = tokens.slice(index, index + 100);
-               const messages = batch.map((row) => ({
-                 body: notificationCopy[event.event_type] ?? "QT 커뮤니티 알림이 도착했습니다.",
-                 data: { commentId: event.comment_id, postId: event.post_id, type: event.event_type },
-                 sound: "default",
-                 title: "KJV QT 커뮤니티",
-                 to: row.token,
-               }));
-               const expoAccessToken = process.env.EXPO_ACCESS_TOKEN?.trim();
-               const response = await fetch("https://exp.host/--/api/v2/push/send", {
-                 body: JSON.stringify(messages),
-                 headers: {
-                   Accept: "application/json",
-                   "Content-Type": "application/json",
-                   ...(expoAccessToken ? { Authorization: `Bearer ${expoAccessToken}` } : {}),
-                 },
-                 method: "POST",
-               });
-               if (!response.ok) throw new Error(`Expo push ${response.status}`);
-               const payload = await response.json().catch(() => null) as {
-                 data?: Array<{ details?: { error?: string }; message?: string; status?: string }>;
-               } | null;
-               for (const [ticketIndex, ticket] of (payload?.data ?? []).entries()) {
-                 if (ticket.status !== "error") continue;
-                 if (ticket.details?.error === "DeviceNotRegistered") {
-                   const tokenId = batch[ticketIndex]?.id;
-                   if (tokenId) await service.from("community_push_tokens").update({ enabled: false }).eq("id", tokenId);
-                   continue;
-                 }
-                 throw new Error(ticket.message ?? "Expo push ticket error");
-               }
-             }
-           }
+        }
+        const { data: tokens } = await service.from("community_push_tokens").select("id,token").eq("user_id", event.recipient_id).eq("enabled", true);
+        if (tokens?.length) {
+          for (let index = 0; index < tokens.length; index += 100) {
+            const batch = tokens.slice(index, index + 100);
+            const messages = batch.map((row) => ({
+              body: notificationCopy[event.event_type] ?? "QT 커뮤니티 알림이 도착했습니다.",
+              data: { commentId: event.comment_id, postId: event.post_id, type: event.event_type },
+              sound: "default",
+              title: "KJV QT 커뮤니티",
+              to: row.token,
+            }));
+            const expoAccessToken = process.env.EXPO_ACCESS_TOKEN?.trim();
+            const response = await fetch("https://exp.host/--/api/v2/push/send", {
+              body: JSON.stringify(messages),
+              headers: {
+                Accept: "application/json",
+                "Content-Type": "application/json",
+                ...(expoAccessToken ? { Authorization: `Bearer ${expoAccessToken}` } : {}),
+              },
+              method: "POST",
+            });
+            if (!response.ok) throw new Error(`Expo push ${response.status}`);
+            const payload = await response.json().catch(() => null) as {
+              data?: Array<{ details?: { error?: string }; message?: string; status?: string }>;
+            } | null;
+            for (const [ticketIndex, ticket] of (payload?.data ?? []).entries()) {
+              if (ticket.status !== "error") continue;
+              if (ticket.details?.error === "DeviceNotRegistered") {
+                const tokenId = batch[ticketIndex]?.id;
+                if (tokenId) await service.from("community_push_tokens").update({ enabled: false }).eq("id", tokenId);
+                continue;
+              }
+              throw new Error(ticket.message ?? "Expo push ticket error");
+            }
+          }
         }
         await service.from("community_notification_outbox").update({ processed_at: new Date().toISOString() }).eq("id", event.id).is("processed_at", null);
       } catch (eventError) {
@@ -1606,7 +1607,7 @@ export async function uploadCommunityPostMedia(service: CommunityDb, user: User,
     upsert: false,
   });
   if (uploadError) throw new CommunityV2Error("이미지를 저장하지 못했습니다.", 500);
-  const { error } = await service.from("community_post_media").upsert({
+  const mediaRow = {
     alt_text: altText,
     author_id: user.id,
     byte_size: image.size,
@@ -1616,7 +1617,10 @@ export async function uploadCommunityPostMedia(service: CommunityDb, user: User,
     status: "ready",
     storage_path: storagePath,
     width: metadata.width,
-  }, { onConflict: "post_id" });
+  };
+  const { error } = existing
+    ? await service.from("community_post_media").update(mediaRow).eq("post_id", postId)
+    : await service.from("community_post_media").insert(mediaRow);
   if (error) {
     await service.storage.from(COMMUNITY_MEDIA_BUCKET).remove([storagePath]);
     throw new CommunityV2Error(error.message, 500);
@@ -1628,7 +1632,7 @@ export async function uploadCommunityPostMedia(service: CommunityDb, user: User,
 export async function removeCommunityPostMedia(service: CommunityDb, user: User, postId: string) {
   await requireOwnedPost(service, postId, user.id);
   const { data } = await service.from("community_post_media").select("storage_path").eq("post_id", postId).maybeSingle<{ storage_path: string }>();
-  const { error } = await service.from("community_post_media").delete().eq("post_id", postId).eq("author_id", user.id);
+  const { error } = await service.from("community_post_media").delete().eq("post_id", postId);
   if (error) throw new CommunityV2Error(error.message, 500);
   if (data?.storage_path) await service.storage.from(COMMUNITY_MEDIA_BUCKET).remove([data.storage_path]);
 }
@@ -1754,7 +1758,7 @@ export async function applyCommunityModerationAction(
   });
   if (eventError) throw new CommunityV2Error(eventError.message, 500);
   if (action !== "dismiss_report" && affectedUserId && affectedUserId !== moderator.id) {
-    const { error: notificationError } = await service.from("community_notification_outbox").upsert({
+    const { error: notificationError } = await service.from("community_notification_outbox").insert({
       actor_id: moderator.id,
       comment_id: report.comment_id,
       data: { action, note, reasonCode },
@@ -1762,8 +1766,8 @@ export async function applyCommunityModerationAction(
       event_type: "moderation",
       post_id: report.post_id,
       recipient_id: affectedUserId,
-    }, { ignoreDuplicates: true, onConflict: "event_key" });
-    if (notificationError) throw new CommunityV2Error(notificationError.message, 500);
+    });
+    if (notificationError && notificationError.code !== "23505") throw new CommunityV2Error(notificationError.message, 500);
     await processCommunityNotificationOutbox(service);
   }
   return { applied: true };
