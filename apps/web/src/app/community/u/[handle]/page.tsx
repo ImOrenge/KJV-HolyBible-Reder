@@ -69,7 +69,7 @@ export default async function CommunityProfilePage({ params, searchParams }: Com
 
   const completionItems = profile.isCurrentUser ? [
     !profile.bio ? { href: "/community/settings", key: "bio" as const, label: "소개 추가", detail: "나를 설명하는 짧은 문장을 작성해 보세요." } : null,
-    !profile.avatarUrl ? { href: "/app", key: "photo" as const, label: "프로필 사진 확인", detail: "앱 온보딩 프로필에 사진을 추가해 보세요." } : null,
+    !profile.avatarUrl ? { href: "/onboarding?edit=1&next=%2Fcommunity%2Fsettings", key: "photo" as const, label: "프로필 사진 추가", detail: "온보딩 계정 프로필에 사진을 추가해 보세요." } : null,
     profile.postCount === 0 ? { href: "/community?compose=1", key: "post" as const, label: "첫 QT 나눔", detail: "말씀과 연결된 첫 묵상을 남겨 보세요." } : null,
     profile.followingCount < 10 ? { href: "/community/search", key: "follow" as const, label: "10명 팔로우", detail: "QT를 이어 보고 싶은 사람을 찾아보세요." } : null,
   ].filter((item): item is { detail: string; href: string; key: "bio" | "follow" | "photo" | "post"; label: string } => Boolean(item)) : [];

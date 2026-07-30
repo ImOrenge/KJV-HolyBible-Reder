@@ -13,5 +13,5 @@ export default async function CommunitySettingsPage() {
   const onboardingProfile = await getUserProfile(auth.service, auth.user.id);
   if (!onboardingProfile?.onboardingCompletedAt) redirect("/onboarding?next=%2Fcommunity%2Fsettings");
   const profile = await getOwnCommunityProfile(auth.service, auth.user);
-  return <main className="community-page-grid"><div className="community-main-column"><CommunityProfileEditor initialProfile={profile} /></div></main>;
+  return <main className="community-page-grid community-page-single community-profile-settings-layout"><div className="community-main-column"><CommunityProfileEditor initialProfile={profile} /></div></main>;
 }

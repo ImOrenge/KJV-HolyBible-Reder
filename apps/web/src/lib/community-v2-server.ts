@@ -744,6 +744,10 @@ export async function getCommunityProfileByHandle(service: CommunityDb, handleVa
   profile.followingCount = data.following_count;
   profile.postCount = data.post_count;
   profile.publicEnabled = data.public_enabled;
+  if (data.user_id === viewerId) {
+    profile.availableHonorific = data.honorific ?? null;
+    profile.showHonorific = data.show_honorific;
+  }
   const map = new Map([[data.user_id, profile]]);
   await addViewerProfileState(service, map, viewerId);
   return profile;
@@ -757,6 +761,8 @@ export async function getOwnCommunityProfile(service: CommunityDb, user: User) {
   mapped.followingCount = row.following_count;
   mapped.postCount = row.post_count;
   mapped.publicEnabled = row.public_enabled;
+  mapped.availableHonorific = row.honorific ?? null;
+  mapped.showHonorific = row.show_honorific;
   return mapped;
 }
 

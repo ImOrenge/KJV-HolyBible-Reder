@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { CommunityAvatar } from "./community-avatar";
+import { CommunityVersePicker } from "./community-verse-picker";
 
 type CommunityComposerProps = {
   initialOpen?: boolean;
@@ -202,10 +203,7 @@ export function CommunityComposer({ initialOpen = false, initialQuotedPostId, on
               <label className="community-sr-only" htmlFor="community-composer-body">QT 나눔</label>
               <textarea autoFocus id="community-composer-body" maxLength={4000} minLength={10} onChange={(event) => updateDraft("body", event.target.value)} placeholder="말씀에서 발견한 것과 오늘의 적용을 나눠 주세요." required value={draft.body} />
             </div>
-            {showVerseInput ? (
-              <label className="community-composer-inline-field"><span>연결 구절</span><input onChange={(event) => updateDraft("verseKeys", event.target.value)} placeholder="JHN.3.16, ROM.8.28" required value={draft.verseKeys} /></label>
-            ) : null}
-            {verseKeys.length ? <div aria-label="선택한 구절" className="community-composer-chips">{verseKeys.map((key) => <span key={key}>{key}</span>)}</div> : null}
+            <CommunityVersePicker inputVisible={showVerseInput} onChange={(keys) => updateDraft("verseKeys", keys.join(","))} verseKeys={verseKeys} />
             {showHashtagInput ? (
               <label className="community-composer-inline-field"><span>해시태그</span><input onChange={(event) => updateDraft("hashtags", event.target.value)} placeholder="#은혜 #기도 (최대 5개)" value={draft.hashtags} /></label>
             ) : null}

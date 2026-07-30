@@ -51,7 +51,8 @@ export function parseVerseReferenceQuery(query: string): ParsedVerseReferenceQue
   const bookQuery = (match?.[1] ?? trimmed).trim();
   const candidates = matchBibleBooks(bookQuery);
   const exactNormalized = normalizeAlias(bookQuery);
-  const exact = candidates.length === 1 && aliasesForBook(candidates[0]).includes(exactNormalized) ? candidates[0] : null;
+  const exactMatches = candidates.filter((candidate) => aliasesForBook(candidate).includes(exactNormalized));
+  const exact = exactMatches.length === 1 ? exactMatches[0] : null;
   const book = exact ?? (candidates.length === 1 ? candidates[0] : null);
   const chapter = match?.[2] ? Number(match[2]) : null;
   const verse = match?.[3] ? Number(match[3]) : null;

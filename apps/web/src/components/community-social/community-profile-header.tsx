@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CommunityAvatar } from "./community-avatar";
 import { CommunityPageHeader } from "./community-page-header";
 import { CommunityProfileActions } from "./community-profile-actions";
+import { CommunityProfileEditDialog } from "./community-profile-edit-dialog";
 
 export function CommunityProfileHeader({ profile, signedIn }: { profile: CommunityProfileDetailV2; signedIn: boolean }) {
   return (
@@ -40,7 +41,7 @@ export function CommunityProfileHeader({ profile, signedIn }: { profile: Communi
         </div>
         <div id="community-profile-actions">
           {profile.isCurrentUser
-            ? <Link className="community-button community-profile-primary-action" href="/community/settings">프로필 편집</Link>
+            ? <CommunityProfileEditDialog className="community-profile-primary-action" initialProfile={profile} />
             : <CommunityProfileActions profile={profile} signedIn={signedIn} />}
         </div>
       </section>

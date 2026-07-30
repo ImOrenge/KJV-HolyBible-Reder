@@ -83,23 +83,29 @@ component:
       - intentionally empty right-side breathing room on the home feed
       - inline composer trigger followed by underline feed tabs
       - posts separated by rules rather than floating cards
+      - profile identity, counts, full-width owner action, and four content tabs follow the Threads hierarchy
+      - owner profile editing opens as a centered dialog while /community/settings remains the direct-route fallback
     mobile:
       - compact sticky header and five-action bottom navigation
       - edge-to-edge continuous feed
+      - profile editing becomes a safe-area-aware bottom sheet with a sticky completion action
     exclusions:
       - promotional or guidance cards beside the home feed
       - permanently open composer dialog
       - DM and group navigation
     style_change_gate:
       type: style-contract
-      updated_at: 2026-07-26
+      updated_at: 2026-07-30
   web_component_surfaces:
     - name: CommunityPageHeader
       kind: feature-layout
       contract: shared centered-column title, subtitle, leading, and action slots
     - name: CommunityComposer
       kind: feature-form-dialog
-      contract: closed by default, explicit query or trigger open, session draft, verse and body validation, image and comment policy tools
+      contract: closed by default, explicit query or trigger open, session draft, chapter-table verse selection, verse and body validation, image and comment policy tools
+    - name: CommunityVersePicker
+      kind: feature-combobox
+      contract: canonical 66-book chooser, Korean and English book aliases, paginated whole-book verses from 1:1, chapter-focused verse tables, input-matched verse promotion and emphasis, one-to-ten multi-selection, keyboard navigation, and canonical verse-key output
     - name: CommunitySearchForm
       kind: feature-form
       contract: GET URL state for q and all, posts, users, verses, and tags filters
@@ -112,6 +118,12 @@ component:
     - name: CommunityProfileHeader
       kind: feature-composite
       contract: onboarding-authoritative identity, profile counts, owner edit, follow, and safety overflow
+    - name: CommunityProfileEditDialog
+      kind: feature-form-dialog
+      contract: native dialog opened from the owner profile, backdrop and escape dismissal, onboarding identity handoff, save refresh, and mobile bottom-sheet layout
+    - name: CommunityProfileEditor
+      kind: feature-form
+      contract: page and dialog modes for editable handle, bio, honorific visibility, and public scope; display name and avatar remain onboarding-owned
     - name: CommunityProfileCompletion
       kind: feedback
       contract: horizontally scrollable cards derived only from real incomplete profile actions
@@ -123,6 +135,7 @@ component:
       - community-search-
       - community-activity-
       - community-composer-
+      - community-verse-picker-
       - community-profile-
     inline_styles_allowed: false
     hard_coded_brand_colors_allowed: false
@@ -163,7 +176,7 @@ component:
       - desktop and mobile viewport browser smoke
   evidence:
     current_level: 2
-    updated_at: 2026-07-28
+    updated_at: 2026-07-30
     items:
       - type: legacy-retirement
         command: supabase db push --linked, npm run db:smoke-community:v2, and local HTTP route smoke
@@ -201,6 +214,14 @@ component:
         command: web typecheck, lint, build, and in-app browser DOM plus visual verification
         result: pass
         finding: the desktop primary community menu has no login entry, while Bible reader and guest login links remain visible together at the bottom of the fixed rail; mobile login routes remain unchanged
+      - type: threads-profile-uiux
+        command: npm run typecheck, npm run lint, npm run build, and in-app browser DOM plus visual verification
+        result: pass
+        finding: the public profile uses a Threads-inspired identity hierarchy and four-tab content rail, while the owner action opens a centered app-themed edit dialog with onboarding-owned identity, editable handle and bio, accessible switches, sticky completion action, and no browser console errors
+      - type: community-verse-picker
+        command: chapter-table API probes, npm run typecheck, npm run lint, npm run build, and in-app browser DOM plus visual and keyboard verification
+        result: pass
+        finding: focusing an empty picker exposes all 66 canonical books in order, gen and 창세기 begin the complete Genesis table at 1:1 with paginated continuation through all 50 chapters, a subsequent 2:5 query preserves the book context and opens all 25 verses of Genesis 2 with 2:5 promoted and emphasized, mouse and ArrowDown plus Enter selection create canonical removable verse chips, and the legacy reference-suggestion mode remains unchanged
   next_action:
     type: environment-and-device-validation
     target: provide the real server-only service role key, rerun Community v2 API smoke, then verify push and keyboard behavior on Android and iOS
