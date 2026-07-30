@@ -45,16 +45,30 @@ export function getSupabasePublicConfig(options?: SupabasePublicConfigOptions): 
   return config;
 }
 
-export function getSupabaseServiceRoleConfig(): SupabaseServiceRoleConfig {
+function isPlaceholderSecret(value: string) {
+  return /^(your[-_]|replace[-_]|example|placeholder|<)/i.test(value.trim());
+}
+
+export function tryGetSupabaseServiceRoleConfig(): SupabaseServiceRoleConfig | null {
   const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!url || !serviceRoleKey) {
-    throw new Error("Supabase service role configuration is missing.");
+  if (!url || !serviceRoleKey || isPlaceholderSecret(serviceRoleKey)) {
+    return null;
   }
 
   return {
     serviceRoleKey,
     url,
   };
+}
+
+export function getSupabaseServiceRoleConfig(): SupabaseServiceRoleConfig {
+  const config = tryGetSupabaseServiceRoleConfig();
+
+  if (!config) {
+    throw new Error("Supabase service role configuration is missing.");
+  }
+
+  return config;
 }

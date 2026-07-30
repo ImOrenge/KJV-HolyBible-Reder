@@ -1,102 +1,206 @@
 component:
   id: community-home-panel
-  status: candidate
-  owner_scope: qt-community-ranking
+  status: implemented
+  owner_scope: qt-social-community
   source:
-    web: apps/web/src/components/community/community-home-panel.tsx
+    web_route: apps/web/src/app/community
+    web_components: apps/web/src/components/community-social
+    web_repository: apps/web/src/lib/community-v2-server.ts
     expo: apps/mobile/src/community-home-panel.tsx
     shared_contract: packages/shared/src/community.ts
-    style: apps/web/src/app/globals.css
+    shared_modules: packages/shared/src/community
+    database: supabase/migrations/20260723134346_qt_social_community_v2.sql
+    onboarding_sync: supabase/migrations/20260725020622_sync_community_profile_onboarding.sql
+    public_read_hardening: supabase/migrations/20260725025500_harden_community_public_read_policies.sql
+    legacy_retirement: supabase/migrations/20260728143000_retire_legacy_community_channel.sql
+    legacy_graceful_read: supabase/migrations/20260729030757_retire_legacy_community_rls_fallback.sql
   component_kind: feature
   change_gate:
-    type: breaking
-    summary: Adds a required Expo back action and report confirmation while preserving the independent QT Community page and nested tabs.
-    migration: The only Expo call site now passes onBack through the shared mobile navigation stack.
+    type: behavioral
+    summary: Replaces the authenticated ranking-oriented QT discussion panel with a public SNS using recommendation, following, search, likes, comments, reposts, notifications, and moderation.
+    migration: /app/community and /app?view=community redirect to /community; the reader exposes only a direct bottom-sidebar link to the canonical route, legacy UI entries are removed, and legacy APIs return 410 while archived tables expose no rows or mutations through default-deny RLS.
   public_api:
     props:
-      - initialTab (web)
       - currentReference
-      - user or accessToken
+      - accessToken
       - apiBaseUrl
-      - onBack (Expo)
+      - onBack
       - onLogin
       - onOpenReader
     routes:
-      web: /app/community?tab=feed|participating|ranking|settings
+      web:
+        - /community
+        - /community/post/[postId]
+        - /community/u/[handle]
+        - /community/hashtag/[tag]
+        - /community/verse/[verseKey]
+        - /community/search
+        - /community/notifications
+        - /community/settings
+        - /community/moderation
       mobile: /community
+      api: /api/community/v2/[...segments]
+  identity_contract:
+    authoritative_source: public.user_profiles onboarding data
+    synchronized_fields:
+      - nickname -> display_name
+      - avatar_path -> avatar_path
+      - honorific -> honorific
+    community_editable_fields:
+      - handle
+      - bio
+      - public_enabled
+      - show_honorific
+    enforcement:
+      - accounts without completed onboarding cannot create a community profile
+      - display name, avatar, and honorific cannot fall back to auth metadata
+      - onboarding edit mode is the only UI that changes projected identity fields
   state:
     required:
-      - guest login gate
-      - loading and error
-      - active nested tab
-      - deep-link tab restore and browser back
-      - composer ready and disabled
-      - populated and empty feed
-      - populated and empty participating thread list
-      - selected thread and comments
-      - ranking opt-in and opt-out
-      - weekly monthly all-time ranking
-      - profile and privacy settings
-      - thread report confirmation, success, and failure
+      - anonymous public recommendation and latest feed
+      - authenticated recommendation, following, and latest feed
+      - cursor loading, loading, empty, and error states
+      - composer with one to ten verses, one optional image, and up to five hashtags
+      - post and comment edit, delete, and edited label
+      - one-level reply, mention, post like, comment like, repost, and quote repost
+      - public profile, follow, mute, block, and explicit public enablement
+      - post, user, verse, and hashtag search
+      - in-app notification, read state, Expo token registration, and notification-open routing
+      - report confirmation, moderation queue, action, restriction, and audit event
       - explicit mobile back with Today fallback
   accessibility_contract:
-    - native buttons and pressables keep explicit labels or visible command text
-    - status messages are announced on web
-    - web nested navigation exposes tablist, tab, and tabpanel semantics
-    - active nested tabs expose selected state on web and mobile
-    - ranking period controls expose pressed state on web
-    - mobile back and report actions expose explicit accessibility labels
-  privacy_contract:
-    - personal Bible notes are private by default
-    - only content explicitly entered in the community composer is published
-    - linked verse references do not copy personal note bodies
+    - feed modes expose tab and selected state semantics
+    - buttons and pressables use visible command text or explicit accessibility labels
+    - status and error messages use live-region semantics where supported
+    - forms keep associated labels and keyboard-safe modal surfaces
+    - owner edit and delete actions are distinct from report actions
+  layout_contract:
+    benchmark: Meta Threads desktop and mobile information architecture
+    desktop:
+      - fixed left navigation with text labels
+      - guest login is grouped with the Bible reader link at the bottom of the fixed rail
+      - centered 640px continuous feed column
+      - intentionally empty right-side breathing room on the home feed
+      - inline composer trigger followed by underline feed tabs
+      - posts separated by rules rather than floating cards
+    mobile:
+      - compact sticky header and five-action bottom navigation
+      - edge-to-edge continuous feed
+    exclusions:
+      - promotional or guidance cards beside the home feed
+      - permanently open composer dialog
+      - DM and group navigation
+    style_change_gate:
+      type: style-contract
+      updated_at: 2026-07-26
+  web_component_surfaces:
+    - name: CommunityPageHeader
+      kind: feature-layout
+      contract: shared centered-column title, subtitle, leading, and action slots
+    - name: CommunityComposer
+      kind: feature-form-dialog
+      contract: closed by default, explicit query or trigger open, session draft, verse and body validation, image and comment policy tools
+    - name: CommunitySearchForm
+      kind: feature-form
+      contract: GET URL state for q and all, posts, users, verses, and tags filters
+    - name: CommunityProfileResultRow
+      kind: data-display
+      contract: public onboarding-matched profile summary with reusable follow action
+    - name: CommunityActivityFilter
+      kind: feature-control
+      contract: URL-backed all, follows, replies, mentions, quotes, reposts, and likes filters
+    - name: CommunityProfileHeader
+      kind: feature-composite
+      contract: onboarding-authoritative identity, profile counts, owner edit, follow, and safety overflow
+    - name: CommunityProfileCompletion
+      kind: feedback
+      contract: horizontally scrollable cards derived only from real incomplete profile actions
   css_contract:
+    file: apps/web/src/app/community/community-social.css
     namespace: community-
-    global_css: apps/web/src/app/globals.css
-    tokens:
-      - --surface
-      - --surface-2
-      - --line
-      - --text
-      - --muted
-      - --accent
+    additive_namespaces:
+      - community-page-header
+      - community-search-
+      - community-activity-
+      - community-composer-
+      - community-profile-
+    inline_styles_allowed: false
+    hard_coded_brand_colors_allowed: false
+  color_contract:
+    source: apps/web/src/app/globals.css
+    mappings:
+      background: --bg
+      surface: --surface
+      secondary_surface: --surface-2
+      text: --text
+      muted_text: --muted
+      border: --line
+      action: --accent
+      action_contrast: --accent-contrast
+      danger: --danger
+      elevation: --shadow
+    rule: Threads is used only for layout and interaction hierarchy; all visual colors inherit the KJV app theme.
+  privacy_contract:
+    - onboarding display name, avatar, and honorific remain authoritative
+    - a community profile is public only after explicit public_enabled consent and handle creation
+    - only content explicitly entered in the community composer is published
+    - personal notes, highlights, and reading history are never imported by feed or search code
+    - block, mute, profile status, post status, and moderation filters run before feed and search output
+    - account deletion removes relations, notifications, stored media, and identifiers while retaining only non-public anonymous post and comment tombstones required by referential integrity
+    - DM, groups, private accounts, and public ranking are absent from the v2 product contract
+    - legacy discussion and ranking tables are retained only as a private archive with no RLS policies or mutation grants; authenticated SELECT returns empty results for stale clients
   validation:
     required:
-      - typecheck
-      - lint
-      - build
-      - route parser validation for every nested tab and invalid values
-      - browser back and direct-link tab restoration
-      - authenticated API smoke
-      - web mobile screenshot at 390px
-      - web desktop screenshot at 1440px
-      - Expo typecheck and interaction smoke
+      - workspace typecheck and lint
+      - Next production build
+      - Supabase migration push and RLS inspection
+      - anonymous and authenticated Community v2 API smoke
+      - recommendation, following, latest, cursor, mute, and block checks
+      - post, profile, verse, and hashtag search checks
+      - onboarding profile synchronization check
+      - account cleanup with no retained smoke users or media
+      - Expo doctor and native structure contract
+      - desktop and mobile viewport browser smoke
   evidence:
-    current_level: 3
-    updated_at: 2026-07-14T20:22:42+09:00
+    current_level: 2
+    updated_at: 2026-07-28
     items:
-      - type: contract
-        command: npm run study-ui:validate
+      - type: legacy-retirement
+        command: supabase db push --linked, npm run db:smoke-community:v2, and local HTTP route smoke
         result: pass
-        finding: all four community query tabs, invalid values, and mobile community push/pop are covered
-      - type: structure
-        command: npm run structure:mobile
+        finding: legacy APIs return 410 with a v2 successor link, /app/community redirects to /community, v2 feed remains public, archived rows and mutations remain denied, and stale authenticated SELECT requests receive empty results instead of raw permission errors
+      - type: migration
+        command: supabase db push --linked
         result: pass
-        finding: nested tabs, privacy notice, back control, and report states are present
-      - type: authenticated-browser
-        setup: npm run smoke:community:ui-user -- create
-        command: in-app browser at http://localhost:3002/app/community
-        cleanup: npm run smoke:community:ui-user -- cleanup
+        finding: additive community v2 and onboarding synchronization migrations were applied to the linked project
+      - type: static-validation
+        command: npm run typecheck, npm run lint, and npm run build
         result: pass
-        finding: authenticated feed rendered with four tab semantics and independent sidebar navigation
+        finding: shared, Expo, and web types plus lint pass and the Next 16.2.11 production build exposes all public community routes
+      - type: database-smoke
+        command: npm run db:smoke-community:v2
+        result: pass
+        finding: onboarding identity sync, posts, verses, comments, likes, reposts, relations, notifications, moderation, revisions, RLS, and the absence of DM and group tables pass in a rolled-back remote transaction
+      - type: expo-validation
+        command: npm run expo:doctor and npm run structure:mobile
+        result: pass
+        finding: Expo Doctor passes 20 of 20 checks and the native QT social structure contract has no missing controls
       - type: authenticated-api
-        command: npm run smoke:community
+        command: npm run smoke:community:v2
+        result: blocked
+        finding: local SUPABASE_SERVICE_ROLE_KEY is a placeholder; the script exited before creating any test user
+      - type: threads-layout-web
+        command: npm run typecheck, npm run lint, npm run build, and desktop/mobile in-app browser verification
         result: pass
-        finding: 16P/2P, one comment, one helpful reaction, three ranking entries, and cleanup passed
-      - type: runtime-adapter
-        command: Expo Web bundle probe against http://localhost:8083
+        finding: search, activity filters, onboarding-matched profile, closed-by-default composer, app-color CSS contract, 640px desktop column, and mobile navigation render without horizontal overflow
+      - type: public-search-permissions
+        command: supabase db push --linked and npm run db:smoke-community:v2
         result: pass
-        finding: community panel and shared public Supabase configuration bundled successfully
+        finding: normalized public search columns are granted to anon and authenticated roles while private honorific controls remain unavailable to anon
+      - type: desktop-guest-login-placement
+        command: web typecheck, lint, build, and in-app browser DOM plus visual verification
+        result: pass
+        finding: the desktop primary community menu has no login entry, while Bible reader and guest login links remain visible together at the bottom of the fixed rail; mobile login routes remain unchanged
   next_action:
-    type: native-interaction
-    target: verify authenticated keyboard, safe area, back, and report confirmation on Android and iOS
+    type: environment-and-device-validation
+    target: provide the real server-only service role key, rerun Community v2 API smoke, then verify push and keyboard behavior on Android and iOS

@@ -2,6 +2,7 @@
 
 > 상태: `0.8.0` 릴리즈 기준 구현 문서
 > 기준 릴리즈: `release/0.8.0` (`v0.8.0` 태그 대상)
+> 커뮤니티 갱신: 2026-07-25 이후 QT 커뮤니티의 공개 SNS route, 피드, 검색, 프로필, 알림, 랭킹 제거 계약은 [`qt-social-community-architecture.md`](./qt-social-community-architecture.md)가 우선한다. 이 문서의 `/app/community` 내부 탭과 랭킹 설명은 레거시 기준선이다.
 > 통합 구현 기준: `develop/2026-07-13-first-login-onboarding@b28732ed`
 > 최종 갱신: 2026-07-25
 
@@ -34,7 +35,7 @@ KJV 리더노트의 웹과 Expo 앱을 기능 목록 중심 화면에서 `오늘
 | 웹 Reader V2 | `readerV2` flag 아래 ReaderHeader/VerseRow/VerseActions, 3-pane, 태블릿 sheet, 모바일 action sheet | ReaderScreen data orchestration과 자동 회귀 테스트 |
 | 웹 Notes V5 | `/app/study/notes` 목록 우선 화면, `/app/study/notes/[noteId]` 편집 화면, 생성 단계 template dialog, editor 전용 revision/backlink/linked verse inspector | feature component 추출, Reader verse anchor 복귀 자동 검증 |
 | 웹 Dictionary V2 | 독립 `HebrewDictionaryWorkspace`, compact 2-pane, filter popover/chip, 출현형 강조, 검색·필터·선택 단어 URL state, Reader 왕복 복원, 900px 이하 list/detail 분리 | `내 노트에 추가` StudyContext, scroll 복원, 원격 전체 데이터 검증 |
-| 웹 QT 커뮤니티 | sidebar 독립 `QT 커뮤니티`, `/app/community?tab=...`, `피드/내 참여/랭킹/설정` 내부 탭, 로그인 gate와 authenticated browser smoke | thread detail URL 여부 검토 |
+| 웹 QT 커뮤니티 | sidebar 독립 `QT 커뮤니티`, `/app/community?tab=...`, Threads형 피드, 작성 modal, 글·답글 상세 modal, `피드/내 참여/랭킹/설정` 내부 탭 | thread detail URL 여부 검토 |
 | 모바일 Shell | `uiShellV2` flag 아래 `오늘/성경/공부/보관함/설정` 5탭, custom route stack adapter, header 명령 검색, Android hardware back | Expo Router 전환, iOS swipe back, screen별 컴포넌트 분리 |
 | 모바일 Reader V2 | `readerV2` flag 아래 native ReaderHeader/VerseRow/VerseActionsSheet, EN/KR/동시 보기, long press 다중 선택, keyboard 회피와 2단계 snap, 전용 Reader controller/TTS hook, route/context 복귀 | Android/iOS 실기기 검증 |
 | 모바일 Notes V4 | 목록/편집기 stack 분리, compact keyboard toolbar, 사용자·노트별 AsyncStorage draft 복구, versioned remote save와 conflict 해결 band | revision/backlink inspector sheet, 장기 offline queue, 실기기 검증 |
@@ -588,8 +589,10 @@ QT 커뮤니티는 `0.6.1`의 기존 원격 API, RLS, 포인트와 랭킹 계약
 - 좌측 sidebar의 `함께 > QT 커뮤니티`에서 `/app/community`로 연다.
 - 페이지 내부의 2차 탐색은 `피드 / 내 참여 / 랭킹 / 설정` 네 탭으로 제한한다.
 - 내부 탭은 `tab` query로 보존하고 새로고침, browser back과 forward에서 복원한다.
-- `피드`는 현재 본문 작성 form과 최신 구절 나눔, 선택 글 상세와 댓글을 포함한다.
-- `내 참여`는 `participatingThreads`만 표시하고 같은 상세·댓글 surface를 재사용한다.
+- `피드`는 작성 폼을 상시 노출하지 않고 작성자, 작성 시각, 본문 미리보기, 연결 구절, 답글·도움 수를 세로 흐름으로 보여주는 Threads형 목록을 사용한다.
+- 피드의 `작성` 버튼은 현재 본문을 연결하는 작성 modal을 연다. 개인 노트는 자동으로 복사하지 않고 modal에 직접 입력한 제목과 본문만 게시한다.
+- 답글은 피드 행에 펼치지 않는다. 사용자가 본 글을 누르면 글 본문, 연결 구절, 도움·신고, 답글 목록과 답글 입력을 가진 상세 modal을 연다.
+- `내 참여`는 `participatingThreads`만 표시하고 같은 피드 행과 글·답글 상세 modal을 재사용한다.
 - `랭킹`은 주간·월간·전체 기간만 전환하며 랭킹 미참여 상태를 명시한다.
 - `설정`은 표시명, 랭킹 참여, 레벨 공개만 소유한다. 계정 이름과 이메일은 렌더링하지 않는다.
 
@@ -598,7 +601,8 @@ QT 커뮤니티는 `0.6.1`의 기존 원격 API, RLS, 포인트와 랭킹 계약
 - 하단 탐색은 `오늘/성경/공부/보관함/설정` 다섯 개를 유지한다.
 - 오늘 영역에서 커뮤니티 screen을 push하고 Android/iOS back으로 오늘의 이전 위치에 복귀한다.
 - 커뮤니티 내부 탭은 웹과 같은 네 가지 의미를 사용하되 한 번에 한 tab panel만 렌더링한다.
-- 작성 keyboard, 댓글 입력과 bottom navigation이 겹치지 않도록 safe-area와 keyboard inset을 적용한다.
+- 피드는 웹과 같은 정보 순서의 세로 목록을 사용하고 `작성`과 `글·답글 상세`는 각각 native modal bottom sheet로 분리한다.
+- 작성 keyboard, 답글 입력과 bottom navigation이 겹치지 않도록 keyboard avoiding view와 safe-area inset을 적용한다.
 
 #### 데이터와 공개 경계
 
@@ -898,6 +902,8 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 - [x] 웹 sidebar에 `함께 > QT 커뮤니티` 독립 route를 추가한다.
 - [x] `/app/community?tab=...` allowlist와 browser history 계약을 추가한다.
 - [x] 웹·Expo 커뮤니티를 `피드/내 참여/랭킹/설정` 내부 탭으로 분리한다.
+- [x] 웹·Expo 피드를 Threads형 세로 목록으로 변경하고 작성 폼을 `작성` modal로 분리한다.
+- [x] 답글을 피드에서 숨기고 본 글 선택 시에만 글·답글 상세 modal을 연다.
 - [x] Reader V2 TTS hook 완료 시 통독 포인트 증거를 기록하도록 연결한다.
 - [x] authenticated web interaction과 원격 RLS smoke를 재검증한다.
 - [x] 모바일 `/community` push/pop, 명시적 이전 화면과 글 신고 동작을 구현하고 route/구조 계약을 검증한다.
@@ -989,6 +995,12 @@ UI 글꼴과 성경 본문 글꼴은 역할을 분리한다. 본문 크기는 vi
 - `/app/study/notes`와 `/app/study/notes/[noteId]`에서 목록과 편집기를 상호 배타적으로 렌더링하도록 계약을 갱신했다.
 - 노트 생성·선택·목록 복귀·브라우저 history·직접 링크가 `personalNote.noteId`를 일관되게 복원하도록 명시했다.
 - 이번 릴리즈에서 진행 중인 QT 피드 개편을 제외했다.
+
+### 2026-07-15
+
+- 웹 개인 노트를 목록 우선 `/app/study/notes`와 상세 편집 `/app/study/notes/[noteId]`로 분리했다.
+- 노트 생성·선택·역링크 이동은 상세 URL을 push하고, 목록 복귀와 브라우저 history가 같은 route state를 사용하도록 고정했다.
+- 웹 편집 화면에서만 rich-text editor와 optional inspector를 렌더링하고 모바일의 기존 list/editor stack 계약과 정렬했다.
 
 ### 2026-07-14
 

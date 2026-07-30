@@ -2,7 +2,11 @@ import { createServerClient } from "@supabase/ssr";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
-import { getSupabasePublicConfig, getSupabaseServiceRoleConfig } from "./config";
+import {
+  getSupabasePublicConfig,
+  getSupabaseServiceRoleConfig,
+  tryGetSupabaseServiceRoleConfig,
+} from "./config";
 
 export async function createClient() {
   const cookieStore = await cookies();
@@ -48,6 +52,19 @@ export function createServiceRoleClient() {
   const { serviceRoleKey, url } = getSupabaseServiceRoleConfig();
 
   return createSupabaseClient(url, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      persistSession: false,
+    },
+  });
+}
+
+export function tryCreateServiceRoleClient() {
+  const config = tryGetSupabaseServiceRoleConfig();
+  if (!config) return null;
+
+  return createSupabaseClient(config.url, config.serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
       detectSessionInUrl: false,

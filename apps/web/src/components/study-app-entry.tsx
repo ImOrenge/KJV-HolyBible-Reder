@@ -17,7 +17,7 @@ type StudyAppEntryProps = {
 export async function StudyAppEntry({ route }: StudyAppEntryProps) {
   const renderApp = (appUser: AppUser) => studyUiFeatureFlags.uiShellV2
     ? <StudyAppShell initialRoute={route} readerV2={studyUiFeatureFlags.readerV2} user={appUser} />
-    : <KjvMvpApp communityRoute={route.community} dictionaryRoute={route.dictionary} initialView={route.view} personalNoteRoute={route.personalNote} readerExperience={studyUiFeatureFlags.readerV2 ? "v2" : "legacy"} readerRoute={route.reader} user={appUser} />;
+    : <KjvMvpApp dictionaryRoute={route.dictionary} initialView={route.view} personalNoteRoute={route.personalNote} readerExperience={studyUiFeatureFlags.readerV2 ? "v2" : "legacy"} readerRoute={route.reader} user={appUser} />;
 
   if (!hasSupabasePublicConfig({ includeServerFallback: true })) return renderApp(guestAppUser);
 

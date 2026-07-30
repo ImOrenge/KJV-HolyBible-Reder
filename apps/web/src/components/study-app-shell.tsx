@@ -11,6 +11,8 @@ import {
   Highlighter,
   Home,
   Library,
+  LogIn,
+  LogOut,
   Search,
   Settings,
   StickyNote,
@@ -20,10 +22,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { AppUser } from "@/lib/auth/app-user";
+import { createClient as createBrowserSupabaseClient } from "@/lib/supabase/client";
 import {
   buildStudyUiPersonalNoteUrl,
   buildStudyUiTargetUrl,
@@ -65,7 +69,6 @@ const sidebarSections: Array<{ label: string; items: ShellNavItem[] }> = [
       { icon: BookOpenText, label: "히브리어 사전", view: "dictionary" },
     ],
   },
-  { label: "함께", items: [{ icon: Users, label: "QT 커뮤니티", view: "community" }] },
   {
     label: "보관함",
     items: [
@@ -112,6 +115,7 @@ export function StudyAppShell({ initialRoute, readerV2 = false, user }: StudyApp
   const readerRouteRef = useRef(readerRoute);
   const [commandQuery, setCommandQuery] = useState("");
   const [isCommandOpen, setIsCommandOpen] = useState(false);
+  const [isSessionActionPending, setIsSessionActionPending] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const activeArea = getStudyUiAreaForView(activeView);
 
@@ -140,9 +144,13 @@ export function StudyAppShell({ initialRoute, readerV2 = false, user }: StudyApp
   }, [isCommandOpen]);
 
   const navigate = useCallback((view: StudyUiWebViewKey) => {
-    setActiveView(view);
     setIsCommandOpen(false);
     setCommandQuery("");
+    if (view === "community") {
+      router.push("/community");
+      return;
+    }
+    setActiveView(view);
     router.push(buildStudyUiTargetUrl(view, view === "reader" ? readerRouteRef.current : undefined), { scroll: false });
   }, [router]);
 
@@ -164,6 +172,23 @@ export function StudyAppShell({ initialRoute, readerV2 = false, user }: StudyApp
     setCommandQuery("");
     router.push(buildStudyUiPersonalNoteUrl(route), { scroll: false });
   }, [router]);
+
+  const handleSessionAction = useCallback(async () => {
+    if (!user.isAuthenticated) {
+      router.push("/auth/login?next=/app");
+      return;
+    }
+
+    setIsSessionActionPending(true);
+    try {
+      const supabase = createBrowserSupabaseClient();
+      await supabase.auth.signOut();
+      router.replace("/auth/login");
+      router.refresh();
+    } finally {
+      setIsSessionActionPending(false);
+    }
+  }, [router, user.isAuthenticated]);
 
   const filteredCommands = useMemo(() => {
     const query = commandQuery.trim().toLocaleLowerCase("ko-KR");
@@ -214,16 +239,36 @@ export function StudyAppShell({ initialRoute, readerV2 = false, user }: StudyApp
           ))}
         </nav>
 
-        <button
-          aria-current={activeView === "settings" ? "page" : undefined}
-          className={activeView === "settings" ? "f-study-shell__nav-item f-study-shell__settings is-active" : "f-study-shell__nav-item f-study-shell__settings"}
-          onClick={() => navigate("settings")}
-          title="설정"
-          type="button"
-        >
-          <Settings aria-hidden="true" size={18} />
-          <span>설정</span>
-        </button>
+        <div className="f-study-shell__bottom-actions">
+          <Link
+            className="f-study-shell__nav-item f-study-shell__community-link"
+            href="/community"
+            title="QT 커뮤니티"
+          >
+            <Users aria-hidden="true" size={18} />
+            <span>QT 커뮤니티</span>
+          </Link>
+          <button
+            aria-current={activeView === "settings" ? "page" : undefined}
+            className={activeView === "settings" ? "f-study-shell__nav-item is-active" : "f-study-shell__nav-item"}
+            onClick={() => navigate("settings")}
+            title="설정"
+            type="button"
+          >
+            <Settings aria-hidden="true" size={18} />
+            <span>설정</span>
+          </button>
+          <button
+            className="f-study-shell__nav-item f-study-shell__session-action"
+            disabled={isSessionActionPending}
+            onClick={handleSessionAction}
+            title={user.isAuthenticated ? "로그아웃" : "로그인"}
+            type="button"
+          >
+            {user.isAuthenticated ? <LogOut aria-hidden="true" size={18} /> : <LogIn aria-hidden="true" size={18} />}
+            <span>{isSessionActionPending ? "로그아웃 중" : user.isAuthenticated ? "로그아웃" : "로그인"}</span>
+          </button>
+        </div>
       </aside>
 
       <div className="f-study-shell__workspace">
@@ -251,7 +296,6 @@ export function StudyAppShell({ initialRoute, readerV2 = false, user }: StudyApp
         <div className="f-study-shell__content">
           <KjvMvpApp
             activeView={activeView}
-            communityRoute={activeView === "community" ? initialRoute.community ?? {} : undefined}
             dictionaryRoute={activeView === "dictionary" ? initialRoute.dictionary ?? {} : undefined}
             navigationMode="shell"
             onPersonalNoteNavigate={navigatePersonalNote}

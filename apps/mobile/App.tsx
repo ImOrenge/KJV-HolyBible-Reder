@@ -44,7 +44,6 @@ import {
   privacyPolicyTitle,
   privacyPolicyUpdatedAt,
   readingPlanOptions,
-  recordCommunityReadingCompletion,
   saveRemoteUserData,
   savePersonalNoteDraft,
   saveUserDataToStorage,
@@ -86,6 +85,7 @@ import {
   type GestureResponderEvent,
   KeyboardAvoidingView,
   Image,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -317,6 +317,10 @@ const readingModeOptions: Array<{ label: string; value: ReadingMode }> = [
 ];
 
 function getDefaultApiBaseUrl() {
+  if (!__DEV__) {
+    return "https://kjvreadernote.app";
+  }
+
   if (Platform.OS === "android") {
     return "http://10.0.2.2:3001";
   }
@@ -370,6 +374,16 @@ function readGoogleOAuthCallback(callbackUrl: string) {
     error: readParam("error_description") ?? readParam("error"),
     refreshToken: readParam("refresh_token"),
   };
+}
+
+function isGoogleOAuthCallbackUrl(callbackUrl: string) {
+  try {
+    const url = new URL(callbackUrl);
+    const redirectUrl = new URL(getGoogleOAuthRedirectUrl());
+    return url.protocol === redirectUrl.protocol && url.hostname === redirectUrl.hostname;
+  } catch {
+    return false;
+  }
 }
 
 function createMobileSupabaseClient(config: { supabaseAnonKey: string; supabaseUrl: string } | null) {
@@ -961,6 +975,67 @@ function AppShell() {
       void WebBrowser.coolDownAsync();
     };
   }, []);
+
+  const completeGoogleOAuth = useCallback(async (callbackUrl: string) => {
+    if (!supabase) {
+      throw new Error("oauth-client-missing");
+    }
+
+    const callback = readGoogleOAuthCallback(callbackUrl);
+    if (callback.error) {
+      throw new Error(callback.error);
+    }
+    if (!callback.accessToken || !callback.refreshToken) {
+      throw new Error("oauth-callback-tokens-missing");
+    }
+
+    const { data, error } = await supabase.auth.setSession({
+      access_token: callback.accessToken,
+      refresh_token: callback.refreshToken,
+    });
+    if (error || !data.session) {
+      throw error ?? new Error("oauth-session-missing");
+    }
+
+    setAuthSession(data.session);
+    setAuthUser(data.session.user);
+    setAuthStatus("success");
+    setAuthMessage("Google 계정으로 로그인되었습니다.");
+    setShowAuthForm(false);
+  }, [supabase]);
+
+  useEffect(() => {
+    if (Platform.OS === "web" || !supabase) {
+      return;
+    }
+
+    let active = true;
+    const handleOAuthUrl = async (url: string) => {
+      if (!active || !isGoogleOAuthCallbackUrl(url)) {
+        return;
+      }
+
+      try {
+        await completeGoogleOAuth(url);
+      } catch {
+        if (!active) return;
+        setAuthStatus("error");
+        setAuthMessage("Google 로그인 응답을 처리하지 못했습니다. 앱을 다시 열어 재시도하세요.");
+      }
+    };
+
+    void Linking.getInitialURL().then((url) => {
+      if (url) void handleOAuthUrl(url);
+    });
+    const subscription = Linking.addEventListener("url", ({ url }) => {
+      void handleOAuthUrl(url);
+    });
+
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, [completeGoogleOAuth, supabase]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2295,13 +2370,6 @@ function AppShell() {
       verses.map((verse) => ({ id: verse.id, label: formatReference(verse), text: getVerseDisplayText(verse, readingLanguage) })),
       0,
       "현재 장",
-      async () => {
-        if (!authSession?.access_token) return;
-        await recordCommunityReadingCompletion(
-          { bookId, chapter, method: "chapter_tts" },
-          { accessToken: authSession.access_token, baseUrl: apiBaseUrl },
-        );
-      },
     );
   };
 
@@ -2319,13 +2387,6 @@ function AppShell() {
         planVerses.map((verse) => ({ id: verse.id, label: formatReference(verse), text: getVerseDisplayText(verse, readingLanguage) })),
         0,
         "오늘 분량",
-        async () => {
-          if (!authSession?.access_token) return;
-          await Promise.all(readingPlanDay.chapters.map((item) => recordCommunityReadingCompletion(
-            { ...item, method: "today_plan_tts" },
-            { accessToken: authSession.access_token, baseUrl: apiBaseUrl },
-          )));
-        },
       );
     } catch {
       setTtsStatus("오늘 분량 재생 실패");
@@ -2590,25 +2651,7 @@ function AppShell() {
         return;
       }
 
-      const callback = readGoogleOAuthCallback(result.url);
-      if (callback.error || !callback.accessToken || !callback.refreshToken) {
-        throw new Error("oauth-callback-failed");
-      }
-
-      const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-        access_token: callback.accessToken,
-        refresh_token: callback.refreshToken,
-      });
-
-      if (sessionError || !sessionData.session) {
-        throw new Error("oauth-session-failed");
-      }
-
-      setAuthSession(sessionData.session);
-      setAuthUser(sessionData.session.user);
-      setAuthStatus("success");
-      setAuthMessage("Google 계정으로 로그인되었습니다.");
-      setShowAuthForm(false);
+      await completeGoogleOAuth(result.url);
     } catch {
       setAuthStatus("error");
       setAuthMessage("Google 로그인을 완료하지 못했습니다. 다시 시도하세요.");
@@ -2879,7 +2922,7 @@ function AppShell() {
     },
     { label: "홈 · 오늘", description: "이어 읽기와 오늘 분량", action: () => { setHomeTab("today"); setActiveView("dashboard"); } },
     { label: "홈 · 통독", description: "통독률과 권별 진행", action: () => { setHomeTab("progress"); setActiveView("dashboard"); } },
-    { label: "QT 커뮤니티", description: "묵상 피드, 내 참여, 랭킹, 설정", action: () => pushStudyRoute({ view: "community" }) },
+    { label: "QT 커뮤니티", description: "추천 피드, 검색, 팔로우, 알림", action: () => pushStudyRoute({ view: "community" }) },
     { label: "홈 · 활동", description: "최근 읽기와 작업", action: () => { setHomeTab("activity"); setActiveView("dashboard"); } },
     { label: "홈 · 공부", description: "노트, 태그, 인용 요약", action: () => { setHomeTab("study"); setActiveView("dashboard"); } },
     { label: "성경 리더", description: "본문 읽기", action: () => openReaderStudyRoute({ bookId, chapter }, "reader") },
@@ -3467,7 +3510,11 @@ function AppShell() {
                 {chapterStatus === "error" ? (
                   <View style={styles.emptyState}>
                     <Text style={styles.errorText}>{chapterError}</Text>
-                    <Text style={styles.metaText}>웹 서버가 실행 중인지, Expo API 주소가 맞는지 확인하세요.</Text>
+                    <Text style={styles.metaText}>
+                      {__DEV__
+                        ? "웹 서버가 실행 중인지, Expo API 주소가 맞는지 확인하세요."
+                        : "네트워크 연결을 확인한 뒤 다시 시도하세요."}
+                    </Text>
                     <ActionButton icon="refresh-outline" label="다시 시도" onPress={loadChapter} styles={styles} />
                   </View>
                 ) : null}

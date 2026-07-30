@@ -6,7 +6,7 @@ const config: ExpoConfig = {
   slug: "kjv-reader-note",
   scheme: "kjvreadernote",
   version: "0.8.0",
-  orientation: "portrait",
+  orientation: "default",
   userInterfaceStyle: "automatic",
   extra: {
     apiBaseUrl: process.env.EXPO_PUBLIC_KJV_API_BASE_URL ?? "",
@@ -21,7 +21,7 @@ const config: ExpoConfig = {
   },
   android: {
     package: "com.kjvreader",
-    versionCode: 8,
+    versionCode: 9,
   },
   web: {
     bundler: "metro",
@@ -39,9 +39,10 @@ const config: ExpoConfig = {
       {
         cameraPermission: false,
         microphonePermission: false,
-        photosPermission: "프로필 사진을 선택할 수 있도록 사진 접근을 허용합니다.",
+        photosPermission: "프로필 사진과 QT 나눔 이미지를 선택할 수 있도록 사진 접근을 허용합니다.",
       },
     ],
+    "expo-notifications",
   ],
 };
 

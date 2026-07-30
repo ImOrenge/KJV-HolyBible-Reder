@@ -201,7 +201,7 @@ export const STUDY_UI_LAYOUT_TOKENS = {
 
 export const STUDY_UI_TARGET_ROUTES: Record<StudyUiWebViewKey, string> = {
   dashboard: "/app/today",
-  community: "/app/community",
+  community: "/community",
   reader: "/app/read",
   progress: "/app/progress",
   highlights: "/app/library?section=highlights",
@@ -322,10 +322,8 @@ export function buildStudyUiPersonalNoteUrl(route: StudyUiPersonalNoteRoute = {}
 }
 
 export function buildStudyUiCommunityUrl(route: StudyUiCommunityRoute = {}) {
-  const params = new URLSearchParams();
-  if (route.tab && route.tab !== "feed") params.set("tab", route.tab);
-  const queryString = params.toString();
-  return queryString ? `/app/community?${queryString}` : "/app/community";
+  void route;
+  return "/community";
 }
 
 export function parseStudyUiCommunityRoute(params: URLSearchParams): StudyUiCommunityRoute | null {

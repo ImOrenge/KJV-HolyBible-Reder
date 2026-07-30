@@ -17,7 +17,7 @@
   display: flex;
   flex-direction: column;
   height: 100dvh;
-  overflow: hidden auto;
+  overflow: hidden;
   padding: 10px;
   position: sticky;
   top: 0;
@@ -88,6 +88,8 @@
   flex: 1;
   flex-direction: column;
   gap: 8px;
+  min-height: 0;
+  overflow-y: auto;
   padding-top: 14px;
 }
 
@@ -109,6 +111,7 @@
   min-height: 42px;
   padding: 0 10px;
   text-align: left;
+  text-decoration: none;
   width: 100%;
 }
 
@@ -129,8 +132,31 @@
   flex: 0 0 auto;
 }
 
-.f-study-shell__settings {
+.f-study-shell__bottom-actions {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 3px;
   margin-top: 10px;
+  padding-top: 10px;
+  flex: 0 0 auto;
+}
+
+.f-study-shell__community-link {
+  color: var(--accent-2);
+  font-weight: 900;
+}
+
+.f-study-shell__community-link svg {
+  color: var(--accent);
+}
+
+.f-study-shell__session-action {
+  color: var(--muted);
+}
+
+.f-study-shell__session-action:disabled {
+  cursor: wait;
+  opacity: 0.62;
 }
 
 .f-study-shell[data-sidebar-collapsed="true"] .f-study-shell__brand span,

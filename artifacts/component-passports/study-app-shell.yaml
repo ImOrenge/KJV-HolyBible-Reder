@@ -1,7 +1,7 @@
 component:
   id: study-app-shell
   status: verified
-  updated_at: 2026-07-14T19:40:00+09:00
+  updated_at: 2026-07-29T00:00:00+09:00
   owner_scope: study-navigation-shell
   source:
     repo: D:\kjv-educator
@@ -16,7 +16,7 @@ component:
     change_gate: behavioral-style-contract
   public_api:
     props: [initialRoute, readerV2, user]
-    events: [route-view-navigation, reader-navigation, dictionary-route-pass-through]
+    events: [route-view-navigation, reader-navigation, dictionary-route-pass-through, canonical-community-navigation, session-action]
   dependencies:
     shared:
       - StudyUiWebViewKey
@@ -25,7 +25,9 @@ component:
       - getStudyUiAreaForView
     external:
       - lucide-react
+      - next-link
       - next-navigation
+      - supabase-auth
   styling:
     global_css:
       file: apps/web/src/app/study-app-shell.css
@@ -33,13 +35,20 @@ component:
     tokens: [bg, surface, surface-2, text, muted, line, accent, shadow]
     inline_styles_allowed: false
   state:
-    local: [activeView, readerRoute, isSidebarCollapsed, isCommandOpen, commandQuery]
+    local: [activeView, readerRoute, isSidebarCollapsed, isCommandOpen, commandQuery, isSessionActionPending]
     route: [view, bookId, chapter, verse, panel, word, q, entry, alphabet, theme, book, sort]
   accessibility:
     keyboard: native-buttons-and-dialog
     aria: aria-current-navigation-and-labeled-icon-buttons
+  layout_contract:
+    desktop_sidebar_bottom:
+      - QT community uses a direct /community link and never opens the retired in-app community view
+      - settings and login or logout remain grouped with the community link below the primary navigation
+    legacy_entrypoints:
+      - no visible community tab remains in the legacy tab bar or mobile home tabs
+      - stored /app/community URLs are handled only by server redirect compatibility
   validation:
-    required: [typecheck, lint, build, desktop-mobile-visual, browser-back]
+    required: [typecheck, lint, build, desktop-mobile-visual, browser-back, canonical-community-link, bottom-session-action]
     evidence:
       - typecheck: pass
       - lint: pass
@@ -51,3 +60,7 @@ component:
       - reader_chapter_history: pass
       - command_dialog_alignment: pass
       - feature_flag_off_legacy_shell: pass
+      - canonical_community_redirects: pass
+      - browser_desktop_sidebar_bottom: pass
+      - browser_guest_session_action: pass
+      - authenticated_logout_visual: not-run-no-authenticated-browser-session

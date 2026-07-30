@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { deleteCommunityUserData } from "@/lib/community-account-deletion";
 import { deleteUserAvatar } from "@/lib/onboarding-server";
 import { createBearerClient, createServiceRoleClient } from "@/lib/supabase/server";
 
@@ -31,6 +32,7 @@ export async function DELETE(request: Request) {
 
   try {
     const serviceClient = createServiceRoleClient();
+    await deleteCommunityUserData(serviceClient, user.id);
     await deleteUserAvatar(serviceClient, user.id);
     const { error: deleteError } = await serviceClient.auth.admin.deleteUser(user.id, false);
     if (deleteError) {

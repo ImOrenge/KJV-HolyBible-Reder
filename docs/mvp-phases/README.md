@@ -31,6 +31,8 @@
 - [bible-study-ui-ux-redesign-architecture.md](./bible-study-ui-ux-redesign-architecture.md): 첫 로그인부터 읽기, 공부, 기록, 재탐색까지의 웹·모바일 UI/UX 개편 아키텍처.
 - [bible-study-ui-ux-redesign-plan.md](./bible-study-ui-ux-redesign-plan.md): UI/UX 개편을 온보딩, Shell, Reader, Notes, Dictionary/Search/Library, 안정화 단계로 나눈 실행 플랜.
 - [bible-discussion-community-implementation-plan.md](./bible-discussion-community-implementation-plan.md): MVP 이후 구절 연결 토론 커뮤니티, 신고 큐, 모더레이션 RBAC 구현 계획.
+- [qt-social-community-architecture.md](./qt-social-community-architecture.md): QT 나눔을 공개 SNS로 전환하는 프로필, 팔로우, 피드 알고리즘, 검색, 알림, SEO, 모더레이션 목표 아키텍처.
+- [qt-social-threads-layout-implementation-plan.md](./qt-social-threads-layout-implementation-plan.md): Threads 정보 구조를 벤치마킹한 QT 검색, 활동, 프로필, 새 QT modal의 단계별 웹 구현 계획.
 
 ## 전체 구현 원칙
 

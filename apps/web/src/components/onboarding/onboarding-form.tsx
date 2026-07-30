@@ -6,6 +6,7 @@ import {
   USER_HONORIFICS,
   validateOnboardingInput,
   type UserHonorific,
+  type UserOnboardingProfile,
 } from "@kjv/shared/onboarding";
 import { Camera, Loader2, UserRound } from "lucide-react";
 import Image from "next/image";
@@ -15,30 +16,31 @@ import { type FormEvent, useEffect, useState } from "react";
 
 type OnboardingFormProps = {
   email: string;
+  initialProfile?: UserOnboardingProfile | null;
   nextPath: string;
 };
 
 const maxAvatarBytes = 2 * 1024 * 1024;
 
-export function OnboardingForm({ email, nextPath }: OnboardingFormProps) {
+export function OnboardingForm({ email, initialProfile = null, nextPath }: OnboardingFormProps) {
   const router = useRouter();
   const [avatar, setAvatar] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [fullName, setFullName] = useState("");
-  const [honorific, setHonorific] = useState<UserHonorific>("성도님");
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(initialProfile?.avatarUrl ?? null);
+  const [fullName, setFullName] = useState(initialProfile?.fullName ?? "");
+  const [honorific, setHonorific] = useState<UserHonorific>(initialProfile?.honorific ?? "성도님");
   const [message, setMessage] = useState("");
-  const [nickname, setNickname] = useState("");
+  const [nickname, setNickname] = useState(initialProfile?.nickname ?? "");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!avatar) {
-      setAvatarPreview(null);
+      setAvatarPreview(initialProfile?.avatarUrl ?? null);
       return;
     }
     const previewUrl = URL.createObjectURL(avatar);
     setAvatarPreview(previewUrl);
     return () => URL.revokeObjectURL(previewUrl);
-  }, [avatar]);
+  }, [avatar, initialProfile?.avatarUrl]);
 
   const selectAvatar = (file: File | null) => {
     setMessage("");
@@ -58,7 +60,7 @@ export function OnboardingForm({ email, nextPath }: OnboardingFormProps) {
     setSubmitting(true);
     setMessage("");
     try {
-      let avatarPath: string | null = null;
+      let avatarPath = initialProfile?.avatarPath ?? null;
       if (avatar) {
         const formData = new FormData();
         formData.append("avatar", avatar);
@@ -77,7 +79,7 @@ export function OnboardingForm({ email, nextPath }: OnboardingFormProps) {
     <main className="f-onboarding">
       <section className="f-onboarding__panel" aria-labelledby="onboarding-title">
         <header className="f-onboarding__heading">
-          <p className="eyebrow">첫 로그인</p>
+          <p className="eyebrow">{initialProfile ? "계정 프로필" : "첫 로그인"}</p>
           <h1 id="onboarding-title">프로필 설정</h1>
           <p>{email}</p>
         </header>
@@ -123,7 +125,7 @@ export function OnboardingForm({ email, nextPath }: OnboardingFormProps) {
 
           <button className="primary-button f-onboarding__submit" disabled={submitting} type="submit">
             {submitting ? <Loader2 aria-hidden="true" size={17} /> : null}
-            {submitting ? "저장 중" : "시작하기"}
+            {submitting ? "저장 중" : initialProfile ? "프로필 저장" : "시작하기"}
           </button>
         </form>
 

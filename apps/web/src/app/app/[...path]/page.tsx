@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { parseStudyUiRoute } from "@kjv/shared/study-ui";
 
 import { StudyAppEntry } from "@/components/study-app-entry";
@@ -13,6 +13,7 @@ type StudyRoutePageProps = {
 
 export default async function StudyRoutePage({ params, searchParams }: StudyRoutePageProps) {
   const { path } = await params;
+  if (path[0] === "community") redirect("/community");
   const pathname = `/app/${path.join("/")}`;
   const route = parseStudyUiRoute(pathname, toStudyUrlSearchParams(await searchParams));
   if (!route) notFound();

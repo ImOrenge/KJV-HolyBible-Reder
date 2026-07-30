@@ -1,5 +1,7 @@
 # 성경 공부 중심 UI/UX 개편 실행 플랜
 
+> 커뮤니티 갱신: 2026-07-25 이후 QT 커뮤니티 구현은 [`qt-social-community-architecture.md`](./qt-social-community-architecture.md)를 따른다. 이 문서의 레거시 내부 탭·랭킹 작업은 공개 SNS 전환 범위에서 대체되었다.
+
 ## 1. 목적
 
 KJV 리더노트의 웹과 Expo 앱을 기능 나열형 화면에서 `오늘 읽기 -> 본문 읽기 -> 구절 선택 -> 공부/기록 -> 다시 찾기` 흐름 중심 제품으로 단계적으로 전환한다.
@@ -354,6 +356,9 @@ flowchart LR
 - [x] 웹 내부 탭 `피드/내 참여/랭킹/설정`을 구현한다.
 - [x] `tab=feed|participating|ranking|settings` allowlist, reload, browser back/forward 계약을 추가한다.
 - [x] Expo 커뮤니티를 같은 네 가지 내부 탭으로 분리한다.
+- [x] 웹·Expo 피드를 작성자, 본문 미리보기, 연결 구절, 답글·도움 수 중심의 Threads형 목록으로 변경한다.
+- [x] 피드의 상시 작성 폼을 제거하고 `작성` 버튼에서 여는 modal로 분리한다.
+- [x] 피드에서 답글을 렌더링하지 않고 본 글 선택 시 글·답글 상세 modal에서만 조회·작성한다.
 - [x] 개인 노트가 명시적 게시 없이 커뮤니티에 노출되지 않는 UI·문서 경계를 고정한다.
 - [x] Reader V2 TTS queue 완료 callback으로 `chapter_tts`, `today_plan_tts` 읽기 증거를 기록한다.
 - [x] Supabase 공개 설정이 없는 개발 환경에서 로그인·회원가입 page가 예외 없이 상태를 표시하게 한다.
@@ -366,6 +371,7 @@ flowchart LR
 
 - [x] 데스크톱 웹에서 커뮤니티는 상단 tab이나 홈 card가 아니라 sidebar 독립 목적지다.
 - [x] 커뮤니티 페이지는 한 번에 하나의 내부 tab panel만 표시한다.
+- [x] 피드는 글 목록만 유지하고 작성과 답글 상호작용은 각각 독립 modal로 분리된다.
 - [x] 유효하지 않은 `tab` query는 route parser에서 거부한다.
 - [ ] 로그인 사용자의 커뮤니티 핵심 mutation과 RLS 검증이 통과한다.
 - [x] 모바일 하단 탐색은 다섯 개를 넘지 않고 커뮤니티에서 오늘 화면으로 복귀한다.

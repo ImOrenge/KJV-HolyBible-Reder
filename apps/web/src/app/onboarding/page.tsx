@@ -5,7 +5,7 @@ import { getUserProfile } from "@/lib/onboarding-server";
 import { createClient } from "@/lib/supabase/server";
 
 type OnboardingPageProps = {
-  searchParams?: Promise<{ next?: string }>;
+  searchParams?: Promise<{ edit?: string; next?: string }>;
 };
 
 function normalizeNextPath(value: string | undefined) {
@@ -15,6 +15,7 @@ function normalizeNextPath(value: string | undefined) {
 export default async function OnboardingPage({ searchParams }: OnboardingPageProps) {
   const params = await searchParams;
   const nextPath = normalizeNextPath(params?.next);
+  const editing = params?.edit === "1";
   const supabase = await createClient();
   const {
     data: { user },
@@ -23,7 +24,7 @@ export default async function OnboardingPage({ searchParams }: OnboardingPagePro
   if (!user) redirect(`/auth/login?next=${encodeURIComponent(`/onboarding?next=${nextPath}`)}`);
 
   const profile = await getUserProfile(supabase, user.id);
-  if (profile) redirect(nextPath);
+  if (profile && !editing) redirect(nextPath);
 
-  return <OnboardingForm email={user.email ?? ""} nextPath={nextPath} />;
+  return <OnboardingForm email={user.email ?? ""} initialProfile={editing ? profile : null} nextPath={nextPath} />;
 }

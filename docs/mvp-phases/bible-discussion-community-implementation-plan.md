@@ -1,5 +1,7 @@
 # 성경 토론 커뮤니티 구현 계획
 
+> 상태: 폐기된 레거시 설계 기록. 2026-07-28부터 화면·클라이언트·API 계약과 Data API 권한을 종료했다. 공개 SNS 제품 방향과 신규 구현 계약은 [`qt-social-community-architecture.md`](./qt-social-community-architecture.md)를 따른다. 이 문서는 비공개 archive로 보존한 `discussion_*` 데이터의 이력·전환 근거로만 유지한다.
+
 ## Summary
 
 성경 토론 커뮤니티는 현재 v0 MVP에 바로 포함하지 않는다. 기존 MVP 문서는 커뮤니티 기능을 제외 범위로 두고 있고, 번역 피드백 아키텍처도 공개 토론 게시판을 비목표로 분리한다. 따라서 이 기능은 개인 리더, 실제 Auth/DB/RLS, 번역 피드백 리뷰 큐가 안정화된 뒤 붙이는 후속 모듈로 설계한다.
