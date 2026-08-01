@@ -1,4 +1,4 @@
-import { jsonWithCors, optionsWithCors } from "@/lib/api/cors";
+import { jsonWithCors, optionsWithCors, publicContentCacheHeaders } from "@/lib/api/cors";
 import { buildVerseKey } from "@/lib/bible-client";
 import { fixtureVerses } from "@/lib/bible-data";
 import { mapVerseRow, mergeApprovedKoRows, type BibleVerseEnRow, type BibleVerseKoRow } from "@/lib/bible-db-mappers";
@@ -75,12 +75,12 @@ export async function GET(_request: Request, context: RouteContext) {
       },
     };
 
-    return jsonWithCors(response);
+    return jsonWithCors(response, { headers: publicContentCacheHeaders });
   } catch (error) {
     const { verseKey } = await context.params;
     const fallback = canUseLocalBibleFallback() ? localVerseResponse(verseKey) : null;
     if (fallback) {
-      return jsonWithCors(fallback);
+      return jsonWithCors(fallback, { headers: publicContentCacheHeaders });
     }
 
     return jsonWithCors(

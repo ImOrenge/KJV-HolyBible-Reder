@@ -7,6 +7,10 @@ const publicApiCorsHeaders = {
   Vary: "Origin",
 };
 
+export const publicContentCacheHeaders = {
+  "Cache-Control": "public, max-age=300, s-maxage=86400, stale-while-revalidate=604800",
+};
+
 export function jsonWithCors(body: unknown, init?: ResponseInit) {
   return NextResponse.json(body, {
     ...init,

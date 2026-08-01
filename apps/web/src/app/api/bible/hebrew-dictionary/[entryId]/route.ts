@@ -1,4 +1,4 @@
-import { jsonWithCors, optionsWithCors } from "@/lib/api/cors";
+import { jsonWithCors, optionsWithCors, publicContentCacheHeaders } from "@/lib/api/cors";
 import { hebrewLexiconEntries, hebrewWordOccurrences } from "@/lib/hebrew-dictionary";
 import { encodeFilterValue, supabaseRestGet } from "@/lib/supabase-rest";
 
@@ -169,10 +169,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ ent
       `hebrew_word_occurrences?select=${occurrenceSelect}&lexicon_entry_id=eq.${encodeFilterValue(row.id)}&order=book_order.asc,chapter.asc,verse.asc,display_priority.asc`,
     );
 
-    return jsonWithCors({
-      entry: mapEntry(row),
-      occurrences: occurrenceRows.map((occurrence) => mapOccurrence(occurrence, row.normalized_key)),
-    });
+    return jsonWithCors(
+      {
+        entry: mapEntry(row),
+        occurrences: occurrenceRows.map((occurrence) => mapOccurrence(occurrence, row.normalized_key)),
+      },
+      { headers: publicContentCacheHeaders },
+    );
   } catch (error) {
     if (!canUseLocalDictionaryFallback()) {
       return jsonWithCors(
@@ -188,8 +191,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ ent
     return jsonWithCors({ error: "히브리어 사전 항목을 찾을 수 없습니다." }, { status: 404 });
   }
 
-  return jsonWithCors({
-    entry,
-    occurrences: hebrewWordOccurrences.filter((occurrence) => occurrence.normalizedKey === entry.normalizedKey),
-  });
+  return jsonWithCors(
+    {
+      entry,
+      occurrences: hebrewWordOccurrences.filter((occurrence) => occurrence.normalizedKey === entry.normalizedKey),
+    },
+    { headers: publicContentCacheHeaders },
+  );
 }

@@ -1,4 +1,4 @@
-import { jsonWithCors, optionsWithCors } from "@/lib/api/cors";
+import { jsonWithCors, optionsWithCors, publicContentCacheHeaders } from "@/lib/api/cors";
 import {
   hebrewWordOccurrences,
   searchHebrewDictionary,
@@ -148,10 +148,13 @@ export async function GET(request: Request) {
       entries,
     };
 
-    return jsonWithCors(response);
+    return jsonWithCors(response, { headers: publicContentCacheHeaders });
   } catch (error) {
     if (canUseLocalDictionaryFallback()) {
-      return jsonWithCors(searchHebrewDictionary({ q, alphabet, theme, bookId, sort, limit, offset }));
+      return jsonWithCors(
+        searchHebrewDictionary({ q, alphabet, theme, bookId, sort, limit, offset }),
+        { headers: publicContentCacheHeaders },
+      );
     }
 
     return jsonWithCors(
