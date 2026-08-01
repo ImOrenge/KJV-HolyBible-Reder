@@ -7,6 +7,7 @@ import type { Verse } from "./types";
 export type BibleApiClientOptions = {
   baseUrl?: string;
   fetcher?: typeof fetch;
+  signal?: AbortSignal;
 };
 
 const legacyVerseIdPattern = /^([a-z0-9]+)-(\d+)-(\d+)$/i;
@@ -36,7 +37,10 @@ function resolveApiUrl(path: string, baseUrl?: string) {
 
 async function fetchJson<T>(path: string, options: BibleApiClientOptions = {}): Promise<T> {
   const fetcher = options.fetcher ?? fetch;
-  const response = await fetcher(resolveApiUrl(path, options.baseUrl), { cache: "no-store" });
+  const response = await fetcher(resolveApiUrl(path, options.baseUrl), {
+    cache: "no-store",
+    signal: options.signal,
+  });
   if (!response.ok) {
     const payload = await response.json().catch(() => null);
     const message = payload && typeof payload.error === "string" ? payload.error : "Bible API request failed.";

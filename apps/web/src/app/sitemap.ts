@@ -1,9 +1,17 @@
 import type { MetadataRoute } from "next";
 
+import { getBooks } from "@/lib/bible-repository";
 import { absoluteUrl } from "@/lib/site-url";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const readerRoutes: MetadataRoute.Sitemap = getBooks().flatMap((book) =>
+    Array.from({ length: book.chapterCount }, (_, index) => ({
+      url: absoluteUrl(`/app/read/${book.id}/${index + 1}`),
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
+  );
   const staticRoutes: MetadataRoute.Sitemap = [
     {
       url: absoluteUrl("/"),
@@ -29,6 +37,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "monthly",
       priority: 0.3,
     },
+    ...readerRoutes,
   ];
   try {
     const service = createServiceRoleClient();

@@ -35,6 +35,17 @@ export default function PrivacyPage() {
               {section.body.map((paragraph) => (
                 <p key={paragraph}>{paragraph}</p>
               ))}
+              {section.links?.length ? (
+                <ul className="privacy-section-links">
+                  {section.links.map((link) => (
+                    <li key={link.href}>
+                      <a href={link.href} rel="noreferrer" target="_blank">
+                        {link.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </section>
           ))}
         </div>

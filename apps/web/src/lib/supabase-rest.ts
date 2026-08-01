@@ -1,5 +1,9 @@
 type SupabaseRequestOptions = {
   cache?: RequestCache;
+  next?: {
+    revalidate?: number | false;
+    tags?: string[];
+  };
 };
 
 const supabaseUrl = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -19,7 +23,8 @@ export async function supabaseRestGet<T>(path: string, options: SupabaseRequestO
 
   const url = `${supabaseUrl.replace(/\/$/, "")}/rest/v1/${path.replace(/^\//, "")}`;
   const response = await fetch(url, {
-    cache: options.cache ?? "no-store",
+    ...(options.cache ? { cache: options.cache } : options.next ? {} : { cache: "no-store" as const }),
+    ...(options.next ? { next: options.next } : {}),
     headers: {
       apikey: supabaseAnonKey,
       Authorization: `Bearer ${supabaseAnonKey}`,

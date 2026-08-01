@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 
 import { hasAnyEffectiveRole } from "@/lib/auth/server-rbac";
 import { createClient } from "@/lib/supabase/server";
+import { PUBLIC_BIBLE_CACHE_TAG } from "@/lib/public-bible-server";
 import { feedbackTextLimits, normalizeLongTextInput } from "@/lib/translation-feedback/feedback-validation";
 
 export const dynamic = "force-dynamic";
@@ -35,6 +37,8 @@ export async function POST(request: Request, context: RouteContext) {
   if (approvalError) {
     return NextResponse.json({ error: approvalError.message }, { status: 500 });
   }
+
+  revalidateTag(PUBLIC_BIBLE_CACHE_TAG, "max");
 
   return NextResponse.json({ reviewId });
 }

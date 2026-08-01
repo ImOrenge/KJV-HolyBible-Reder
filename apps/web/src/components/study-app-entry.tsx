@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { buildLegacyStudyAppUrl, buildStudyUiCommunityUrl, buildStudyUiDictionaryUrl, buildStudyUiPersonalNoteUrl, buildStudyUiTargetUrl, type StudyUiRouteState } from "@kjv/shared/study-ui";
 
 import { guestAppUser, toAppUser, type AppUser } from "@/lib/auth/app-user";
+import type { BibleChapterResponse } from "@/lib/bible-api-types";
 import { getUserProfile } from "@/lib/onboarding-server";
 import { studyUiFeatureFlags } from "@/lib/study-ui-feature-flags";
 import { hasSupabasePublicConfig } from "@/lib/supabase/config";
@@ -11,13 +12,14 @@ import { KjvMvpApp } from "./kjv-mvp-app";
 import { StudyAppShell } from "./study-app-shell";
 
 type StudyAppEntryProps = {
+  initialChapter?: BibleChapterResponse;
   route: StudyUiRouteState;
 };
 
-export async function StudyAppEntry({ route }: StudyAppEntryProps) {
+export async function StudyAppEntry({ initialChapter, route }: StudyAppEntryProps) {
   const renderApp = (appUser: AppUser) => studyUiFeatureFlags.uiShellV2
-    ? <StudyAppShell initialRoute={route} readerV2={studyUiFeatureFlags.readerV2} user={appUser} />
-    : <KjvMvpApp dictionaryRoute={route.dictionary} initialView={route.view} personalNoteRoute={route.personalNote} readerExperience={studyUiFeatureFlags.readerV2 ? "v2" : "legacy"} readerRoute={route.reader} user={appUser} />;
+    ? <StudyAppShell initialChapter={initialChapter} initialRoute={route} readerV2={studyUiFeatureFlags.readerV2} user={appUser} />
+    : <KjvMvpApp dictionaryRoute={route.dictionary} initialChapter={initialChapter} initialView={route.view} personalNoteRoute={route.personalNote} readerExperience={studyUiFeatureFlags.readerV2 ? "v2" : "legacy"} readerRoute={route.reader} user={appUser} />;
 
   if (!hasSupabasePublicConfig({ includeServerFallback: true })) return renderApp(guestAppUser);
 

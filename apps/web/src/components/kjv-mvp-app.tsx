@@ -37,6 +37,7 @@ import {
   X,
 } from "lucide-react";
 import { type PointerEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import {
   cacheVerseList,
@@ -63,8 +64,6 @@ import {
 } from "@/lib/auth/local-user-data-migration";
 import { TranslationFeedbackForm } from "@/components/feedback/translation-feedback-form";
 import { HebrewDictionaryWorkspace } from "@/components/hebrew-dictionary-workspace";
-import { PersonalNoteRichTextEditor } from "@/components/personal-note-rich-text-editor";
-import { PersonalNoteCreationDialog } from "@/components/personal-note-creation-dialog";
 import { ReaderHeader, type ReaderTranslationMode } from "@/components/reader-header";
 import { ReaderVerseActions, type ReaderContextTab } from "@/components/reader-verse-actions";
 import { ReaderVerseRow } from "@/components/reader-verse-row";
@@ -77,7 +76,7 @@ import {
   loadUserData,
   saveUserData,
 } from "@/lib/user-data-repository";
-import type { BibleSource } from "@/lib/bible-api-types";
+import type { BibleChapterResponse, BibleSource } from "@/lib/bible-api-types";
 import {
   formatHebrewDictionaryReference,
   getHebrewOccurrencesForVerses,
@@ -125,6 +124,7 @@ type ViewKey = KjvMvpViewKey;
 type KjvMvpAppProps = {
   activeView?: ViewKey;
   dictionaryRoute?: StudyUiDictionaryRoute;
+  initialChapter?: BibleChapterResponse;
   initialView?: ViewKey;
   navigationMode?: "legacy" | "shell";
   onPersonalNoteNavigate?: (route: StudyUiPersonalNoteRoute) => void;
@@ -146,6 +146,46 @@ type NoteTarget =
   | { scope: "chapter"; bookId: string; chapter: number }
   | { scope: "verse"; bookId: string; chapter: number; verse: number; verseId: string };
 type VerseNoteSummary = { id: string; title: string; excerpt: string; source: string; updatedAt: string };
+
+const PersonalNoteRichTextEditor = dynamic(
+  () => import("@/components/personal-note-rich-text-editor").then((module) => module.PersonalNoteRichTextEditor),
+  { loading: () => <p className="muted">노트 편집기를 불러오는 중입니다.</p>, ssr: false },
+);
+
+const PersonalNoteCreationDialog = dynamic(
+  () => import("@/components/personal-note-creation-dialog").then((module) => module.PersonalNoteCreationDialog),
+  { ssr: false },
+);
+
+const CHAPTER_RESPONSE_CACHE_TTL_MS = 5 * 60 * 1000;
+const CHAPTER_RESPONSE_CACHE_LIMIT = 24;
+const chapterResponseCache = new Map<string, { expiresAt: number; response: BibleChapterResponse }>();
+
+function cacheChapterResponse(response: BibleChapterResponse) {
+  const key = `${response.book.id}:${response.book.chapter}`;
+  chapterResponseCache.delete(key);
+  chapterResponseCache.set(key, { expiresAt: Date.now() + CHAPTER_RESPONSE_CACHE_TTL_MS, response });
+  while (chapterResponseCache.size > CHAPTER_RESPONSE_CACHE_LIMIT) {
+    const oldestKey = chapterResponseCache.keys().next().value;
+    if (!oldestKey) break;
+    chapterResponseCache.delete(oldestKey);
+  }
+}
+
+async function fetchCachedBibleChapter(bookId: string, chapter: number, signal: AbortSignal) {
+  const key = `${bookId}:${chapter}`;
+  const cached = chapterResponseCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) {
+    chapterResponseCache.delete(key);
+    chapterResponseCache.set(key, cached);
+    return cached.response;
+  }
+  if (cached) chapterResponseCache.delete(key);
+
+  const response = await fetchBibleChapter(bookId, chapter, { signal });
+  cacheChapterResponse(response);
+  return response;
+}
 
 const tabs: Array<{ key: ViewKey; label: string; icon: React.ComponentType<{ size?: number }> }> = [
   { key: "dashboard", label: "홈", icon: Home },
@@ -534,6 +574,7 @@ function compareBibleLocation(left: { bookId: string; chapter: number; verse?: n
 export function KjvMvpApp({
   activeView: controlledActiveView,
   dictionaryRoute,
+  initialChapter,
   initialView = "dashboard",
   navigationMode = "legacy",
   onPersonalNoteNavigate,
@@ -649,12 +690,14 @@ export function KjvMvpApp({
   const [searchTotal, setSearchTotal] = useState(0);
   const [searchStatus, setSearchStatus] = useState<LoadStatus>("idle");
   const [searchError, setSearchError] = useState("");
-  const [chapterVerses, setChapterVerses] = useState<Verse[]>([]);
-  const [chapterSource, setChapterSource] = useState<BibleSource | null>(null);
-  const [chapterStatus, setChapterStatus] = useState<LoadStatus>("idle");
+  const [chapterVerses, setChapterVerses] = useState<Verse[]>(() => initialChapter?.verses ?? []);
+  const [chapterSource, setChapterSource] = useState<BibleSource | null>(() => initialChapter?.source ?? null);
+  const [chapterStatus, setChapterStatus] = useState<LoadStatus>(() => initialChapter ? "ready" : "idle");
   const [chapterError, setChapterError] = useState("");
   const [targetVerseNumber, setTargetVerseNumber] = useState<number | null>(readerRouteVerseNumber ?? null);
-  const [verseCache, setVerseCache] = useState<Record<string, Verse>>({});
+  const [verseCache, setVerseCache] = useState<Record<string, Verse>>(() =>
+    initialChapter ? cacheVerseList({}, initialChapter.verses) : {},
+  );
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [speakingVerseId, setSpeakingVerseId] = useState<string | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -675,6 +718,9 @@ export function KjvMvpApp({
   const autoCompleteTimerRef = useRef<number | null>(null);
   const autoCompleteTargetVerseIdRef = useRef<string | null>(null);
   const currentReadingVerseIdRef = useRef<string | null>(null);
+  const loadedChapterKeyRef = useRef(
+    initialChapter ? `${initialChapter.book.id}:${initialChapter.book.chapter}` : null,
+  );
   const readerLocationRef = useRef<{ activeView: ViewKey; bookId: string; chapter: number }>({
     activeView: "dashboard",
     bookId: "gen",
@@ -684,6 +730,10 @@ export function KjvMvpApp({
   const favoriteListsRef = useRef(userData.favoriteLists);
   const pendingVerseFetchesRef = useRef(new Set<string>());
   const personalNotesLoadedRef = useRef(false);
+
+  useEffect(() => {
+    if (initialChapter) cacheChapterResponse(initialChapter);
+  }, [initialChapter]);
 
   const currentBook = getBook(currentBookId) ?? books[0];
   const currentBookChapters = getChapters(currentBook.id);
@@ -1262,7 +1312,13 @@ export function KjvMvpApp({
   }, [currentBookId, currentChapter, onReaderLocationChange]);
 
   useEffect(() => {
+    if (activeView !== "reader") return;
+
+    const requestedChapterKey = `${currentBookId}:${currentChapter}`;
+    if (loadedChapterKeyRef.current === requestedChapterKey) return;
+
     let cancelled = false;
+    const controller = new AbortController();
 
     async function loadChapter() {
       setChapterStatus("loading");
@@ -1276,7 +1332,7 @@ export function KjvMvpApp({
       verseElementsRef.current.clear();
 
       try {
-        const response = await fetchBibleChapter(currentBookId, currentChapter);
+        const response = await fetchCachedBibleChapter(currentBookId, currentChapter, controller.signal);
         if (cancelled) {
           return;
         }
@@ -1284,9 +1340,10 @@ export function KjvMvpApp({
         setChapterVerses(response.verses);
         setChapterSource(response.source);
         rememberVerses(response.verses);
+        loadedChapterKeyRef.current = requestedChapterKey;
         setChapterStatus("ready");
       } catch (error) {
-        if (cancelled) {
+        if (cancelled || (error instanceof DOMException && error.name === "AbortError")) {
           return;
         }
 
@@ -1301,8 +1358,9 @@ export function KjvMvpApp({
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [clearAutoCompleteTimer, currentBookId, currentChapter]);
+  }, [activeView, clearAutoCompleteTimer, currentBookId, currentChapter]);
 
   useEffect(() => {
     readerLocationRef.current = {
@@ -1364,7 +1422,7 @@ export function KjvMvpApp({
   }, [activeView, chapterVerses, mounted, scheduleTrackedProgress]);
 
   useEffect(() => {
-    if (!mounted || activeView !== "reader" || !chapterVerses.length) {
+    if (!mounted || activeView !== "reader" || !chapterVerses.length || typeof IntersectionObserver === "undefined") {
       return;
     }
 
@@ -1373,18 +1431,11 @@ export function KjvMvpApp({
       return;
     }
     const trackedLastVerse = lastVerse;
+    const element = verseElementsRef.current.get(trackedLastVerse.id);
+    if (!element) return;
 
-    function trackLastVerseVisibility() {
-      const element = verseElementsRef.current.get(trackedLastVerse.id);
-      if (!element) {
-        return;
-      }
-
-      const rect = element.getBoundingClientRect();
-      const visibleHeight = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
-      const visibleRatio = rect.height > 0 ? visibleHeight / rect.height : 0;
-
-      if (visibleRatio >= 0.35) {
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry?.isIntersecting && entry.intersectionRatio >= 0.35) {
         scheduleTrackedProgress(trackedLastVerse);
         return;
       }
@@ -1394,17 +1445,12 @@ export function KjvMvpApp({
         autoCompleteTimerRef.current = null;
         autoCompleteTargetVerseIdRef.current = null;
       }
-    }
+    }, { threshold: [0, 0.35] });
 
-    trackLastVerseVisibility();
-    const visibilityCheckTimer = window.setInterval(trackLastVerseVisibility, 500);
-    window.addEventListener("scroll", trackLastVerseVisibility, { passive: true });
-    window.addEventListener("resize", trackLastVerseVisibility);
+    observer.observe(element);
 
     return () => {
-      window.clearInterval(visibilityCheckTimer);
-      window.removeEventListener("scroll", trackLastVerseVisibility);
-      window.removeEventListener("resize", trackLastVerseVisibility);
+      observer.disconnect();
     };
   }, [activeView, chapterVerses, mounted, scheduleTrackedProgress]);
 
@@ -1458,6 +1504,8 @@ export function KjvMvpApp({
   }, [searchBookFilter, searchLanguage, searchQuery, searchSort, searchTestament]);
 
   useEffect(() => {
+    if (activeView !== "dictionary") return;
+
     let cancelled = false;
     setDictionaryStatus("loading");
     setDictionaryError("");
@@ -1500,7 +1548,7 @@ export function KjvMvpApp({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [dictionaryAlphabet, dictionaryBookFilter, dictionaryQuery, dictionarySort, dictionaryTheme]);
+  }, [activeView, dictionaryAlphabet, dictionaryBookFilter, dictionaryQuery, dictionarySort, dictionaryTheme]);
 
   useEffect(() => {
     if (dictionaryStatus === "loading" || !selectedHebrewEntryKey) return;
@@ -3407,7 +3455,7 @@ export function KjvMvpApp({
     );
   }
 
-  if (!mounted) {
+  if (!mounted && !(activeView === "reader" && initialChapter && chapterStatus === "ready")) {
     return <div className="loading-screen">Loading...</div>;
   }
 
@@ -4241,7 +4289,7 @@ export function KjvMvpApp({
                 </section>
               ) : null}
 
-              {renderChapterPagination()}
+              {chapterStatus === "ready" ? renderChapterPagination() : null}
             </section>
             {isReaderV2 && isReaderContextOpen ? (
               <ReaderVerseActions

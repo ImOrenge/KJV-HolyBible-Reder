@@ -134,14 +134,14 @@ function LandingActions({ isAuthenticated }: LandingPageProps) {
 
   return (
     <div className="landing-actions" aria-label="랜딩 주요 동작">
-      <Link className="primary-button landing-primary-action" href={primary.href}>
+      <a className="primary-button landing-primary-action" href={primary.href}>
         {primary.label}
         <ArrowRight aria-hidden="true" size={17} />
-      </Link>
+      </a>
       {secondary ? (
-        <Link className="secondary-button landing-secondary-action" href={secondary.href}>
+        <a className="secondary-button landing-secondary-action" href={secondary.href}>
           {secondary.label}
-        </Link>
+        </a>
       ) : null}
     </div>
   );
@@ -166,13 +166,13 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
           </div>
           <div className="landing-nav-actions">
             {!isAuthenticated ? (
-              <Link className="landing-nav-login" href="/auth/login">
+              <a className="landing-nav-login" href="/auth/login">
                 로그인
-              </Link>
+              </a>
             ) : null}
-            <Link className="landing-nav-cta" href={primary.href}>
+            <a className="landing-nav-cta" href={primary.href}>
               {primary.label}
-            </Link>
+            </a>
           </div>
         </nav>
       </header>
@@ -368,7 +368,10 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
       <footer className="landing-footer" aria-label="성경 본문 출처 및 라이선스">
         <div className="landing-footer-inner">
           <nav className="landing-footer-links" aria-label="서비스 정책">
-            <Link href="/privacy">개인정보 취급방침</Link>
+            {/* Full navigation unloads the landing-only AdSense runtime before entering the app. */}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+            <a href="/app/read/gen/1">성경 읽기</a>
+            <a href="/privacy">개인정보 취급방침</a>
           </nav>
           <p>
             성경 본문 출처: CrossWire Bible Society{" "}

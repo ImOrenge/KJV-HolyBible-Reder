@@ -24,14 +24,16 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import type { AppUser } from "@/lib/auth/app-user";
+import type { BibleChapterResponse } from "@/lib/bible-api-types";
 import { createClient as createBrowserSupabaseClient } from "@/lib/supabase/client";
 import {
   buildStudyUiPersonalNoteUrl,
   buildStudyUiTargetUrl,
   getStudyUiAreaForView,
+  parseStudyUiRoute,
   type StudyUiArea,
   type StudyUiPersonalNoteRoute,
   type StudyUiReaderRoute,
@@ -42,6 +44,7 @@ import {
 import { KjvMvpApp } from "./kjv-mvp-app";
 
 type StudyAppShellProps = {
+  initialChapter?: BibleChapterResponse;
   initialRoute: StudyUiRouteState;
   readerV2?: boolean;
   user: AppUser;
@@ -102,7 +105,7 @@ const viewLabels: Record<StudyUiWebViewKey, string> = {
 
 const commandItems = sidebarSections.flatMap((section) => section.items).concat({ icon: Settings, label: "설정", view: "settings" });
 
-export function StudyAppShell({ initialRoute, readerV2 = false, user }: StudyAppShellProps) {
+export function StudyAppShell({ initialChapter, initialRoute, readerV2 = false, user }: StudyAppShellProps) {
   const router = useRouter();
   const commandDialogRef = useRef<HTMLDialogElement>(null);
   const initialReaderBookId = initialRoute.reader?.bookId;
@@ -112,15 +115,20 @@ export function StudyAppShell({ initialRoute, readerV2 = false, user }: StudyApp
   const initialReaderWord = initialRoute.reader?.word;
   const [activeView, setActiveView] = useState<StudyUiWebViewKey>(initialRoute.view);
   const [readerRoute, setReaderRoute] = useState<StudyUiReaderRoute | undefined>(initialRoute.reader);
+  const [dictionaryRoute, setDictionaryRoute] = useState(initialRoute.dictionary);
+  const [personalNoteRoute, setPersonalNoteRoute] = useState(initialRoute.personalNote);
   const readerRouteRef = useRef(readerRoute);
   const [commandQuery, setCommandQuery] = useState("");
   const [isCommandOpen, setIsCommandOpen] = useState(false);
   const [isSessionActionPending, setIsSessionActionPending] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isViewPending, startViewTransition] = useTransition();
   const activeArea = getStudyUiAreaForView(activeView);
 
   useEffect(() => {
     setActiveView(initialRoute.view);
+    setDictionaryRoute(initialRoute.dictionary);
+    setPersonalNoteRoute(initialRoute.personalNote);
     if (initialReaderBookId && initialReaderChapter) {
       setReaderRoute({
         bookId: initialReaderBookId,
@@ -130,11 +138,31 @@ export function StudyAppShell({ initialRoute, readerV2 = false, user }: StudyApp
         ...(initialReaderWord ? { word: initialReaderWord } : {}),
       });
     }
-  }, [initialReaderBookId, initialReaderChapter, initialReaderPanel, initialReaderVerseKey, initialReaderWord, initialRoute.view]);
+  }, [initialReaderBookId, initialReaderChapter, initialReaderPanel, initialReaderVerseKey, initialReaderWord, initialRoute.dictionary, initialRoute.personalNote, initialRoute.view]);
 
   useEffect(() => {
     readerRouteRef.current = readerRoute;
   }, [readerRoute]);
+
+  useEffect(() => {
+    const syncRouteFromHistory = () => {
+      const route = parseStudyUiRoute(window.location.pathname, new URLSearchParams(window.location.search));
+      if (!route || route.view === "community") return;
+      startViewTransition(() => {
+        setActiveView(route.view);
+        setDictionaryRoute(route.dictionary);
+        setPersonalNoteRoute(route.personalNote);
+        if (route.reader) setReaderRoute(route.reader);
+      });
+    };
+
+    window.addEventListener("popstate", syncRouteFromHistory);
+    return () => window.removeEventListener("popstate", syncRouteFromHistory);
+  }, []);
+
+  const pushShellUrl = useCallback((url: string) => {
+    window.history.pushState(null, "", url);
+  }, []);
 
   useEffect(() => {
     const dialog = commandDialogRef.current;
@@ -150,28 +178,35 @@ export function StudyAppShell({ initialRoute, readerV2 = false, user }: StudyApp
       router.push("/community");
       return;
     }
-    setActiveView(view);
-    router.push(buildStudyUiTargetUrl(view, view === "reader" ? readerRouteRef.current : undefined), { scroll: false });
-  }, [router]);
+    startViewTransition(() => {
+      setActiveView(view);
+      pushShellUrl(buildStudyUiTargetUrl(view, view === "reader" ? readerRouteRef.current : undefined));
+    });
+  }, [pushShellUrl, router]);
 
   const rememberReaderLocation = useCallback((route: StudyUiReaderRoute) => {
     setReaderRoute((current) => current?.bookId === route.bookId && current.chapter === route.chapter ? current : route);
   }, []);
 
   const navigateReader = useCallback((route: StudyUiReaderRoute) => {
-    setReaderRoute(route);
-    setActiveView("reader");
     setIsCommandOpen(false);
     setCommandQuery("");
-    router.push(buildStudyUiTargetUrl("reader", route), { scroll: false });
-  }, [router]);
+    startViewTransition(() => {
+      setReaderRoute(route);
+      setActiveView("reader");
+      pushShellUrl(buildStudyUiTargetUrl("reader", route));
+    });
+  }, [pushShellUrl]);
 
   const navigatePersonalNote = useCallback((route: StudyUiPersonalNoteRoute = {}) => {
-    setActiveView("notes");
     setIsCommandOpen(false);
     setCommandQuery("");
-    router.push(buildStudyUiPersonalNoteUrl(route), { scroll: false });
-  }, [router]);
+    startViewTransition(() => {
+      setPersonalNoteRoute(route);
+      setActiveView("notes");
+      pushShellUrl(buildStudyUiPersonalNoteUrl(route));
+    });
+  }, [pushShellUrl]);
 
   const handleSessionAction = useCallback(async () => {
     if (!user.isAuthenticated) {
@@ -197,7 +232,13 @@ export function StudyAppShell({ initialRoute, readerV2 = false, user }: StudyApp
   }, [commandQuery]);
 
   return (
-    <div className="f-study-shell" data-active-view={activeView} data-sidebar-collapsed={isSidebarCollapsed}>
+    <div
+      aria-busy={isViewPending}
+      className="f-study-shell"
+      data-active-view={activeView}
+      data-sidebar-collapsed={isSidebarCollapsed}
+      data-view-pending={isViewPending}
+    >
       <aside className="f-study-shell__sidebar" aria-label="주요 탐색">
         <div className="f-study-shell__brand-row">
           <button className="f-study-shell__brand" type="button" onClick={() => navigate("dashboard")} aria-label="KJV 리더노트 오늘 화면">
@@ -296,14 +337,15 @@ export function StudyAppShell({ initialRoute, readerV2 = false, user }: StudyApp
         <div className="f-study-shell__content">
           <KjvMvpApp
             activeView={activeView}
-            dictionaryRoute={activeView === "dictionary" ? initialRoute.dictionary ?? {} : undefined}
+            dictionaryRoute={activeView === "dictionary" ? dictionaryRoute ?? {} : undefined}
+            initialChapter={initialChapter}
             navigationMode="shell"
             onPersonalNoteNavigate={navigatePersonalNote}
             onReaderLocationChange={rememberReaderLocation}
             onReaderNavigate={navigateReader}
             onViewChange={navigate}
             readerExperience={readerV2 ? "v2" : "legacy"}
-            personalNoteRoute={activeView === "notes" ? initialRoute.personalNote ?? {} : undefined}
+            personalNoteRoute={activeView === "notes" ? personalNoteRoute ?? {} : undefined}
             readerRoute={activeView === "reader" ? readerRoute : undefined}
             user={user}
           />

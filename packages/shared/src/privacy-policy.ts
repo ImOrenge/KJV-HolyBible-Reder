@@ -1,9 +1,13 @@
 export type PrivacyPolicySection = {
   title: string;
   body: string[];
+  links?: Array<{
+    href: string;
+    label: string;
+  }>;
 };
 
-export const privacyPolicyUpdatedAt = "2026-07-25";
+export const privacyPolicyUpdatedAt = "2026-08-01";
 
 export const privacyPolicyTitle = "개인정보 처리방침";
 
@@ -50,7 +54,20 @@ export const privacyPolicySections: PrivacyPolicySection[] = [
     ],
   },
   {
-    title: "5. 사용자의 선택과 권리",
+    title: "5. Google 광고, 쿠키 및 동의",
+    body: [
+      "공개 웹페이지에서는 Google AdSense를 통해 광고가 표시될 수 있습니다. Google을 포함한 제3자 광고 사업자는 사용자가 이 웹사이트 또는 다른 웹사이트를 이전에 방문한 기록을 바탕으로 광고를 게재하기 위해 쿠키를 사용할 수 있습니다.",
+      "Google의 광고 쿠키를 사용하면 Google과 파트너가 이 사이트 및 인터넷의 다른 사이트 방문 기록을 바탕으로 맞춤 광고를 제공할 수 있습니다. 광고 제공 과정에서 쿠키, 웹 비콘, IP 주소와 기기 또는 브라우저 식별자가 처리될 수 있습니다.",
+      "사용자는 Google 광고 설정에서 맞춤 광고를 사용 중지할 수 있습니다. 유럽경제지역(EEA), 영국 및 스위스 등 동의가 필요한 지역에서는 Google 인증 동의 관리 플랫폼(CMP)을 통해 필요한 선택을 받은 뒤 광고를 제공합니다.",
+      "개인 성경 노트, 하이라이트, 읽기·통독 기록은 맞춤 광고의 입력 데이터로 제공하거나 판매하지 않습니다.",
+    ],
+    links: [
+      { href: "https://adssettings.google.com/", label: "Google 광고 설정" },
+      { href: "https://policies.google.com/technologies/partner-sites", label: "Google 파트너 사이트의 정보 사용 방식" },
+    ],
+  },
+  {
+    title: "6. 사용자의 선택과 권리",
     body: [
       "사용자는 비회원으로 읽기를 시작할 수 있으며, 계정 동기화가 필요할 때만 회원가입을 선택할 수 있습니다.",
       "앱 설정에서 로컬 데이터 초기화, 기기 데이터 가져오기, 회원탈퇴 기능을 사용할 수 있습니다.",
@@ -59,7 +76,7 @@ export const privacyPolicySections: PrivacyPolicySection[] = [
     ],
   },
   {
-    title: "6. 정책 변경",
+    title: "7. 정책 변경",
     body: [
       "서비스 기능, 저장 구조, 인증 방식, 법적 요구사항이 변경되면 본 개인정보 처리방침을 업데이트합니다.",
       "중요한 변경이 있는 경우 앱 또는 웹 화면에서 합리적인 방식으로 안내합니다.",
