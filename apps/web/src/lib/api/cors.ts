@@ -8,7 +8,8 @@ const publicApiCorsHeaders = {
 };
 
 export const publicContentCacheHeaders = {
-  "Cache-Control": "public, max-age=300, s-maxage=86400, stale-while-revalidate=604800",
+  "Cache-Control": "public, max-age=300, stale-while-revalidate=604800",
+  "CDN-Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
 };
 
 export function jsonWithCors(body: unknown, init?: ResponseInit) {
