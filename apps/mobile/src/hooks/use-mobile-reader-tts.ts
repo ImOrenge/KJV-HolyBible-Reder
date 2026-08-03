@@ -10,6 +10,7 @@ type UseMobileReaderTtsOptions = {
   onSpeakingVerse: (verseId: string | null, autoScroll: boolean) => void;
   repeat: boolean;
   speed: number;
+  volume: number;
   voiceIdentifier?: string;
 };
 
@@ -21,6 +22,7 @@ export function useMobileReaderTts({
   onSpeakingVerse,
   repeat,
   speed,
+  volume,
   voiceIdentifier,
 }: UseMobileReaderTtsOptions) {
   const [ttsPlaybackState, setTtsPlaybackState] = useState<TtsPlaybackState>("idle");
@@ -33,12 +35,12 @@ export function useMobileReaderTts({
   const queueCompleteRef = useRef<QueueCompleteCallback | null>(null);
   const playbackRequestRef = useRef(0);
   const queueLabelRef = useRef("대기");
-  const settingsRef = useRef({ autoScroll, language, repeat, speed, voiceIdentifier });
+  const settingsRef = useRef({ autoScroll, language, repeat, speed, volume, voiceIdentifier });
   const speakQueueAtIndexRef = useRef<(index: number) => void>(() => undefined);
 
   useEffect(() => {
-    settingsRef.current = { autoScroll, language, repeat, speed, voiceIdentifier };
-  }, [autoScroll, language, repeat, speed, voiceIdentifier]);
+    settingsRef.current = { autoScroll, language, repeat, speed, volume, voiceIdentifier };
+  }, [autoScroll, language, repeat, speed, volume, voiceIdentifier]);
 
   const speakQueueAtIndex = useCallback((index: number) => {
     const queue = speechQueueRef.current;
@@ -92,6 +94,7 @@ export function useMobileReaderTts({
         setTtsStatus("정지");
       },
       rate: settings.speed,
+      volume: settings.volume,
       voice: settings.voiceIdentifier || undefined,
     });
   }, [onSpeakingVerse]);

@@ -202,6 +202,42 @@
   grid-template-columns: minmax(0, 640px);
 }
 
+.community-ad-rail {
+  align-self: stretch;
+  display: grid;
+  justify-items: center;
+  position: relative;
+}
+
+.coupang-partners-ad--community {
+  align-self: start;
+  background: var(--community-card);
+  border: 0;
+  border-radius: 18px;
+  box-shadow: var(--community-shadow);
+  overflow: hidden;
+  padding: 0;
+  position: sticky;
+  top: 24px;
+  width: 300px;
+}
+
+.coupang-partners-ad--community > p {
+  color: var(--community-muted);
+  font-size: 0.66rem;
+  padding: 0 10px 10px;
+}
+
+@media (max-width: 1599px) {
+  .community-page-with-ad {
+    grid-template-columns: minmax(0, 640px);
+  }
+
+  .community-ad-rail {
+    display: none;
+  }
+}
+
 .community-main-column,
 .community-sidebar,
 .community-stack {
@@ -1758,9 +1794,21 @@
   .community-shell-content {
     margin-left: 82px;
   }
+
+  .community-page-with-ad {
+    grid-template-columns: minmax(0, 640px);
+  }
+
+  .community-ad-rail {
+    display: none;
+  }
 }
 
 @media (max-width: 820px) {
+  .community-ad-rail {
+    display: none;
+  }
+
   .community-rail {
     display: none;
   }

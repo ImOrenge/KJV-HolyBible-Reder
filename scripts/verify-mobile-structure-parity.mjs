@@ -20,7 +20,7 @@ const groups = [
   },
   {
     name: "quick-move",
-    labels: ["명령", "빠른 이동", "이동하거나 실행할 항목 검색", "이어 읽기", "홈 · 오늘", "오늘 통독 분량 열기", "통독 진척도", "강조 구절", "검색", "명령이 없습니다."],
+    labels: ["명령", "빠른 이동", "빠른 이동 검색", "이동하거나 실행할 항목 검색", "이어 읽기", "홈 · 오늘", "오늘 통독 분량 열기", "통독 진척도", "강조 구절", "검색", "명령이 없습니다."],
   },
   {
     name: "mobile-study-navigation",
@@ -94,6 +94,18 @@ const groups = [
   },
 ];
 
+const sourceContracts = [
+  {
+    name: "quick-move-keyboard-avoidance",
+    snippets: [
+      'softwareKeyboardLayoutMode: "resize"',
+      '<KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}',
+      'accessibilityLabel="빠른 이동 검색"',
+      'keyboardShouldPersistTaps="handled"',
+    ],
+  },
+];
+
 function hasLabel(source, label) {
   const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`["'\`]${escaped}["'\`]`).test(source) || source.includes(`>${label}<`);
@@ -102,6 +114,7 @@ function hasLabel(source, label) {
 async function main() {
   const sources = await Promise.all([
     "apps/mobile/App.tsx",
+    "apps/mobile/app.config.ts",
     "apps/mobile/src/components/reader/reader-header.tsx",
     "apps/mobile/src/components/reader/reader-verse-row.tsx",
     "apps/mobile/src/components/reader/reader-verse-actions-sheet.tsx",
@@ -124,6 +137,14 @@ async function main() {
     for (const label of group.absentLabels ?? []) {
       if (hasLabel(source, label)) {
         missing.push({ group: group.name, label, expected: "absent" });
+      }
+    }
+  }
+
+  for (const contract of sourceContracts) {
+    for (const snippet of contract.snippets) {
+      if (!source.includes(snippet)) {
+        missing.push({ group: contract.name, label: snippet });
       }
     }
   }

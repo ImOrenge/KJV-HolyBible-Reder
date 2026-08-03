@@ -13,6 +13,7 @@ type ReaderHeaderProps = {
   onOpenChapterPicker: () => void;
   onOpenQuickMove: () => void;
   onPlayChapter: () => void;
+  playChapterAccessibilityLabel: string;
   onPreviousChapter: () => void;
   onSetTranslationMode: (mode: MobileReaderTranslationMode) => void;
   onToggleSelectionMode: () => void;
@@ -40,6 +41,7 @@ export function ReaderHeader({
   onOpenChapterPicker,
   onOpenQuickMove,
   onPlayChapter,
+  playChapterAccessibilityLabel,
   onPreviousChapter,
   onSetTranslationMode,
   onToggleSelectionMode,
@@ -87,7 +89,7 @@ export function ReaderHeader({
             );
           })}
         </View>
-        <HeaderTool accessibilityLabel="현재 장 읽기" icon="▶" onPress={onPlayChapter} styles={styles} />
+        <HeaderTool accessibilityLabel={playChapterAccessibilityLabel} icon="▶" onPress={onPlayChapter} styles={styles} />
         <HeaderTool
           accessibilityLabel={selectionMode ? `다중 선택 종료, ${selectionCount}개 선택됨` : "다중 선택"}
           active={selectionMode}

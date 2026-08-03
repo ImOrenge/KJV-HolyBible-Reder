@@ -611,8 +611,8 @@ async function main() {
       run: (currentSize) => tapVisibleText(currentSize, "최근 저장순", "favorites-sort-trigger"),
     },
     {
-      assertText: ["빠른 이동", "이어 읽기", "홈 · 오늘"],
-      expected: "Quick move tab opens the web-style command palette.",
+      assertText: ["빠른 이동", "빠른 이동 검색", "이동하거나 실행할 항목 검색", "이어 읽기", "홈 · 오늘"],
+      expected: "Quick move opens with its search input focused and visible above the software keyboard.",
       name: "16-quick-move",
       run: (currentSize) => tapVisibleText(currentSize, "명령 검색", "header-command-search"),
     },

@@ -78,6 +78,13 @@ export function createReaderSpeechQueue(
     .filter((item) => item.text.trim().length > 0);
 }
 
+export function getReaderSpeechStartIndex(queue: readonly ReaderSpeechQueueItem[], verseId: string | null) {
+  if (!verseId) return 0;
+
+  const selectedIndex = queue.findIndex((item) => item.id === verseId);
+  return selectedIndex >= 0 ? selectedIndex : 0;
+}
+
 export function getReaderSpeechIndex(queueLength: number, currentIndex: number, direction: -1 | 1) {
   if (queueLength <= 0) return -1;
   return Math.min(Math.max(currentIndex + direction, 0), queueLength - 1);

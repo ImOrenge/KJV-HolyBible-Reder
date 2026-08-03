@@ -7,6 +7,7 @@ export * from "./community";
 export * from "./hebrew-dictionary";
 export * from "./korean-search";
 export * from "./mobile-study-navigation";
+export * from "./mobile-app-version";
 export * from "./onboarding";
 export * from "./personal-note-document";
 export * from "./personal-note-client";

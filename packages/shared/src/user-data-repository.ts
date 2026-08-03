@@ -21,6 +21,7 @@ export const defaultSettings: UserSettings = {
   showParallelTranslation: false,
   ttsVoice: "",
   ttsSpeed: 1,
+  ttsVolume: 1,
   ttsRepeat: false,
   ttsAutoScroll: true,
 };

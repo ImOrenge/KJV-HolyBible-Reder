@@ -69,6 +69,7 @@ import { ReaderVerseActions, type ReaderContextTab } from "@/components/reader-v
 import { ReaderVerseRow } from "@/components/reader-verse-row";
 import { createClient as createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { ContinueReadingPanel, ProgressMetricPanel } from "@/components/app-preview-panels";
+import { CoupangPartnersAd } from "@/components/coupang-partners-ad";
 import {
   clearUserData,
   createInitialUserData,
@@ -3938,6 +3939,10 @@ export function KjvMvpApp({
                 ) : null}
               </div>
             </section>
+
+            <div className="dashboard-coupang-banner home-section home-section-today">
+              <CoupangPartnersAd placement="today" />
+            </div>
             </div>
           </section>
         ) : null}
@@ -4291,8 +4296,10 @@ export function KjvMvpApp({
 
               {chapterStatus === "ready" ? renderChapterPagination() : null}
             </section>
-            {isReaderV2 && isReaderContextOpen ? (
-              <ReaderVerseActions
+            {isReaderV2 ? (
+              <aside className="f-reader-screen__right-rail" aria-label="리더 보조 영역">
+                {isReaderContextOpen ? (
+                  <ReaderVerseActions
                 activeTab={readerContextTab}
                 hasOriginalWords={Boolean(selectedVerseHebrewItems.length)}
                 onClose={() => setIsReaderContextOpen(false)}
@@ -4416,7 +4423,10 @@ export function KjvMvpApp({
                 }}
                 reference={selectedVerse ? formatReference(selectedVerse) : undefined}
                 source={selectedVerse ? getVerseDisplaySource(selectedVerse, readingLanguage) : undefined}
-              />
+                  />
+                ) : null}
+                <CoupangPartnersAd placement="reader" />
+              </aside>
             ) : null}
           </section>
         ) : null}

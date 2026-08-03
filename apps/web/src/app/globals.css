@@ -645,6 +645,20 @@ button:disabled {
   min-height: 250px;
 }
 
+.dashboard-coupang-banner {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.coupang-partners-ad--today {
+  margin-inline: auto;
+  width: min(100%, 990px);
+}
+
+.coupang-partners-ad--today > p {
+  color: var(--muted);
+}
+
 .panel,
 .metric-panel,
 .selector-panel,

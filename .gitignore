@@ -18,6 +18,7 @@ dist/
 # local tooling
 .playwright-mcp/
 .tmp/
+.codex-tmp/
 .vscode/
 .expo/
 apps/mobile/credentials.json

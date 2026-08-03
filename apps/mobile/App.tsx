@@ -7,6 +7,7 @@ import {
   clearPersonalNoteDraftIfCovered,
   clearUserDataFromStorage,
   collectSearchHighlightRanges,
+  createReaderSpeechQueue,
   createRemotePersonalNote,
   createReadingPlan,
   createBibleApiClient,
@@ -22,6 +23,7 @@ import {
   getLocalDateKey,
   getPersonalNoteDraftFingerprint,
   getMobileReaderLocation,
+  getReaderSpeechStartIndex,
   getReadingPlanDay,
   getStudyUiAreaForView,
   getTotalChapterCount,
@@ -83,6 +85,7 @@ import {
   ActivityIndicator,
   Alert,
   type GestureResponderEvent,
+  Keyboard,
   KeyboardAvoidingView,
   Image,
   Linking,
@@ -97,8 +100,14 @@ import {
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { CommunityHomePanel } from "./src/community-home-panel";
+import {
+  checkAndroidVersion,
+  getInstalledAndroidVersion,
+  type AndroidVersionCheck,
+} from "./src/android-version";
 import { PersonalNoteEditorScreen } from "./src/components/notes/personal-note-editor-screen";
 import { PersonalNoteListScreen } from "./src/components/notes/personal-note-list-screen";
+import { AdMobBanner } from "./src/components/admob-banner";
 import { ReaderHeader } from "./src/components/reader/reader-header";
 import type { MobileReaderTranslationMode } from "./src/components/reader/reader-types";
 import { ReaderVerseActionsSheet } from "./src/components/reader/reader-verse-actions-sheet";
@@ -122,6 +131,7 @@ type SyncStatus = "idle" | "loading" | "ready" | "saving" | "error";
 type PersonalNoteDraftStatus = "idle" | "loading" | "dirty" | "saved" | "committed" | "error";
 type PersonalNoteRemoteStatus = "idle" | "saving" | "saved" | "conflict" | "error";
 type OnboardingStatus = "idle" | "checking" | "required" | "complete" | "error";
+type AndroidVersionCheckStatus = "idle" | "checking" | "ready" | "error";
 const ttsSpeedOptions = [0.75, 1, 1.25, 1.5] as const;
 const iconGlyphs = {
   "book-outline": "▤",
@@ -454,6 +464,7 @@ function AppShell() {
   const newBooks = useMemo(() => getBooks("new"), []);
   const supabaseConfig = useMemo(() => getConfiguredSupabaseConfig(), []);
   const supabase = useMemo(() => createMobileSupabaseClient(supabaseConfig), [supabaseConfig]);
+  const installedAndroidVersion = useMemo(getInstalledAndroidVersion, []);
   const [apiBaseUrl, setApiBaseUrl] = useState(getConfiguredApiBaseUrl);
   const apiClient = useMemo(() => createBibleApiClient({ baseUrl: apiBaseUrl }), [apiBaseUrl]);
   const {
@@ -482,6 +493,8 @@ function AppShell() {
   const [authPassword, setAuthPassword] = useState("");
   const [authStatus, setAuthStatus] = useState<SubmitStatus>("idle");
   const [authMessage, setAuthMessage] = useState("");
+  const [androidVersionCheckStatus, setAndroidVersionCheckStatus] = useState<AndroidVersionCheckStatus>("idle");
+  const [androidVersionCheck, setAndroidVersionCheck] = useState<AndroidVersionCheck | null>(null);
   const [showAuthForm, setShowAuthForm] = useState(false);
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   const [isChapterPickerOpen, setIsChapterPickerOpen] = useState(false);
@@ -560,6 +573,7 @@ function AppShell() {
   const lastSavedRemoteSnapshotRef = useRef("");
   const remotePersonalNoteIdsRef = useRef(new Set<string>());
   const pendingStoredVerseFetchesRef = useRef(new Set<string>());
+  const googleOAuthCallbackPromiseRef = useRef<Promise<Session> | null>(null);
 
   const activeUserId = authUser?.id ?? guestUserId;
   const {
@@ -671,10 +685,20 @@ function AppShell() {
     onSpeakingVerse: focusReaderVerse,
     repeat: userData.settings.ttsRepeat,
     speed: userData.settings.ttsSpeed,
+    volume: userData.settings.ttsVolume,
     voiceIdentifier: selectedTtsVoice?.identifier || userData.settings.ttsVoice || undefined,
   });
   const selectedReadingModeLabel = readingModeOptions.find((option) => option.value === userData.settings.readingMode)?.label ?? "일반 보기";
   const ttsPlaybackLabel = ttsPlaybackState === "playing" ? "재생 중" : ttsPlaybackState === "paused" ? "일시정지" : "대기";
+  const selectedChapterVerse = selectedVerse && verses.some((verse) => verse.id === selectedVerse.id) ? selectedVerse : null;
+  const ttsVolumeLabel = `${Math.round(userData.settings.ttsVolume * 100)}%`;
+  const ttsChapterStartLabel = selectedChapterVerse ? `${formatReference(selectedChapterVerse)}부터` : "처음부터";
+  const ttsChapterStartAccessibilityLabel = selectedChapterVerse
+    ? `${formatReference(selectedChapterVerse)}부터 현재 장 재생`
+    : "현재 장 처음부터 재생";
+  const supportsTtsPause = Platform.OS !== "android";
+  const ttsPauseOrResumeLabel = ttsPlaybackState === "paused" ? "계속 재생" : "일시정지";
+  const ttsPauseButtonLabel = supportsTtsPause ? ttsPauseOrResumeLabel : "일시불가";
   const shouldShowTtsOverlay = ttsPlaybackState === "playing" || ttsPlaybackState === "paused";
   const selectedNote = selectedVerse
     ? userData.studyNotes.find((note) => note.scope === "verse" && note.verseId === selectedVerse.id)
@@ -976,32 +1000,67 @@ function AppShell() {
     };
   }, []);
 
-  const completeGoogleOAuth = useCallback(async (callbackUrl: string) => {
-    if (!supabase) {
-      throw new Error("oauth-client-missing");
+  useEffect(() => {
+    if (!installedAndroidVersion) {
+      return;
     }
 
-    const callback = readGoogleOAuthCallback(callbackUrl);
-    if (callback.error) {
-      throw new Error(callback.error);
-    }
-    if (!callback.accessToken || !callback.refreshToken) {
-      throw new Error("oauth-callback-tokens-missing");
+    const controller = new AbortController();
+    setAndroidVersionCheckStatus("checking");
+    void checkAndroidVersion(apiBaseUrl, installedAndroidVersion, controller.signal)
+      .then((result) => {
+        setAndroidVersionCheck(result);
+        setAndroidVersionCheckStatus("ready");
+      })
+      .catch((error: unknown) => {
+        if (error instanceof Error && error.name === "AbortError") {
+          return;
+        }
+        setAndroidVersionCheck(null);
+        setAndroidVersionCheckStatus("error");
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [apiBaseUrl, installedAndroidVersion]);
+
+  const completeGoogleOAuth = useCallback((callbackUrl: string) => {
+    if (googleOAuthCallbackPromiseRef.current) {
+      return googleOAuthCallbackPromiseRef.current;
     }
 
-    const { data, error } = await supabase.auth.setSession({
-      access_token: callback.accessToken,
-      refresh_token: callback.refreshToken,
-    });
-    if (error || !data.session) {
-      throw error ?? new Error("oauth-session-missing");
-    }
+    const callbackPromise = (async () => {
+      if (!supabase) {
+        throw new Error("oauth-client-missing");
+      }
 
-    setAuthSession(data.session);
-    setAuthUser(data.session.user);
-    setAuthStatus("success");
-    setAuthMessage("Google 계정으로 로그인되었습니다.");
-    setShowAuthForm(false);
+      const callback = readGoogleOAuthCallback(callbackUrl);
+      if (callback.error) {
+        throw new Error(callback.error);
+      }
+      if (!callback.accessToken || !callback.refreshToken) {
+        throw new Error("oauth-callback-tokens-missing");
+      }
+
+      const { data, error } = await supabase.auth.setSession({
+        access_token: callback.accessToken,
+        refresh_token: callback.refreshToken,
+      });
+      if (error || !data.session) {
+        throw error ?? new Error("oauth-session-missing");
+      }
+
+      setAuthSession(data.session);
+      setAuthUser(data.session.user);
+      setAuthStatus("success");
+      setAuthMessage("Google 계정으로 로그인되었습니다.");
+      setShowAuthForm(false);
+      return data.session;
+    })();
+
+    googleOAuthCallbackPromiseRef.current = callbackPromise;
+    return callbackPromise;
   }, [supabase]);
 
   useEffect(() => {
@@ -1027,6 +1086,12 @@ function AppShell() {
     void Linking.getInitialURL().then((url) => {
       if (url) void handleOAuthUrl(url);
     });
+    if (Platform.OS !== "android") {
+      return () => {
+        active = false;
+      };
+    }
+
     const subscription = Linking.addEventListener("url", ({ url }) => {
       void handleOAuthUrl(url);
     });
@@ -2366,10 +2431,16 @@ function AppShell() {
       return;
     }
 
+    const speechQueue = createReaderSpeechQueue(
+      verses,
+      formatReference,
+      (verse) => getVerseDisplayText(verse, readingLanguage),
+    );
+    const startsAtSelectedVerse = Boolean(selectedChapterVerse && speechQueue.some((item) => item.id === selectedChapterVerse.id));
     playSpeechQueue(
-      verses.map((verse) => ({ id: verse.id, label: formatReference(verse), text: getVerseDisplayText(verse, readingLanguage) })),
-      0,
-      "현재 장",
+      speechQueue,
+      getReaderSpeechStartIndex(speechQueue, selectedChapterVerse?.id ?? null),
+      startsAtSelectedVerse && selectedChapterVerse ? `${formatReference(selectedChapterVerse)}부터 현재 장` : "현재 장",
     );
   };
 
@@ -2428,15 +2499,6 @@ function AppShell() {
       0,
       selectedVerses.length ? "선택 구절" : formatReference(speechVerses[0]),
     );
-  };
-
-  const playCurrentSpeechContext = () => {
-    if (selectedVerses.length || selectedVerse) {
-      speakSelectedVerses();
-      return;
-    }
-
-    speakChapter();
   };
 
   const saveSelectedFavorites = () => {
@@ -2552,7 +2614,7 @@ function AppShell() {
   const signIn = async () => {
     if (!supabase) {
       setAuthStatus("error");
-      setAuthMessage("Expo Supabase 공개 설정이 없습니다.");
+      setAuthMessage("앱 로그인 설정을 불러오지 못했습니다. 앱을 다시 설치하거나 업데이트하세요.");
       return;
     }
 
@@ -2580,7 +2642,7 @@ function AppShell() {
   const signUp = async () => {
     if (!supabase) {
       setAuthStatus("error");
-      setAuthMessage("Expo Supabase 공개 설정이 없습니다.");
+      setAuthMessage("앱 로그인 설정을 불러오지 못했습니다. 앱을 다시 설치하거나 업데이트하세요.");
       return;
     }
 
@@ -2610,7 +2672,7 @@ function AppShell() {
   const signInWithGoogle = async () => {
     if (!supabase) {
       setAuthStatus("error");
-      setAuthMessage("Expo Supabase 공개 설정이 없습니다.");
+      setAuthMessage("앱 로그인 설정을 불러오지 못했습니다. 앱을 다시 설치하거나 업데이트하세요.");
       return;
     }
 
@@ -2622,6 +2684,7 @@ function AppShell() {
 
     setAuthStatus("submitting");
     setAuthMessage("");
+    googleOAuthCallbackPromiseRef.current = null;
 
     try {
       const redirectTo = getGoogleOAuthRedirectUrl();
@@ -2646,6 +2709,12 @@ function AppShell() {
 
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
       if (result.type !== "success") {
+        const callbackPromise = googleOAuthCallbackPromiseRef.current;
+        if (callbackPromise) {
+          await callbackPromise;
+          return;
+        }
+
         setAuthStatus("idle");
         setAuthMessage("Google 로그인이 취소되었습니다.");
         return;
@@ -2681,6 +2750,16 @@ function AppShell() {
     setImportMessage("");
     setHasDeviceDataToImport(false);
     setEntryMode("welcome");
+  };
+
+  const openAndroidUpdate = () => {
+    const storeUrl = androidVersionCheck?.release.storeUrl;
+    if (!storeUrl) {
+      return;
+    }
+    void Linking.openURL(storeUrl).catch(() => {
+      setAndroidVersionCheckStatus("error");
+    });
   };
 
   const importDeviceData = async () => {
@@ -2892,9 +2971,14 @@ function AppShell() {
     ]);
   };
 
-  const runQuickMoveCommand = (action: () => void) => {
+  const closeQuickMove = () => {
+    Keyboard.dismiss();
     setIsQuickMoveOpen(false);
     setCommandQuery("");
+  };
+
+  const runQuickMoveCommand = (action: () => void) => {
+    closeQuickMove();
     action();
   };
 
@@ -3162,7 +3246,7 @@ function AppShell() {
     <SafeAreaProvider>
       <SafeAreaView style={styles.safeArea}>
         <StatusBar style={isDark ? "light" : "dark"} />
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.root}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.root}>
           <View style={styles.header}>
             <View style={styles.headerIdentity}>
               {canGoBack ? (
@@ -3276,6 +3360,7 @@ function AppShell() {
                         </>
                       )}
                     </View>
+                    <AdMobBanner placement="today" />
                   </>
                 ) : null}
 
@@ -3425,6 +3510,7 @@ function AppShell() {
                   }}
                   theme={colors}
                 />
+                <AdMobBanner placement="community" />
               </View>
             ) : null}
 
@@ -3442,6 +3528,7 @@ function AppShell() {
                     onOpenChapterPicker={openChapterPicker}
                     onOpenQuickMove={() => setIsQuickMoveOpen(true)}
                     onPlayChapter={speakChapter}
+                    playChapterAccessibilityLabel={ttsChapterStartAccessibilityLabel}
                     onPreviousChapter={() => navigateChapter(-1)}
                     onSetTranslationMode={setReaderTranslationMode}
                     onToggleSelectionMode={() => setReaderSelectionMode(!isSelectionMode)}
@@ -3642,6 +3729,8 @@ function AppShell() {
                     />
                   </View>
                 ) : null}
+
+                {chapterStatus === "ready" ? <AdMobBanner placement="reader" /> : null}
 
               </View>
             ) : null}
@@ -4269,6 +4358,44 @@ function AppShell() {
                         </View>
                         <Text style={[styles.statusBadge, authUser ? styles.statusBadgeActive : null]}>{authUser ? "로그인" : "비로그인"}</Text>
                       </View>
+                      {installedAndroidVersion ? (
+                        <View style={styles.accountSyncPanel}>
+                          <Text style={styles.eyebrow}>Android 앱 버전</Text>
+                          <Text style={styles.metaText}>
+                            {`v${installedAndroidVersion.version} · 빌드 ${installedAndroidVersion.buildVersion || "알 수 없음"} · Android API ${installedAndroidVersion.apiLevel}`}
+                          </Text>
+                          <Text
+                            style={
+                              androidVersionCheck?.classification === "update-required"
+                                ? styles.errorText
+                                : androidVersionCheck?.classification === "update-available"
+                                  ? styles.warningText
+                                  : styles.metaText
+                            }
+                          >
+                            {androidVersionCheckStatus === "checking"
+                              ? "최신 버전을 확인하는 중입니다."
+                              : androidVersionCheckStatus === "error"
+                                ? "최신 버전을 확인하지 못했습니다. 네트워크 연결 후 다시 열어 주세요."
+                                : androidVersionCheck?.classification === "update-required"
+                                  ? `업데이트가 필요합니다. 최신 버전은 v${androidVersionCheck.release.latestVersion}입니다.`
+                                  : androidVersionCheck?.classification === "update-available"
+                                    ? `새 버전 v${androidVersionCheck.release.latestVersion}을 사용할 수 있습니다.`
+                                    : androidVersionCheckStatus === "ready"
+                                      ? "최신 버전입니다."
+                                      : "설치된 버전을 확인했습니다."}
+                          </Text>
+                          {androidVersionCheck && androidVersionCheck.classification !== "current" ? (
+                            <ActionButton
+                              icon="refresh-outline"
+                              label="Google Play에서 업데이트"
+                              onPress={openAndroidUpdate}
+                              styles={styles}
+                              variant="setting"
+                            />
+                          ) : null}
+                        </View>
+                      ) : null}
                       <View style={styles.settingsActionGrid}>
                         <ActionButton
                           icon={authUser ? "log-out-outline" : "log-in-outline"}
@@ -4347,6 +4474,16 @@ function AppShell() {
                       <Icon color={colors.text} name="volume-medium-outline" size={18} />
                     </View>
                     <SettingSelectField label="속도" onPress={cycleTtsSpeed} styles={styles} value={`${userData.settings.ttsSpeed.toFixed(2)}x`} />
+                    <SettingRangeField
+                      label="음량"
+                      max={1}
+                      min={0}
+                      onChange={(ttsVolume) => updateSettings({ ttsVolume })}
+                      step={0.05}
+                      styles={styles}
+                      value={userData.settings.ttsVolume}
+                      valueLabel={ttsVolumeLabel}
+                    />
                     <SettingSelectField label="음성" onPress={cycleTtsVoice} styles={styles} value={selectedTtsVoiceLabel} />
                     {!ttsVoiceOptions.length ? <Text style={styles.metaText}>기기 음성 목록을 불러오는 중입니다.</Text> : null}
                     <SettingToggleRow
@@ -4362,15 +4499,16 @@ function AppShell() {
                       styles={styles}
                     />
                     <View style={styles.ttsControls}>
-                      <Pressable accessibilityLabel="재생" onPress={speakChapter} style={styles.compactIconButton}>
+                      <Pressable accessibilityLabel={ttsChapterStartAccessibilityLabel} onPress={speakChapter} style={styles.compactIconButton}>
                         <Icon color={colors.text} name="play-circle-outline" size={17} />
                       </Pressable>
                       <Pressable
-                        accessibilityLabel="일시정지 또는 재개"
+                        accessibilityLabel={supportsTtsPause ? `TTS ${ttsPauseOrResumeLabel}` : "Android에서는 TTS 일시정지를 지원하지 않음"}
+                        disabled={!supportsTtsPause}
                         onPress={() => {
                           void pauseOrResumeSpeech();
                         }}
-                        style={styles.compactIconButton}
+                        style={[styles.compactIconButton, !supportsTtsPause ? styles.compactIconButtonDisabled : null]}
                       >
                         <Icon color={colors.text} name={ttsPlaybackState === "paused" ? "play-circle-outline" : "pause-circle-outline"} size={17} />
                       </Pressable>
@@ -4444,19 +4582,26 @@ function AppShell() {
                     <Text style={styles.eyebrow}>명령</Text>
                     <Text style={styles.sectionTitle}>빠른 이동</Text>
                   </View>
-                  <Pressable onPress={() => setIsQuickMoveOpen(false)} style={styles.iconButton}>
+                  <Pressable accessibilityLabel="빠른 이동 닫기" onPress={closeQuickMove} style={styles.iconButton}>
                     <Icon color={colors.text} name="close-outline" size={18} />
                   </Pressable>
                 </View>
                 <TextInput
+                  accessibilityLabel="빠른 이동 검색"
+                  autoFocus
                   autoCapitalize="none"
                   onChangeText={setCommandQuery}
                   placeholder="이동하거나 실행할 항목 검색"
                   placeholderTextColor={colors.muted}
+                  returnKeyType="search"
                   style={styles.searchInput}
                   value={commandQuery}
                 />
-                <ScrollView style={styles.commandList}>
+                <ScrollView
+                  keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+                  keyboardShouldPersistTaps="handled"
+                  style={styles.commandList}
+                >
                   {quickMoveCommands.map((command) => (
                     <Pressable
                       accessibilityLabel={`명령: ${command.label}`}
@@ -4920,24 +5065,45 @@ function AppShell() {
           {shouldShowTtsOverlay ? (
             <View style={styles.playerBar}>
               <View style={styles.playerStatusBlock}>
-                <Text style={styles.playerTitle}>TTS · {ttsPlaybackState}</Text>
+                <Text style={styles.playerTitle}>TTS · {ttsPlaybackLabel} · 음량 {ttsVolumeLabel}</Text>
                 <Text numberOfLines={1} style={styles.metaText}>{ttsQueueLabel} · {ttsStatus}</Text>
               </View>
               <View style={styles.playerControls}>
-                <Pressable accessibilityLabel="이전 구절" onPress={() => { void moveSpeech(-1); }} style={styles.playerIconButton}>
+                <Pressable
+                  accessibilityHint="이전 구절"
+                  accessibilityLabel="이전 구절로 이동"
+                  onPress={() => { void moveSpeech(-1); }}
+                  style={styles.playerIconButton}
+                >
                   <Icon color={colors.text} name="chevron-back" size={16} />
+                  <Text numberOfLines={1} style={styles.playerIconButtonLabel}>이전</Text>
                 </Pressable>
-                <Pressable accessibilityLabel="재생" onPress={playCurrentSpeechContext} style={styles.playerIconButton}>
+                <Pressable accessibilityLabel={ttsChapterStartAccessibilityLabel} onPress={speakChapter} style={styles.playerIconButton}>
                   <Icon color={colors.text} name="play-circle-outline" size={16} />
+                  <Text numberOfLines={1} style={styles.playerIconButtonLabel}>{ttsChapterStartLabel}</Text>
                 </Pressable>
-                <Pressable accessibilityLabel="일시정지 또는 재개" onPress={() => { void pauseOrResumeSpeech(); }} style={styles.playerIconButton}>
+                <Pressable
+                  accessibilityHint={supportsTtsPause ? "일시정지 또는 재개" : "Android에서는 정지로 재생을 종료하세요"}
+                  accessibilityLabel={supportsTtsPause ? `TTS ${ttsPauseOrResumeLabel}` : "Android에서는 TTS 일시정지를 지원하지 않음"}
+                  disabled={!supportsTtsPause}
+                  onPress={() => { void pauseOrResumeSpeech(); }}
+                  style={[styles.playerIconButton, !supportsTtsPause ? styles.playerIconButtonDisabled : null]}
+                >
                   <Icon color={colors.text} name={ttsPlaybackState === "paused" ? "play-circle-outline" : "pause-circle-outline"} size={16} />
+                  <Text numberOfLines={1} style={styles.playerIconButtonLabel}>{ttsPauseButtonLabel}</Text>
                 </Pressable>
-                <Pressable accessibilityLabel="정지" onPress={() => { void stopSpeech(); }} style={styles.playerIconButton}>
+                <Pressable accessibilityLabel="TTS 재생 정지" onPress={() => { void stopSpeech(); }} style={styles.playerIconButton}>
                   <Icon color={colors.text} name="stop-circle-outline" size={16} />
+                  <Text numberOfLines={1} style={styles.playerIconButtonLabel}>정지</Text>
                 </Pressable>
-                <Pressable accessibilityLabel="다음 구절" onPress={() => { void moveSpeech(1); }} style={styles.playerIconButton}>
+                <Pressable
+                  accessibilityHint="다음 구절"
+                  accessibilityLabel="다음 구절로 이동"
+                  onPress={() => { void moveSpeech(1); }}
+                  style={styles.playerIconButton}
+                >
                   <Icon color={colors.text} name="chevron-forward" size={16} />
+                  <Text numberOfLines={1} style={styles.playerIconButtonLabel}>다음</Text>
                 </Pressable>
               </View>
               {ttsPlaybackState === "playing" ? <Text style={styles.liveDot}>재생</Text> : null}
@@ -6139,6 +6305,11 @@ function createStyles(colors: typeof lightColors, viewportHeight = 844) {
         fontSize: 14,
         fontWeight: "700",
       },
+      warningText: {
+        color: colors.warning,
+        fontSize: 13,
+        fontWeight: "700",
+      },
       successText: {
         color: colors.success,
         fontSize: 13,
@@ -6894,7 +7065,7 @@ function createStyles(colors: typeof lightColors, viewportHeight = 844) {
       },
       playerControls: {
         flexDirection: "row",
-        gap: 8,
+        gap: 4,
         justifyContent: "space-between",
       },
       playerIconButton: {
@@ -6903,9 +7074,21 @@ function createStyles(colors: typeof lightColors, viewportHeight = 844) {
         borderColor: colors.border,
         borderRadius: 6,
         borderWidth: 1,
+        flex: 1,
+        gap: 1,
         height: 44,
         justifyContent: "center",
-        minWidth: 44,
+        minWidth: 0,
+        paddingHorizontal: 2,
+      },
+      playerIconButtonLabel: {
+        color: colors.text,
+        fontSize: 10,
+        fontWeight: "800",
+        lineHeight: 12,
+      },
+      playerIconButtonDisabled: {
+        opacity: 0.45,
       },
       liveDot: {
         alignSelf: "flex-start",
@@ -6962,6 +7145,7 @@ function createStyles(colors: typeof lightColors, viewportHeight = 844) {
         height: Platform.OS === "web" ? commandModalHeight : undefined,
         maxHeight: Platform.OS === "web" ? commandModalHeight : "72%",
         padding: 14,
+        flexShrink: 1,
       },
       selectSheet: {
         backgroundColor: colors.surface,
@@ -6980,7 +7164,9 @@ function createStyles(colors: typeof lightColors, viewportHeight = 844) {
         justifyContent: "space-between",
       },
       commandList: {
+        flexShrink: 1,
         marginTop: 2,
+        minHeight: 0,
       },
       commandItem: {
         backgroundColor: colors.surfaceStrong,

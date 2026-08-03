@@ -434,9 +434,11 @@ DB 전환 원칙:
 - [x] Expo 네이티브 딥링크의 access/refresh token을 `setSession()`으로 교환한다.
 - [x] Expo Go에서 OAuth를 시작하지 않고 개발 빌드 안내를 표시한다.
 - [x] EAS development client 프로필을 추가한다.
+- [x] EAS production, preview, development 환경에 모바일 Supabase 공개 URL과 anon key를 등록한다.
+- [x] Android에서 WebBrowser 결과와 Linking 이벤트가 같은 callback을 중복 처리하지 않도록 단일 Promise로 합친다.
 - [x] OAuth 취소/실패 메시지에서 provider 내부 오류와 계정 존재 여부를 숨긴다.
 - [x] Google OAuth 메타데이터 처리 범위를 공유 개인정보 처리방침에 반영한다.
-- [ ] Supabase 운영 Redirect URLs에 웹 callback과 `kjvreadernote://google-auth`를 등록한다.
+- [x] Supabase 운영 Redirect URLs에 웹 callback과 `kjvreadernote://google-auth`를 등록한다.
 - [ ] Android/iOS 배포 client ID와 실제 서명/번들 식별자를 Supabase Google provider에 등록한다.
 
 수용 기준:

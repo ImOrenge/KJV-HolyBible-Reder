@@ -8,6 +8,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import Link from "next/link";
+import { CoupangPartnersAd } from "@/components/coupang-partners-ad";
 import { LandingDemoShowcase } from "@/components/landing-demo-showcase";
 import { LandingRevealController } from "@/components/landing-reveal-controller";
 
@@ -363,6 +364,8 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
           <p>읽던 위치, 표시한 구절, 다시 쓸 인용을 내 리더노트에 정리하고 바로 이어 읽으세요.</p>
           <LandingActions isAuthenticated={isAuthenticated} />
         </section>
+
+        <CoupangPartnersAd />
       </main>
 
       <footer className="landing-footer" aria-label="성경 본문 출처 및 라이선스">

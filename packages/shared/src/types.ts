@@ -229,6 +229,7 @@ export type UserSettings = {
   showParallelTranslation: boolean;
   ttsVoice: string;
   ttsSpeed: number;
+  ttsVolume: number;
   ttsRepeat: boolean;
   ttsAutoScroll: boolean;
 };

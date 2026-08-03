@@ -1,4 +1,5 @@
 import { CommunityFeedView } from "@/components/community-social/community-feed-view";
+import { CoupangPartnersAd } from "@/components/coupang-partners-ad";
 import { getCommunityFeedPage, getCommunityV2Auth, getOwnCommunityProfile } from "@/lib/community-v2-server";
 
 type CommunityPageProps = {
@@ -13,8 +14,11 @@ export default async function CommunityPage({ searchParams }: CommunityPageProps
     auth.user ? getOwnCommunityProfile(auth.service, auth.user).catch(() => null) : Promise.resolve(null),
   ]);
   return (
-    <main className="community-page-grid community-page-single">
+    <main className="community-page-grid community-page-with-ad">
       <CommunityFeedView initialComposerOpen={params?.compose === "1"} initialFeed={feed} initialQuotedPostId={params?.quote ?? null} profile={profile} signedIn={Boolean(auth.user)} />
+      <aside className="community-ad-rail" aria-label="추천 상품">
+        <CoupangPartnersAd placement="community" />
+      </aside>
     </main>
   );
 }

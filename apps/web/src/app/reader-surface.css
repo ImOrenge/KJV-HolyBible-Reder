@@ -9,10 +9,13 @@
 }
 
 .f-reader-screen[data-context-open="false"] {
-  grid-template-columns: 210px minmax(480px, 760px);
+  grid-template-columns: 210px minmax(480px, 760px) minmax(280px, 320px);
 }
 
-.f-reader-screen[data-context-open="false"][data-navigator-open="false"],
+.f-reader-screen[data-context-open="false"][data-navigator-open="false"] {
+  grid-template-columns: minmax(480px, 760px) minmax(280px, 320px);
+}
+
 .f-reader-screen[data-focus-mode="true"] {
   grid-template-columns: minmax(0, 760px);
 }
@@ -20,7 +23,7 @@
 .f-reader-screen[data-navigator-open="false"] .f-reader-screen__navigator,
 .f-reader-screen[data-context-open="false"] .f-reader-context,
 .f-reader-screen[data-focus-mode="true"] .f-reader-screen__navigator,
-.f-reader-screen[data-focus-mode="true"] .f-reader-context {
+.f-reader-screen[data-focus-mode="true"] .f-reader-screen__right-rail {
   display: none;
 }
 
@@ -35,6 +38,56 @@
   max-width: 760px;
   min-width: 0;
   width: 100%;
+}
+
+.f-reader-screen__right-rail {
+  align-self: stretch;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  position: relative;
+}
+
+.coupang-partners-ad--reader {
+  align-self: start;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  justify-self: center;
+  padding: 10px;
+  position: sticky;
+  top: 72px;
+  width: 262px;
+}
+
+.coupang-partners-ad--reader > p {
+  color: var(--muted);
+  font-size: 0.66rem;
+}
+
+.f-reader-screen[data-context-open="true"] .f-reader-screen__right-rail {
+  align-content: start;
+}
+
+.f-reader-screen[data-context-open="true"] .coupang-partners-ad--reader {
+  position: static;
+}
+
+@media (max-width: 1599px) and (min-width: 1200px) {
+  .f-reader-screen[data-context-open="false"] {
+    grid-template-columns: 210px minmax(480px, 760px);
+  }
+
+  .f-reader-screen[data-context-open="false"][data-navigator-open="false"] {
+    grid-template-columns: minmax(480px, 760px);
+  }
+
+  .f-reader-screen[data-context-open="false"] .f-reader-screen__right-rail,
+  .f-reader-screen__right-rail > .coupang-partners-ad--reader {
+    display: none;
+  }
 }
 
 .f-reader-navigator__summary {
@@ -309,6 +362,10 @@
     width: min(560px, calc(100vw - 108px));
     z-index: 32;
   }
+
+  .f-reader-screen__right-rail > .coupang-partners-ad--reader {
+    display: none;
+  }
 }
 
 @media (max-width: 1199px) and (min-width: 1024px) {
@@ -327,6 +384,10 @@
 
   .f-reader-screen__scripture {
     max-width: none;
+  }
+
+  .f-reader-screen__right-rail > .coupang-partners-ad--reader {
+    display: none;
   }
 
   .f-reader-header {

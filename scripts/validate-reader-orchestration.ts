@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   createReaderSpeechQueue,
   findReaderVerseAtLine,
+  getReaderSpeechStartIndex,
   getReaderSpeechIndex,
   resolveReaderTargetVerse,
   selectReaderVerseRange,
@@ -47,6 +48,8 @@ assert.equal(shouldAutoScrollReader(false, false), false);
 
 const speechQueue = createReaderSpeechQueue(verses, (verse) => `창 1:${verse.verse}`, (verse) => verse.textKo ?? "");
 assert.deepEqual(speechQueue, [{ id: "gen-1-2", label: "창 1:2", text: "둘째 절" }]);
+assert.equal(getReaderSpeechStartIndex(verses.map((verse) => ({ id: verse.id, label: `창 1:${verse.verse}`, text: verse.text })), "gen-1-2"), 1);
+assert.equal(getReaderSpeechStartIndex(speechQueue, "gen-1-1"), 0);
 assert.equal(getReaderSpeechIndex(3, 1, 1), 2);
 assert.equal(getReaderSpeechIndex(3, 2, 1), 2);
 assert.equal(getReaderSpeechIndex(0, 0, 1), -1);

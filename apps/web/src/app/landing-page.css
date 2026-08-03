@@ -1,6 +1,6 @@
 /*
  * KJV Reader Note landing page style contract
- * Scope: .landing-page and .landing-demo-* only.
+ * Scope: .landing-page, .landing-demo-*, and shared Coupang ad frame styles.
  * Shared app preview panel defaults remain in globals.css.
  */
 
@@ -1466,6 +1466,48 @@
 }
 
 /* Final CTA and footer */
+
+.coupang-partners-ad {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+}
+
+.coupang-partners-ad--landing {
+  margin: clamp(44px, 6vw, 80px) auto clamp(36px, 5vw, 64px);
+  padding-inline: 18px;
+  width: min(100%, 1006px);
+}
+
+.coupang-partners-ad__viewport {
+  --coupang-ad-scale: 1;
+  height: var(--coupang-ad-height, var(--coupang-ad-native-height));
+  overflow: hidden;
+  position: relative;
+  width: min(100%, var(--coupang-ad-native-width));
+}
+
+.coupang-partners-ad__stage {
+  height: var(--coupang-ad-native-height);
+  left: 0;
+  position: absolute;
+  top: 0;
+  transform: scale(var(--coupang-ad-scale));
+  transform-origin: left top;
+  width: var(--coupang-ad-native-width);
+}
+
+.coupang-partners-ad > p {
+  font-size: 0.7rem;
+  line-height: 1.5;
+  margin: 0;
+  text-align: center;
+}
+
+.coupang-partners-ad--landing > p {
+  color: var(--landing-muted);
+}
 
 .landing-final-cta {
   align-items: center;

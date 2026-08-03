@@ -45,6 +45,30 @@ The compare script reads root `.env` and forwards these public values to Expo wh
 - `NEXT_PUBLIC_SUPABASE_URL` -> `EXPO_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` -> `EXPO_PUBLIC_SUPABASE_ANON_KEY`
 
+`apps/mobile/app.config.ts` also reads only those allowlisted public values from the workspace `.env` as a local fallback. EAS production, preview, and development environments must each define the two `EXPO_PUBLIC_SUPABASE_*` variables.
+
+## AdMob Native Ads
+
+The mobile app uses `react-native-google-mobile-ads` for inline `320x100` banner slots on Today, Reader, and Community. Expo Go cannot load this custom native module; use an Expo development build or an EAS build instead.
+
+Development builds use Google's test App ID and banner unit ID. Production EAS builds must define these public values:
+
+- `EXPO_PUBLIC_ADMOB_ANDROID_APP_ID`
+- `EXPO_PUBLIC_ADMOB_IOS_APP_ID`
+- `EXPO_PUBLIC_ADMOB_ANDROID_BANNER_ID`
+- `EXPO_PUBLIC_ADMOB_IOS_BANNER_ID`
+
+The production profile fails at Expo config evaluation when either platform App ID is missing, preventing a release from shipping with test App IDs.
+
+## Android Version Detection
+
+- The installed app reads its native version and build code through `expo-application`, and the Android API level through `Platform.Version`.
+- `GET /api/mobile/version` publishes the latest and minimum-supported Android release contract from `packages/shared/src/mobile-app-version.ts`.
+- Account settings compares the installed build code with that remote contract and shows `최신 버전`, `업데이트 가능`, or `업데이트 필요`.
+- The update action opens the `com.kjvreader` Google Play listing.
+- A deployment can override the shared defaults with `KJV_ANDROID_LATEST_VERSION`, `KJV_ANDROID_LATEST_VERSION_CODE`, `KJV_ANDROID_MINIMUM_VERSION`, and `KJV_ANDROID_MINIMUM_VERSION_CODE`.
+- Every Android release must increase `android.versionCode` and update the shared release contract in the same change set.
+
 ## Visual And Click Verification
 
 Verify that the React Native color tokens still match the web CSS variables:
